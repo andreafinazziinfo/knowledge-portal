@@ -1,0 +1,47 @@
+name: CI Suite
+
+on:
+  push:
+    branches: [ main, develop ]
+  pull_request:
+    branches: [ main ]
+
+jobs:
+  code-quality:
+    name: Lint, Types & Sanitization Audit
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - name: Install Linting & Security Tools
+        run: |
+          pip install ruff mypy bandit
+      - name: Run Zero-Proprietary Sanitization Audit
+        run: python verify_sanitization.py .
+      - name: Run Ruff Linter
+        run: ruff check knowledge_portal
+      - name: Run Mypy
+        run: mypy knowledge_portal --ignore-missing-imports
+      - name: Run Bandit Security Scanner
+        run: bandit -r knowledge_portal -ll
+
+  unit-tests:
+    name: AST & Server Unit Tests
+    needs: code-quality
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - name: Install Package
+        run: pip install -e .[test]
+      - name: Test AST Scan on Sample Project
+        run: |
+          python -m knowledge_portal.cli scan sample_project --output template/data
+          test -f template/data/graph.json
+          test -f template/data/graph_viz.js

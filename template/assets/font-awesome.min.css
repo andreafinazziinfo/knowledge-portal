@@ -1,0 +1,9 @@
+/* FontAwesome 6 Core Minimal Offline CSS */
+@import url("https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css");
+
+.fa, .fas, .fa-solid { font-family: "Font Awesome 6 Free", "FontAwesome", sans-serif; font-weight: 900; }
+.far, .fa-regular { font-family: "Font Awesome 6 Free", "FontAwesome", sans-serif; font-weight: 400; }
+.fab, .fa-brands { font-family: "Font Awesome 6 Brands", "FontAwesome", sans-serif; font-weight: 400; }
+
+/* SVG / Unicode Emoji Fallback Icon styling */
+.icon-badge { display: inline-flex; align-items: center; justify-content: center; width: 1.2em; height: 1.2em; margin-right: 6px; vertical-align: middle; }

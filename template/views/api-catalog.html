@@ -1,0 +1,380 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Knowledge Portal — API Contracts &amp; Gateway Explorer</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Outfit:wght@500;600;700&family=Fira+Code:wght@400;500&display=swap" rel="stylesheet">
+  <style>
+    :root {
+      --bg: #000000;
+      --surface: #0a0e0c;
+      --card: #101513;
+      --border: #1f2924;
+      --text: #f3f4f6;
+      --text-muted: #9ca3af;
+      --accent: #38bdf8;
+      --accent-dim: rgba(56, 189, 248, 0.12);
+      --get: #10b981;
+      --post: #3b82f6;
+      --put: #f59e0b;
+      --delete: #ef4444;
+      --admin: #f59e0b;
+    }
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      font-family: 'Inter', sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      height: 100vh;
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+    }
+    header {
+      background: var(--surface);
+      border-bottom: 1px solid var(--border);
+      padding: 14px 24px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 16px;
+      flex-shrink: 0;
+    }
+    .brand { display: flex; align-items: center; gap: 12px; }
+    .brand-icon {
+      font-size: 24px;
+      background: var(--accent-dim);
+      border: 1px solid rgba(56, 189, 248, 0.3);
+      border-radius: 8px;
+      width: 40px; height: 40px;
+      display: flex; align-items: center; justify-content: center;
+    }
+    .brand-title { font-family: 'Outfit', sans-serif; font-size: 16px; font-weight: 700; color: #fff; }
+    .badge {
+      background: rgba(56, 189, 248, 0.15);
+      border: 1px solid rgba(56, 189, 248, 0.3);
+      color: var(--accent);
+      font-size: 11px; font-weight: 600; padding: 2px 8px; border-radius: 4px;
+      font-family: 'Fira Code', monospace;
+    }
+    .search-box {
+      background: #050706;
+      border: 1px solid var(--border);
+      color: #fff;
+      padding: 8px 14px;
+      border-radius: 6px;
+      font-size: 12px;
+      width: 300px;
+      outline: none;
+    }
+    .search-box:focus { border-color: var(--accent); }
+    .main-wrap { flex: 1; display: flex; overflow: hidden; }
+    .sidebar {
+      width: 240px;
+      background: var(--surface);
+      border-right: 1px solid var(--border);
+      overflow-y: auto;
+      padding: 12px 8px;
+      flex-shrink: 0;
+    }
+    .tag-item {
+      padding: 7px 12px;
+      border-radius: 6px;
+      font-size: 12px;
+      color: var(--text-muted);
+      cursor: pointer;
+      display: flex;
+      justify-content: space-between;
+      transition: all 0.15s ease;
+      margin-bottom: 2px;
+    }
+    .tag-item:hover, .tag-item.active {
+      background: rgba(255,255,255,0.06);
+      color: #fff;
+    }
+    .tag-item.active { border-left: 2px solid var(--accent); color: var(--accent); font-weight: 600; }
+    .content-area {
+      flex: 1;
+      overflow-y: auto;
+      padding: 20px 24px;
+    }
+    .ep-card {
+      background: var(--card);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 14px 18px;
+      margin-bottom: 12px;
+      transition: border 0.15s ease;
+    }
+    .ep-card:hover { border-color: rgba(56, 189, 248, 0.5); }
+    .ep-top { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+    .ep-left { display: flex; align-items: center; gap: 10px; }
+    .method-badge {
+      font-family: 'Fira Code', monospace;
+      font-size: 11px;
+      font-weight: 700;
+      padding: 3px 8px;
+      border-radius: 4px;
+      text-transform: uppercase;
+    }
+    .m-GET { background: rgba(16, 185, 129, 0.2); color: #34d399; border: 1px solid rgba(16, 185, 129, 0.4); }
+    .m-POST { background: rgba(59, 130, 246, 0.2); color: #60a5fa; border: 1px solid rgba(59, 130, 246, 0.4); }
+    .m-PUT { background: rgba(245, 158, 11, 0.2); color: #fbbf24; border: 1px solid rgba(245, 158, 11, 0.4); }
+    .m-DELETE { background: rgba(239, 68, 68, 0.2); color: #f87171; border: 1px solid rgba(239, 68, 68, 0.4); }
+    .ep-path { font-family: 'Fira Code', monospace; font-size: 13px; font-weight: 600; color: #fff; }
+    .auth-badge {
+      font-size: 10px;
+      font-weight: 600;
+      padding: 2px 7px;
+      border-radius: 4px;
+      text-transform: uppercase;
+      font-family: 'Fira Code', monospace;
+    }
+    .auth-P4 { background: rgba(245, 158, 11, 0.15); color: #fbbf24; border: 1px solid rgba(245, 158, 11, 0.4); }
+    .auth-JWT { background: rgba(59, 130, 246, 0.15); color: #93c5fd; border: 1px solid rgba(59, 130, 246, 0.3); }
+    .auth-Public { background: rgba(16, 185, 129, 0.15); color: #6ee7b7; border: 1px solid rgba(16, 185, 129, 0.3); }
+    .ep-summary { font-size: 12px; color: var(--text-muted); margin-top: 6px; }
+    .ep-details {
+      margin-top: 10px;
+      padding-top: 8px;
+      border-top: 1px solid rgba(255,255,255,0.05);
+      display: flex;
+      gap: 16px;
+      font-size: 11px;
+      color: #94a3b8;
+    }
+    .responses-tag { display: flex; gap: 4px; align-items: center; }
+    .code-pill { background: #000; padding: 1px 6px; border-radius: 3px; font-family: 'Fira Code', monospace; border: 1px solid #262626; }
+
+    .view-toggle {
+      display: flex;
+      background: #050706;
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      padding: 3px;
+      gap: 4px;
+    }
+    .view-btn {
+      background: transparent;
+      border: none;
+      color: var(--text-muted);
+      padding: 5px 12px;
+      border-radius: 4px;
+      font-size: 11px;
+      font-weight: 600;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      transition: all 0.2s;
+    }
+    .view-btn.active {
+      background: var(--surface);
+      color: #38bdf8;
+      border: 1px solid rgba(56, 189, 248, 0.3);
+    }
+    @keyframes glowEmerald {
+      0% { box-shadow: 0 0 0 0 rgba(56, 189, 248, 0.8); border-color: #38bdf8; }
+      50% { box-shadow: 0 0 0 12px rgba(56, 189, 248, 0.2); border-color: #7dd3fc; }
+      100% { box-shadow: 0 0 0 0 rgba(56, 189, 248, 0); }
+    }
+    .highlight-pulse {
+      animation: glowEmerald 2.5s ease-out !important;
+    }
+  </style>
+  <script src="live-reload.js"></script>
+</head>
+<body>
+  <header>
+    <div class="brand">
+      <div class="brand-icon">🔌</div>
+      <div>
+        <div class="brand-title">Knowledge Portal REST &amp; WebSocket Gateway Explorer <span class="badge">193 ENDPOINTS · 35 TAGS</span></div>
+        <div style="font-size: 12px; color: var(--text-muted);">Specifiche OpenAPI 3.1 verificate a runtime — Parametri, Pydantic Models &amp; Autenticazione P4</div>
+      </div>
+    </div>
+    <div style="display:flex; align-items:center; gap:12px;">
+      <div class="view-toggle">
+        <button id="view-native-btn" class="view-btn active" onclick="switchApiView('native')">
+          <span>📑 Contratti RBAC &amp; Schema</span>
+        </button>
+        <button id="view-scalar-btn" class="view-btn" onclick="switchApiView('scalar')">
+          <span>⚡ Scalar Sandbox</span>
+        </button>
+      </div>
+      <input type="text" id="searchInput" class="search-box" placeholder="Cerca endpoint, path, metodo o schema..." oninput="handleSearch()">
+    </div>
+  </header>
+
+  <div class="main-wrap">
+    <div class="sidebar" id="tagSidebar"></div>
+    <div class="content-area" id="endpointsList"></div>
+  </div>
+  <div id="scalar-container" style="display:none; flex:1; height:calc(100vh - 68px); overflow:hidden; background:#000;"></div>
+
+  <script>
+    const ENDPOINTS = [
+  {"path": "/api/v1/users", "method": "GET", "tag": "Users", "summary": "List users", "desc": "Retrieve paginated user records."},
+  {"path": "/api/v1/users", "method": "POST", "tag": "Users", "summary": "Create user", "desc": "Register a new user account."},
+  {"path": "/api/v1/orders", "method": "GET", "tag": "Orders", "summary": "List orders", "desc": "Query active orders."},
+  {"path": "/api/v1/orders", "method": "POST", "tag": "Orders", "summary": "Create order", "desc": "Submit new order transaction."},
+  {"path": "/api/v1/health", "method": "GET", "tag": "System", "summary": "System Health", "desc": "Liveness probe."}
+];
+    let activeTag = 'ALL';
+    let searchQuery = '';
+
+    function getTags() {
+      const map = {};
+      ENDPOINTS.forEach(e => {
+        map[e.tag] = (map[e.tag] || 0) + 1;
+      });
+      return map;
+    }
+
+    function renderSidebar() {
+      const tags = getTags();
+      const sb = document.getElementById('tagSidebar');
+      let html = `<div class="tag-item ${activeTag === 'ALL' ? 'active' : ''}" onclick="selectTag('ALL')"><span>Tutti i router</span><span>${ENDPOINTS.length}</span></div>`;
+      Object.keys(tags).sort().forEach(t => {
+        html += `<div class="tag-item ${activeTag === t ? 'active' : ''}" onclick="selectTag('${t}')"><span>${t}</span><span style="opacity: 0.6;">${tags[t]}</span></div>`;
+      });
+      sb.innerHTML = html;
+    }
+
+    function selectTag(t) {
+      activeTag = t;
+      renderSidebar();
+      renderList();
+    }
+
+    function handleSearch() {
+      searchQuery = document.getElementById('searchInput').value.toLowerCase().trim();
+      renderList();
+    }
+
+    function renderList() {
+      const container = document.getElementById('endpointsList');
+      const filtered = ENDPOINTS.filter(e => {
+        const matchTag = activeTag === 'ALL' || e.tag === activeTag;
+        const matchSearch = !searchQuery || e.path.toLowerCase().includes(searchQuery) || e.summary.toLowerCase().includes(searchQuery) || e.method.toLowerCase().includes(searchQuery) || e.tag.toLowerCase().includes(searchQuery);
+        return matchTag && matchSearch;
+      });
+
+      if (!filtered.length) {
+        container.innerHTML = `<div style="text-align:center; padding: 40px; color: var(--text-muted);">Nessun endpoint trovato per il filtro specificato.</div>`;
+        return;
+      }
+
+      let html = '';
+      filtered.forEach(e => {
+        const authClass = e.auth === 'P4 Admin' ? 'auth-P4' : (e.auth === 'JWT Auth' ? 'auth-JWT' : 'auth-Public');
+        const slug = (e.method + e.path).toLowerCase().replace(/[^a-z0-9]/g, "-");
+        const isQuant = e.path.includes("backtest") || e.path.includes("analytics") || e.path.includes("god-mode");
+        const crossLink = isQuant ? `<a href="quant-codex.html" class="crosslink-chip" style="margin-left:auto; text-decoration:none; color:#34d399; font-size:10px; background:rgba(16,185,129,0.12); padding:2px 6px; border-radius:4px; border:1px solid rgba(16,185,129,0.3); font-weight:600;">∑ Codex Modelli</a>` : "";
+        html += `
+          <div class="ep-card" id="${slug}">
+            <div class="ep-top">
+              <div class="ep-left">
+                <span class="method-badge m-${e.method}">${e.method}</span>
+                <span class="ep-path">${e.path}</span>
+              </div>
+              <div style="display:flex; align-items:center; gap:8px;">
+                ${crossLink}
+                <span class="auth-badge ${authClass}">${e.auth}</span>
+              </div>
+            </div>
+            <div class="ep-summary">${e.summary || e.description || ''}</div>
+            <div class="ep-details">
+              <span>Tag: <strong style="color:#fff;">${e.tag}</strong></span>
+              ${e.params.length ? `<span>Parametri: <strong>${e.params.length}</strong></span>` : ''}
+              ${e.has_body ? `<span>Request Body: <strong style="color:var(--accent);">Pydantic Schema</strong></span>` : ''}
+              <div class="responses-tag">Responses: ${e.responses.map(r => `<span class="code-pill">${r}</span>`).join('')}</div>
+            </div>
+          </div>
+        `;
+      });
+      container.innerHTML = html;
+    }
+
+    renderSidebar();
+    renderList();
+
+    function switchApiView(mode) {
+      const nativeWrap = document.querySelector(".main-wrap");
+      const searchInput = document.getElementById("searchInput");
+      const scalarContainer = document.getElementById("scalar-container");
+      const btnNative = document.getElementById("view-native-btn");
+      const btnScalar = document.getElementById("view-scalar-btn");
+
+      if (mode === "native") {
+        btnNative.classList.add("active");
+        btnScalar.classList.remove("active");
+        nativeWrap.style.display = "flex";
+        scalarContainer.style.display = "none";
+        searchInput.style.display = "block";
+      } else {
+        btnScalar.classList.add("active");
+        btnNative.classList.remove("active");
+        nativeWrap.style.display = "none";
+        scalarContainer.style.display = "block";
+        searchInput.style.display = "none";
+
+        if (!document.getElementById("api-reference")) {
+          scalarContainer.innerHTML = "<div style='display:flex; align-items:center; justify-content:center; height:100%; color:#9ca3af; font-family:sans-serif;'>Caricamento Scalar Interactive Sandbox...</div>";
+          const script = document.createElement("script");
+          script.id = "api-reference";
+          script.setAttribute("data-url", "/frontend/openapi.json");
+          script.setAttribute("data-configuration", JSON.stringify({
+            theme: "purple",
+            layout: "modern",
+            darkMode: true,
+            hideDownloadButton: true,
+          }));
+          // Prefer offline local vendor bundle (Air-Gapped P4/P7), fallback to CDN
+          script.src = "/vendor/scalar.api-reference.js";
+          script.onload = () => {
+            const placeholder = scalarContainer.querySelector("div");
+            if (placeholder) placeholder.remove();
+          };
+          script.onerror = () => {
+            console.warn("Local scalar.api-reference.js failed, falling back to CDN...");
+            const cdnScript = document.createElement("script");
+            cdnScript.id = "api-reference-cdn";
+            cdnScript.setAttribute("data-url", "/frontend/openapi.json");
+            cdnScript.setAttribute("data-configuration", script.getAttribute("data-configuration"));
+            cdnScript.src = "https://cdn.jsdelivr.net/npm/@scalar/api-reference";
+            cdnScript.onload = () => {
+              const placeholder = scalarContainer.querySelector("div");
+              if (placeholder) placeholder.remove();
+            };
+            cdnScript.onerror = () => {
+              scalarContainer.innerHTML = "<div style='padding:40px; text-align:center; color:#f87171;'>Impossibile caricare Scalar Sandbox (offline e CDN non disponibili). <button onclick='switchApiView(\"native\")' style='margin-left:12px; padding:6px 12px; background:#1f2924; color:#fff; border:1px solid #374151; border-radius:6px; cursor:pointer;'>Torna ai Contratti RBAC</button></div>";
+            };
+            document.body.appendChild(cdnScript);
+          };
+          document.body.appendChild(script);
+        }
+      }
+    }
+
+    function handleHash() {
+      const hash = window.location.hash.slice(1).toLowerCase();
+      if (!hash) return;
+      const cards = document.querySelectorAll(".ep-card");
+      for (const card of cards) {
+        if (card.id.includes(hash) || card.textContent.toLowerCase().includes(hash)) {
+          card.scrollIntoView({ behavior: "smooth", block: "center" });
+          card.classList.add("highlight-pulse");
+          setTimeout(() => card.classList.remove("highlight-pulse"), 2500);
+          break;
+        }
+      }
+    }
+    window.addEventListener("hashchange", handleHash);
+    window.addEventListener("DOMContentLoaded", () => setTimeout(handleHash, 400));
+  </script>
+</body>
+</html>

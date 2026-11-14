@@ -1,0 +1,24 @@
+[build-system]
+requires = ["setuptools>=61.0"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "knowledge-portal"
+version = "1.0.0"
+description = "Universal Interactive Software Architecture & AST Knowledge Engine"
+readme = "README.md"
+license = { text = "Apache-2.0" }
+authors = [{ name = "Andrea Finazzi" }]
+requires-python = ">=3.10"
+dependencies = []
+
+[project.scripts]
+knowledge-portal = "knowledge_portal.cli:main"
+
+[project.optional-dependencies]
+test = [
+    "pytest>=7.0.0",
+    "ruff>=0.4.0",
+    "mypy>=1.0.0",
+    "bandit>=1.7.0"
+]

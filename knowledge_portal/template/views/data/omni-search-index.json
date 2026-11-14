@@ -1,0 +1,25 @@
+{
+  "total": 2,
+  "entities": [
+    {
+      "id": "doc_docs/adr-001.md",
+      "title": "ADR-001: Adoption of Hexagonal Architecture",
+      "subtitle": "docs/adr-001.md",
+      "badge": "\ud83d\udcd6 Note",
+      "category": "documentation",
+      "tab": "reader",
+      "path": "docs/adr-001.md",
+      "search_text": "# ADR-001: Adoption of Hexagonal Architecture\n\n- **Status**: Accepted\n- **Context**: Decouple domain entities from external storage.\n- **Decision**: Implement domain-driven design with decoupled services.\n"
+    },
+    {
+      "id": "doc_docs/architecture.md",
+      "title": "Architecture Overview",
+      "subtitle": "docs/architecture.md",
+      "badge": "\ud83d\udcd6 Note",
+      "category": "documentation",
+      "tab": "reader",
+      "path": "docs/architecture.md",
+      "search_text": "# Architecture Overview\n\nThis is a generic microservices architecture sample demonstrating:\n- User Management (`UserService`)\n- Order Processing (`OrderService`)\n- Entity Domain Models (`User`, `Order`)\n"
+    }
+  ]
+}

@@ -1,0 +1,167 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Graphify D3 Zoomable Tree</title>
+<script src="../assets/d3.v7.min.js"></script>
+<script>if (typeof d3 === "undefined") { document.write('<script src="https://d3js.org/d3.v7.min.js"><\/script>'); }</script>
+<script src="../data/config.js"></script>
+<script src="../data/graph_viz.js"></script>
+<script src="../data/graph_labels.js"></script>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { background: #070a12; color: #f1f5f9; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; overflow: hidden; }
+  #hud { position: absolute; top: 14px; left: 14px; background: rgba(15,23,42,0.85); backdrop-filter: blur(8px); border: 1px solid #1e293b; padding: 10px 14px; border-radius: 6px; font-size: 12px; color: #38bdf8; font-weight: 600; z-index: 10; }
+  #legend { position: absolute; top: 14px; right: 14px; max-height: 70vh; overflow-y: auto; background: rgba(15,23,42,0.85); backdrop-filter: blur(8px); border: 1px solid #1e293b; padding: 10px 12px; border-radius: 6px; font-size: 11px; z-index: 10; width: 200px; }
+  #legend h3 { font-size: 10px; color: #64748b; text-transform: uppercase; letter-spacing: 0.06em; margin-bottom: 6px; font-weight: 700; }
+  .legend-item { display: flex; align-items: center; gap: 6px; padding: 3px 0; }
+  .legend-dot { width: 9px; height: 9px; border-radius: 50%; flex-shrink: 0; }
+  .legend-label { flex: 1; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; color: #cbd5e1; }
+  svg { width: 100vw; height: 100vh; cursor: grab; }
+  svg:active { cursor: grabbing; }
+  .node circle { stroke-width: 1.5px; cursor: pointer; transition: r 0.15s; }
+  .node circle:hover { r: 7; }
+  .node text { font-size: 11px; fill: #cbd5e1; pointer-events: none; opacity: 0; transition: opacity 0.15s; }
+  .node:hover text { opacity: 1; }
+  .node.folder text { opacity: 0.9; font-weight: 600; fill: #38bdf8; }
+  .link { fill: none; stroke: #1e293b; stroke-width: 1.5px; }
+</style>
+  <script src="live-reload.js"></script>
+</head>
+<body>
+<div id="hud">🌳 D3 Zoomable Hierarchical Directory Tree (Scroll to zoom, drag to pan, hover node to view file)</div>
+<div id="legend"><h3>Communities</h3><div id="legend-list">Loading...</div></div>
+<svg id="tree-svg"><g id="container-group"></g></svg>
+<script>
+  function getVizData() {
+    return window.GRAPH_VIZ || (window.parent && window.parent.GRAPH_VIZ) || { nodes: [] };
+  }
+
+  // graph_viz.js has no "tree" field — build a directory hierarchy client-side
+  // from each node's file path (deduplicated: many symbol-nodes share one file).
+  // Nodes with no source_file fall back to a bare id (no leading "/") — those
+  // aren't real files and must be excluded here, otherwise they poison the
+  // shared-prefix computation below and the whole absolute path leaks into the tree.
+  function buildTree(nodes) {
+    const seen = new Set();
+    const paths = [];
+    const meta = {};
+    for (const n of nodes) {
+      if (!n.path || !n.path.startsWith('/') || seen.has(n.path)) continue;
+      seen.add(n.path);
+      paths.push(n.path);
+      meta[n.path] = { color: n.color, community: n.community };
+    }
+    if (paths.length === 0) return { name: 'project', children: [] };
+
+    let prefix = paths[0];
+    for (const p of paths) {
+      let i = 0;
+      while (i < prefix.length && i < p.length && prefix[i] === p[i]) i++;
+      prefix = prefix.slice(0, i);
+    }
+    prefix = prefix.slice(0, prefix.lastIndexOf('/') + 1);
+
+    const rootName = (window.PROJECT_CONFIG && window.PROJECT_CONFIG.projectName) || 'project';
+    const root = { name: rootName, children: [], _map: {} };
+    for (const p of paths) {
+      const rel = p.startsWith(prefix) ? p.slice(prefix.length) : p;
+      const parts = rel.split('/').filter(Boolean);
+      let cur = root;
+      parts.forEach((part, idx) => {
+        const isLeaf = idx === parts.length - 1;
+        if (!cur._map[part]) {
+          const node = isLeaf
+            ? { name: part, path: p, color: meta[p].color, community: meta[p].community }
+            : { name: part, children: [], _map: {} };
+          cur._map[part] = node;
+          cur.children.push(node);
+        }
+        cur = cur._map[part];
+      });
+    }
+    return root;
+  }
+
+  window.addEventListener('DOMContentLoaded', () => {
+    const raw = getVizData();
+    const labelsMap = raw.labels || window.GRAPH_LABELS || {};
+
+    const commCounts = {};
+    const commColor = {};
+    (raw.nodes || []).forEach(n => {
+      const cid = n.community || 0;
+      commCounts[cid] = (commCounts[cid] || 0) + 1;
+      if (!commColor[cid] && n.color) commColor[cid] = n.color;
+    });
+    const sortedCommIds = Object.keys(commCounts).map(Number).sort((a, b) => commCounts[b] - commCounts[a]);
+    const legendList = document.getElementById('legend-list');
+    legendList.innerHTML = '';
+    sortedCommIds.slice(0, 20).forEach(cid => {
+      const item = document.createElement('div');
+      item.className = 'legend-item';
+      item.innerHTML = `<div class="legend-dot" style="background:${commColor[cid] || '#64748b'};"></div><div class="legend-label">${labelsMap[cid] || `Community ${cid}`}</div>`;
+      legendList.appendChild(item);
+    });
+
+    const treeData = (raw.nodes && raw.nodes.length) ? buildTree(raw.nodes) : { name: "vault_root", children: [] };
+
+    const svg = d3.select("#tree-svg");
+    const container = d3.select("#container-group");
+
+    // Add D3 Zoom & Pan capability!
+    const zoom = d3.zoom().scaleExtent([0.1, 4]).on("zoom", (event) => {
+      container.attr("transform", event.transform);
+    });
+    svg.call(zoom);
+
+    const width = window.innerWidth;
+    const height = window.innerHeight;
+
+    // Horizontal hierarchical tree layout
+    const treeLayout = d3.tree().nodeSize([24, 220]);
+    const root = d3.hierarchy(treeData);
+    treeLayout(root);
+
+    // Initial transform center
+    svg.call(zoom.transform, d3.zoomIdentity.translate(80, height / 2).scale(0.8));
+
+    // Links
+    container.selectAll(".link")
+      .data(root.links())
+      .enter().append("path")
+      .attr("class", "link")
+      .attr("d", d3.linkHorizontal().x(d => d.y).y(d => d.x));
+
+    // Nodes
+    const node = container.selectAll(".node")
+      .data(root.descendants())
+      .enter().append("g")
+      .attr("class", d => "node " + (d.children ? "folder" : "leaf"))
+      .attr("transform", d => `translate(${d.y},${d.x})`);
+
+    node.append("circle")
+      .attr("r", d => d.children ? 5 : 3.5)
+      .attr("fill", d => d.children ? "#38bdf8" : (d.data.color || "#94a3b8"))
+      .attr("stroke", "#0284c7")
+      .on("click", (e, d) => {
+        if (d.data.path && window.parent && typeof window.parent.loadFile === 'function') {
+          window.parent.loadFile(d.data.path);
+        }
+      });
+
+    // CRITICAL: Text labels shown ONLY for folder nodes or on hover so NO text overlap occurs!
+    node.append("text")
+      .attr("dy", "0.32em")
+      .attr("x", d => d.children ? -8 : 8)
+      .attr("text-anchor", d => d.children ? "end" : "start")
+      .text(d => d.data.name.replace(".md", ""))
+      .on("click", (e, d) => {
+        if (d.data.path && window.parent && typeof window.parent.loadFile === 'function') {
+          window.parent.loadFile(d.data.path);
+        }
+      });
+  });
+</script>
+</body>
+</html>

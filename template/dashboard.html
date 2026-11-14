@@ -1,0 +1,2704 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <link rel="stylesheet" href="assets/font-awesome.min.css">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+  <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
+  <meta http-equiv="Pragma" content="no-cache">
+  <meta http-equiv="Expires" content="0">
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <title>Knowledge Base — Wiki Dashboard</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Outfit:wght@400;500;600;700&family=Fira+Code:wght@400;500&display=swap" rel="stylesheet">
+  
+  <style>
+    :root {
+      --bg-main: #000000;
+      --bg-sidebar: #000000;
+      --bg-card: #0c0c0c;
+      --bg-card-hover: #141414;
+      --border-color: #1f2937;
+      --text-main: #f3f4f6;
+      --text-muted: #9ca3af;
+      --accent-color: #38bdf8;
+      --accent-glow: rgba(56, 189, 248, 0.15);
+      --success-color: #10b981;
+      --warning-color: #f59e0b;
+      --danger-color: #ef4444;
+      --purple-accent: #a78bfa;
+      --cyan-accent: #22d3ee;
+    }
+
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      font-family: 'Inter', sans-serif;
+      background-color: var(--bg-main);
+      color: var(--text-main);
+      height: 100vh;
+      overflow: hidden;
+      display: flex;
+    }
+
+    /* ── Sidebar ── */
+    #sidebar {
+      width: 320px;
+      background-color: var(--bg-sidebar);
+      border-right: 1px solid var(--border-color);
+      display: flex;
+      flex-direction: column;
+      height: 100%;
+      flex-shrink: 0;
+      transition: width 0.3s, opacity 0.3s;
+    }
+
+    .sidebar-header {
+      padding: 16px 20px;
+      border-bottom: 1px solid var(--border-color);
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 8px;
+    }
+
+    .sidebar-header h1 {
+      font-family: 'Outfit', sans-serif;
+      font-size: 18px;
+      font-weight: 700;
+      color: var(--text-main);
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      margin: 0;
+    }
+
+    .sidebar-header h1 span { color: var(--accent-color); }
+
+    .sidebar-close-btn {
+      background: rgba(255, 255, 255, 0.05);
+      border: 1px solid var(--border-color);
+      color: var(--text-muted);
+      cursor: pointer;
+      border-radius: 6px;
+      width: 28px;
+      height: 28px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 13px;
+      transition: all 0.2s;
+    }
+
+    .sidebar-close-btn:hover {
+      background: rgba(56, 189, 248, 0.15);
+      color: var(--accent-color);
+      border-color: var(--accent-color);
+    }
+
+    /* Recent Files */
+    #recent-files-section {
+      padding: 10px 15px;
+      border-bottom: 1px solid var(--border-color);
+      max-height: 160px;
+      overflow-y: auto;
+    }
+    #recent-files-section h3 {
+      font-size: 11px;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+      color: var(--text-muted);
+      margin-bottom: 6px;
+    }
+    .recent-item {
+      padding: 4px 6px;
+      font-size: 12px;
+      color: var(--text-muted);
+      cursor: pointer;
+      border-radius: 4px;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+    .recent-item:hover { background: var(--bg-card); color: white; }
+    .recent-item::before { content: '🕐 '; }
+
+    /* Search */
+    .search-container {
+      padding: 15px;
+      border-bottom: 1px solid var(--border-color);
+    }
+
+    .search-input {
+      width: 100%;
+      padding: 10px 12px;
+      border-radius: 8px;
+      border: 1px solid var(--border-color);
+      background-color: var(--bg-main);
+      color: white;
+      font-size: 13px;
+      outline: none;
+      transition: border-color 0.2s;
+    }
+
+    .search-input:focus { border-color: var(--accent-color); }
+
+    .search-hint {
+      font-size: 10px;
+      color: var(--text-muted);
+      margin-top: 5px;
+      opacity: 0.7;
+    }
+
+    /* File Tree */
+    .tree-container {
+      flex: 1;
+      overflow-y: auto;
+      padding: 15px;
+    }
+
+    .tree-node { margin-left: 10px; font-size: 12px; }
+
+    .tree-folder {
+      font-weight: 600;
+      color: var(--accent-color);
+      cursor: pointer;
+      padding: 4px 0;
+      user-select: none;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      font-size: 12px;
+    }
+    .tree-folder::before { content: '📁'; font-size: 12px; flex-shrink: 0; }
+
+    .tree-file {
+      color: var(--text-muted);
+      cursor: pointer;
+      padding: 3px 0;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      font-size: 12px;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+    .tree-file::before { content: '📄'; font-size: 12px; flex-shrink: 0; }
+    .tree-file:hover { color: white; text-decoration: underline; }
+    .tree-file.active {
+      color: var(--accent-color);
+      font-weight: 600;
+      background: var(--accent-glow);
+      border-radius: 4px;
+      padding-left: 5px;
+    }
+
+    /* Search Results */
+    #search-results {
+      flex: 1;
+      overflow-y: auto;
+      padding: 15px;
+      display: none;
+    }
+
+    .search-item {
+      padding: 10px;
+      border-bottom: 1px solid var(--border-color);
+      cursor: pointer;
+    }
+    .search-item:hover { background-color: var(--bg-card); }
+    .search-item-title { font-size: 13px; font-weight: 600; color: var(--accent-color); margin-bottom: 4px; }
+    .search-item-snippet { font-size: 11px; color: var(--text-muted); font-family: monospace; }
+    .search-item-snippet mark { background: rgba(56,189,248,0.3); color: white; padding: 0 2px; border-radius: 2px; }
+
+    /* ── Main Content ── */
+    #main-content {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      height: 100%;
+      background-color: var(--bg-main);
+    }
+
+    /* Tabs Nav */
+    .tabs-nav {
+      height: 50px;
+      background-color: var(--bg-sidebar);
+      border-bottom: 1px solid var(--border-color);
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 0 15px;
+      gap: 6px;
+      flex-shrink: 0;
+    }
+
+    .tabs-left { display: flex; gap: 4px; overflow-x: auto; }
+    .tabs-right { display: flex; gap: 6px; align-items: center; flex-shrink: 0; }
+
+    .tab-button {
+      background: none;
+      border: none;
+      color: var(--text-muted);
+      padding: 8px 14px;
+      font-size: 13px;
+      font-weight: 500;
+      cursor: pointer;
+      border-radius: 6px;
+      transition: color 0.2s, background-color 0.2s;
+      white-space: nowrap;
+    }
+    .tab-button:hover { color: white; background-color: var(--bg-card); }
+    .tab-button.active {
+      color: white;
+      background-color: var(--bg-card);
+      border: 1px solid var(--border-color);
+      box-shadow: 0 0 10px var(--accent-glow);
+    }
+
+    /* Tab Panes */
+    .tab-pane { flex: 1; display: none; position: relative; overflow: hidden; }
+    .tab-pane.active { display: flex; flex-direction: column; }
+
+    /* Fullscreen */
+    .tab-pane.fullscreen {
+      position: fixed !important;
+      top: 0; left: 0; right: 0; bottom: 0;
+      z-index: 9999;
+      background: var(--bg-main);
+    }
+
+    .fullscreen-btn {
+      background: none;
+      border: 1px solid var(--border-color);
+      color: var(--text-muted);
+      padding: 4px 8px;
+      border-radius: 4px;
+      cursor: pointer;
+      font-size: 16px;
+      position: absolute;
+      top: 8px;
+      right: 8px;
+      z-index: 100;
+      opacity: 0.6;
+      transition: opacity 0.2s;
+    }
+    .fullscreen-btn:hover { opacity: 1; color: white; }
+
+    .action-btn {
+      padding: 7px 14px;
+      border-radius: 6px;
+      border: 1px solid var(--border-color);
+      background: var(--bg-card);
+      color: white;
+      font-size: 12px;
+      cursor: pointer;
+      transition: background-color 0.2s;
+    }
+    .action-btn:hover { background: var(--border-color); }
+    .action-btn.success { background: var(--success-color); border-color: #059669; }
+
+    body.sidebar-collapsed #sidebar { display: none; }
+    body.sidebar-collapsed #main-content { width: 100vw; }
+
+    /* ── HOME TAB ── */
+    .home-container {
+      padding: 40px;
+      overflow-y: auto;
+      flex: 1;
+    }
+    .home-title {
+      font-family: 'Outfit', sans-serif;
+      font-size: 28px;
+      font-weight: 700;
+      margin-bottom: 8px;
+    }
+    .home-subtitle {
+      color: var(--text-muted);
+      font-size: 14px;
+      margin-bottom: 30px;
+    }
+
+    .stats-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+      gap: 16px;
+      margin-bottom: 40px;
+    }
+
+    .stat-card {
+      background: var(--bg-card);
+      border: 1px solid var(--border-color);
+      border-radius: 12px;
+      padding: 20px;
+      transition: border-color 0.3s, transform 0.2s;
+    }
+    .stat-card:hover {
+      border-color: var(--accent-color);
+      transform: translateY(-2px);
+    }
+    .stat-value {
+      font-family: 'Outfit', sans-serif;
+      font-size: 32px;
+      font-weight: 700;
+      color: var(--accent-color);
+    }
+    .stat-label {
+      font-size: 12px;
+      color: var(--text-muted);
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+      margin-top: 4px;
+    }
+
+    .home-section { margin-bottom: 30px; }
+    .home-section h3 {
+      font-family: 'Outfit', sans-serif;
+      font-size: 16px;
+      font-weight: 600;
+      margin-bottom: 12px;
+      color: var(--text-main);
+    }
+
+    .top-nodes-list {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+      gap: 8px;
+    }
+    .top-node-item {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 10px 14px;
+      background: var(--bg-card);
+      border: 1px solid var(--border-color);
+      border-radius: 8px;
+      font-size: 13px;
+    }
+    .top-node-name {
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+      flex: 1;
+    }
+    .top-node-degree {
+      color: var(--accent-color);
+      font-weight: 600;
+      font-family: 'Fira Code', monospace;
+      margin-left: 12px;
+    }
+
+    .recent-list { display: flex; flex-direction: column; gap: 4px; }
+    .recent-list-item {
+      display: flex;
+      justify-content: space-between;
+      padding: 8px 12px;
+      background: var(--bg-card);
+      border: 1px solid var(--border-color);
+      border-radius: 6px;
+      font-size: 12px;
+      cursor: pointer;
+      transition: border-color 0.2s;
+    }
+    .recent-list-item:hover { border-color: var(--accent-color); }
+    .recent-list-item .time { color: var(--text-muted); font-family: 'Fira Code', monospace; font-size: 11px; }
+
+    /* ── READER TAB ── */
+    .reader-layout { display: flex; flex: 1; overflow: hidden; }
+
+    .reader-main { flex: 1; display: flex; flex-direction: column; overflow: hidden; }
+
+    .reader-header {
+      padding: 12px 25px;
+      border-bottom: 1px solid var(--border-color);
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      background: var(--bg-sidebar);
+      flex-shrink: 0;
+    }
+    .reader-header h2 {
+      font-family: 'Outfit', sans-serif;
+      font-size: 17px;
+      font-weight: 600;
+    }
+
+    .reader-body {
+      flex: 1;
+      padding: 30px;
+      overflow-y: auto;
+      line-height: 1.7;
+    }
+
+    /* Table of Contents Sidebar */
+    #toc-sidebar {
+      width: 240px;
+      border-left: 1px solid var(--border-color);
+      background: var(--bg-sidebar);
+      overflow-y: auto;
+      padding: 16px;
+      flex-shrink: 0;
+      display: none;
+    }
+    #toc-sidebar.visible { display: block; }
+    #toc-sidebar h4 {
+      font-size: 11px;
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+      color: var(--text-muted);
+      margin-bottom: 12px;
+    }
+    .toc-item {
+      display: block;
+      padding: 4px 0;
+      font-size: 12px;
+      color: var(--text-muted);
+      cursor: pointer;
+      text-decoration: none;
+      border-left: 2px solid transparent;
+      padding-left: 8px;
+      transition: color 0.2s, border-color 0.2s;
+    }
+    .toc-item:hover { color: white; border-color: var(--accent-color); }
+    .toc-item.toc-h2 { padding-left: 16px; }
+    .toc-item.toc-h3 { padding-left: 28px; font-size: 11px; }
+
+    /* Backlinks Panel */
+    #backlinks-panel {
+      border-top: 1px solid var(--border-color);
+      padding: 12px 25px;
+      background: var(--bg-card);
+      max-height: 150px;
+      overflow-y: auto;
+      flex-shrink: 0;
+      display: none;
+    }
+    #backlinks-panel.visible { display: block; }
+    #backlinks-panel h4 {
+      font-size: 11px;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+      color: var(--text-muted);
+      margin-bottom: 8px;
+    }
+    .backlink-item {
+      display: inline-block;
+      padding: 3px 10px;
+      margin: 2px 4px 2px 0;
+      background: var(--bg-main);
+      border: 1px solid var(--border-color);
+      border-radius: 4px;
+      font-size: 12px;
+      color: var(--accent-color);
+      cursor: pointer;
+      transition: border-color 0.2s;
+    }
+    .backlink-item:hover { border-color: var(--accent-color); }
+
+    /* Diff View */
+    .diff-container {
+      flex: 1;
+      padding: 20px 30px;
+      overflow-y: auto;
+      font-family: 'Fira Code', monospace;
+      font-size: 13px;
+      line-height: 1.6;
+      display: none;
+      white-space: pre-wrap;
+    }
+    .diff-line-add { background: rgba(16, 185, 129, 0.15); color: #6ee7b7; }
+    .diff-line-del { background: rgba(239, 68, 68, 0.15); color: #fca5a5; }
+    .diff-line-ctx { color: var(--text-muted); }
+
+    /* Markdown Renders */
+    .markdown-body h1, .markdown-body h2, .markdown-body h3, .markdown-body h4 {
+      font-family: 'Outfit', sans-serif;
+      margin-top: 24px;
+      margin-bottom: 16px;
+      font-weight: 600;
+      color: white;
+    }
+    .markdown-body h1 { font-size: 2em; border-bottom: 1px solid var(--border-color); padding-bottom: 8px; }
+    .markdown-body h2 { font-size: 1.5em; }
+    .markdown-body h3 { font-size: 1.25em; }
+    .markdown-body h4 { font-size: 1.1em; color: var(--text-muted); }
+    .markdown-body p { margin-bottom: 16px; }
+    .markdown-body a { color: var(--accent-color); text-decoration: none; }
+    .markdown-body a:hover { text-decoration: underline; }
+    .markdown-body pre { background: var(--bg-card); padding: 16px; border-radius: 8px; overflow-x: auto; margin-bottom: 16px; border: 1px solid var(--border-color); }
+    .markdown-body code { font-family: 'Fira Code', monospace; font-size: 0.9em; background: rgba(55,65,81,0.3); padding: 2px 6px; border-radius: 4px; }
+    .markdown-body pre code { background: none; padding: 0; }
+    .markdown-body ul, .markdown-body ol { margin-bottom: 16px; padding-left: 20px; }
+    .markdown-body table { width: 100%; border-collapse: collapse; margin-bottom: 16px; }
+    .markdown-body th, .markdown-body td { border: 1px solid var(--border-color); padding: 8px 12px; }
+    .markdown-body th { background: var(--bg-card); color: var(--text-main); }
+    .markdown-body blockquote { border-left: 3px solid var(--accent-color); padding-left: 16px; color: var(--text-muted); margin-bottom: 16px; }
+    .markdown-body img { max-width: 100%; border-radius: 8px; }
+    .markdown-body hr { border: none; border-top: 1px solid var(--border-color); margin: 24px 0; }
+
+    /* Editor Textarea */
+    #editor-textarea {
+      width: 100%;
+      flex: 1;
+      background-color: #000000;
+      color: #f3f4f6;
+      font-family: 'Fira Code', monospace;
+      font-size: 14px;
+      padding: 30px;
+      border: none;
+      resize: none;
+      outline: none;
+      display: none;
+    }
+
+    /* Graph / Canvas / Tree / Floorplan / Visual Explainer Panes */
+    #pane-graph, #pane-canvas, #pane-tree, #pane-floorplan, #pane-db-lineage, #pane-async-topology, #pane-visual-explainer, #pane-api-catalog, #pane-adr-governance, #pane-quant-codex, #pane-runbook-ops { background-color: #000000; }
+
+    /* ── Keyboard Shortcut Modal ── */
+    #shortcuts-modal {
+      display: none;
+      position: fixed;
+      top: 0; left: 0; right: 0; bottom: 0;
+      background: rgba(0,0,0,0.8);
+      z-index: 10000;
+      justify-content: center;
+      align-items: center;
+    }
+    #shortcuts-modal.visible { display: flex; }
+    .shortcuts-content {
+      background: var(--bg-card);
+      border: 1px solid var(--border-color);
+      border-radius: 12px;
+      padding: 30px;
+      max-width: 500px;
+      width: 90%;
+    }
+    .shortcuts-content h3 {
+      font-family: 'Outfit', sans-serif;
+      font-size: 18px;
+      margin-bottom: 16px;
+    }
+    .shortcut-row {
+      display: flex;
+      justify-content: space-between;
+      padding: 8px 0;
+      font-size: 13px;
+      border-bottom: 1px solid var(--border-color);
+    }
+    .shortcut-row:last-child { border-bottom: none; }
+    kbd {
+      background: var(--bg-main);
+      border: 1px solid var(--border-color);
+      padding: 2px 8px;
+      border-radius: 4px;
+      font-family: 'Fira Code', monospace;
+      font-size: 12px;
+      color: var(--accent-color);
+    }
+
+    /* Scrollbar styling */
+    ::-webkit-scrollbar { width: 6px; }
+    ::-webkit-scrollbar-track { background: transparent; }
+    ::-webkit-scrollbar-thumb { background: #374151; border-radius: 3px; }
+    ::-webkit-scrollbar-thumb:hover { background: #4b5563; }
+
+    /* Hover Preview Card styling */
+    #hover-preview-card {
+      transition: opacity 0.2s ease, transform 0.2s ease;
+    }
+    
+    /* Autocomplete list items */
+    .search-item {
+      padding: 8px 12px;
+      font-size: 12px;
+      cursor: pointer;
+      border-bottom: 1px solid #111827;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      transition: background 0.15s;
+    }
+    .search-item:hover {
+      background: #1f2937;
+      color: #38bdf8;
+    }
+    
+    /* clickable tracebacks style inside console terminal */
+    #console-terminal a {
+      color: #38bdf8;
+      text-decoration: underline;
+      transition: color 0.15s;
+    }
+    #console-terminal a:hover {
+      color: #7dd3fc;
+    }
+
+    /* ── Views Navigation Hub Grid ── */
+    .views-hub-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(270px, 1fr));
+      gap: 12px;
+    }
+    .view-hub-card {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      padding: 12px 14px;
+      background: var(--bg-card);
+      border: 1px solid var(--border-color);
+      border-radius: 8px;
+      cursor: pointer;
+      position: relative;
+      transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+    }
+    .view-hub-card:hover {
+      background: #172033;
+      border-color: var(--accent-color);
+      transform: translateY(-2px);
+      box-shadow: 0 8px 20px -4px rgba(56, 189, 248, 0.15);
+    }
+    .hub-card-icon {
+      font-size: 24px;
+      flex-shrink: 0;
+      width: 36px;
+      height: 36px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      background: rgba(255, 255, 255, 0.04);
+      border-radius: 6px;
+    }
+    .hub-card-content {
+      flex: 1;
+      min-width: 0;
+    }
+    .hub-card-title {
+      font-size: 13px;
+      font-weight: 600;
+      color: #f8fafc;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+    .hub-card-desc {
+      font-size: 11px;
+      color: var(--text-muted);
+      margin-top: 2px;
+      line-height: 1.35;
+      display: -webkit-box;
+      -webkit-line-clamp: 2;
+      -webkit-box-orient: vertical;
+      overflow: hidden;
+    }
+    .hub-card-badge {
+      font-size: 10px;
+      font-weight: 700;
+      color: var(--accent-color);
+      background: rgba(56, 189, 248, 0.1);
+      border: 1px solid rgba(56, 189, 248, 0.25);
+      border-radius: 4px;
+      padding: 2px 6px;
+      align-self: flex-start;
+      flex-shrink: 0;
+    }
+    #mobile-view-picker {
+      background: #0f172a;
+      border: 1px solid rgba(56, 189, 248, 0.4);
+      color: #38bdf8;
+      font-size: 12px;
+      font-weight: 600;
+      padding: 5px 8px;
+      border-radius: 6px;
+      outline: none;
+      cursor: pointer;
+      margin-right: 6px;
+      max-width: 175px;
+      flex-shrink: 0;
+    }
+    @media (max-width: 768px) {
+      .views-hub-grid {
+        grid-template-columns: 1fr;
+      }
+    }
+
+    /* ── Mobile Responsive Layout (Phones & Small Tablets) ── */
+    #mobile-menu-btn {
+      display: none;
+      background: rgba(56, 189, 248, 0.12);
+      border: 1px solid rgba(56, 189, 248, 0.3);
+      color: var(--accent-color);
+      border-radius: 6px;
+      padding: 6px 12px;
+      font-size: 14px;
+      cursor: pointer;
+      align-items: center;
+      gap: 6px;
+      flex-shrink: 0;
+    }
+    #mobile-sidebar-backdrop {
+      display: none;
+      position: fixed;
+      inset: 0;
+      background: rgba(0, 0, 0, 0.7);
+      backdrop-filter: blur(3px);
+      z-index: 9998;
+    }
+    #mobile-sidebar-backdrop.active {
+      display: block;
+    }
+
+    @media (max-width: 768px) {
+      body {
+        position: relative;
+        width: 100vw;
+        overflow-x: hidden;
+      }
+      #mobile-menu-btn {
+        display: flex !important;
+      }
+      #sidebar {
+        position: fixed !important;
+        top: 0;
+        bottom: 0;
+        left: 0;
+        width: 85vw !important;
+        max-width: 320px !important;
+        z-index: 9999 !important;
+        transform: translateX(-100%);
+        transition: transform 0.28s cubic-bezier(0.4, 0, 0.2, 1);
+        box-shadow: 4px 0 25px rgba(0, 0, 0, 0.85);
+        background: #090d16 !important;
+      }
+      #sidebar.mobile-open {
+        transform: translateX(0) !important;
+      }
+      #main-content {
+        width: 100vw !important;
+        min-width: 100vw !important;
+        max-width: 100vw !important;
+        overflow-x: hidden;
+      }
+      .tabs-nav {
+        height: 48px !important;
+        width: 100vw !important;
+        padding: 0 8px !important;
+        overflow-x: auto !important;
+        -webkit-overflow-scrolling: touch;
+        justify-content: flex-start !important;
+        gap: 6px !important;
+      }
+      .tabs-left {
+        display: flex !important;
+        flex-wrap: nowrap !important;
+        overflow-x: auto !important;
+        -webkit-overflow-scrolling: touch;
+        scrollbar-width: none;
+        gap: 4px !important;
+      }
+      .tabs-left::-webkit-scrollbar {
+        display: none;
+      }
+      .tab-button {
+        flex-shrink: 0 !important;
+        font-size: 12px !important;
+        padding: 6px 12px !important;
+        white-space: nowrap !important;
+      }
+      .tabs-right {
+        display: none !important;
+      }
+      .search-container {
+        padding: 10px !important;
+      }
+      .search-box {
+        width: 100% !important;
+      }
+    }
+
+  </style>
+
+  <script src="assets/marked.min.js"></script>
+<script>if (typeof marked === "undefined") { document.write('<script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"><\/script>'); }</script>
+</head>
+<body>
+
+  <!-- Sidebar -->
+  <div id="mobile-sidebar-backdrop" onclick="closeMobileSidebar()"></div>
+  <div id="sidebar">
+    <div class="sidebar-header">
+      <h1><span id="header-logo-name">Knowledge Base</span> <span>Wiki Portal</span></h1>
+      <button class="sidebar-close-btn" onclick="toggleSidebar()" title="Chiudi sidebar (Ctrl+B)">◀</button>
+    </div>
+
+    <!-- Recent Files -->
+    <div id="recent-files-section" style="display:none;">
+      <h3>🕐 Recent Files</h3>
+      <div id="recent-files-list"></div>
+    </div>
+
+    <div class="search-container">
+      <div style="position:relative; width:100%;"><i class="fa-solid fa-magnifying-glass" style="position:absolute; left:10px; top:50%; transform:translateY(-50%); color:var(--text-muted); font-size:12px;"></i><input type="text" id="search-input" class="search-input" style="padding-left:30px; width:100%;" placeholder="Omni-Search: Formule, API, Note, Store, 3D… (Ctrl+K)" oninput="performSearch(this.value)"></div>
+      <div class="search-hint">Omni-Search su 70 formule, 453 utility, 193 API, 17 store, task e note</div>
+    </div>
+
+    <div class="tree-container" id="tree-root">Loading file tree...</div>
+    <div id="search-results"></div>
+  </div>
+
+  <!-- Main Content -->
+  <div id="main-content">
+    <div class="tabs-nav">
+      <button id="mobile-menu-btn" onclick="toggleMobileSidebar()" title="Toggle Menu">
+        <i class="fa-solid fa-bars"></i>
+        <span>Menu</span>
+      </button>
+      <select id="mobile-view-picker" onchange="if(this.value){switchTab(this.value); this.value='';}" title="Seleziona Vista Rapida">
+        <option value="" disabled selected>⚡ Viste (21) ▾</option>
+        <optgroup label="🌌 Grafi &amp; 3D">
+          <option value="graph">🔗 2D Network Graph</option>
+          <option value="graph_3d">🌐 3D WebGL Graph</option>
+          <option value="canvas">🎨 2D Whiteboard Canvas</option>
+          <option value="canvas_3d">🧊 3D WebGL Canvas</option>
+          <option value="tree">🌳 2D Directory Tree</option>
+          <option value="tree_3d">🌲 3D Top-Down DAG Tree</option>
+          <option value="graph_full">🗺️ Full Organic Network</option>
+        </optgroup>
+        <optgroup label="🏗️ Architettura &amp; Flussi">
+          <option value="floorplan">🏗️ Floorplan SVG (ADR-053)</option>
+          <option value="db-lineage">🗄️ Database Lineage</option>
+          <option value="async-topology">⚡ Async &amp; WebSocket</option>
+          <option value="frontend-state">⚡ UI State &amp; Pinia Stores</option>
+          <option value="worker-tasks">⚙️ Celery Worker Tasks</option>
+          <option value="data-ingestion">📊 Data Ingestion Pipeline</option>
+        </optgroup>
+        <optgroup label="📜 Governance, API &amp; Codex">
+          <option value="api-catalog">🔌 API Catalog (Scalar)</option>
+          <option value="quant-codex">📐 Quant Codex &amp; Formule</option>
+          <option value="adr-governance">📜 ADR Governance</option>
+          <option value="framework-constitution">🏛️ Costituzione (9 Pilastri)</option>
+          <option value="threat-matrix">🛡️ Threat Matrix</option>
+          <option value="runbook-ops">🛠️ Ops Incident Runbook</option>
+          <option value="visual-explainer">✨ Visual Explainers (9)</option>
+          <option value="console">💻 Dev Terminal Console</option>
+        </optgroup>
+      </select>
+      <div class="tabs-left">
+        <button class="tab-button active" onclick="switchTab('home')">🏠 Home</button>
+        <button class="tab-button" onclick="switchTab('reader')">📖 Reader</button>
+        <button class="tab-button" onclick="switchTab('graph')">🔗 Graph</button>
+        <button class="tab-button" onclick="switchTab('canvas')">🎨 Canvas</button>
+        <button class="tab-button" onclick="switchTab('tree')">🌳 Tree</button>
+        <button class="tab-button" onclick="switchTab('floorplan')">🏗️ Floorplan</button>
+        <button class="tab-button" onclick="switchTab('db-lineage')">🗄️ DB Lineage</button>
+        <button class="tab-button" onclick="switchTab('async-topology')">⚡ Async &amp; WS</button>
+        <button class="tab-button" onclick="switchTab('visual-explainer')">✨ Visual Explainer</button>
+        <button class="tab-button" onclick="switchTab('api-catalog')">🔌 API Catalog</button>
+        <button class="tab-button" onclick="switchTab('adr-governance')">📜 ADR Governance</button>
+        <button class="tab-button" onclick="switchTab('quant-codex')">📐 Quant Codex</button>
+        <button class="tab-button" onclick="switchTab('framework-constitution')">🏛️ Costituzione</button>
+        <button class="tab-button" onclick="switchTab('frontend-state')">⚡ UI Stores</button>
+        <button class="tab-button" onclick="switchTab('worker-tasks')">⚙️ Worker Tasks</button>
+        <button class="tab-button" onclick="switchTab('threat-matrix')">🛡️ Threat Matrix</button>
+        <button class="tab-button" onclick="switchTab('data-ingestion')">📊 Data Ingestion</button>
+        <button class="tab-button" onclick="switchTab('runbook-ops')">🛠️ Ops Runbook</button>
+        <button class="tab-button" onclick="switchTab('console')">💻 Console</button>
+      </div>
+      <div class="tabs-right">
+        <label style="display: flex; align-items: center; gap: 4px; font-size: 11px; color: var(--text-muted); cursor: pointer; user-select: none; margin-right: 4px;">
+          <input type="checkbox" id="rebuild-llm-toggle" style="cursor: pointer;"> Semantic (LLM)
+        </label>
+        
+<div id="scan-status" style="display:flex; flex-direction:column; justify-content:center; margin-left:16px; font-size:11px; color:#aaa; line-height:1.4;">
+  <div>AST Scan: <span id="ast-scan-time" style="color:#e0e0e0; font-family:monospace;">Caricamento...</span></div>
+  <div>LLM Scan: <span id="llm-scan-time" style="color:#e0e0e0; font-family:monospace;">Caricamento...</span></div>
+</div>
+
+      <button class="action-btn" id="rebuild-btn" onclick="rebuildKnowledge()" title="Rebuild Knowledge Graph">🔄 Rebuild</button>
+        <button class="action-btn" onclick="showShortcuts()" title="Keyboard Shortcuts">⌨️</button>
+        <button class="action-btn" onclick="toggleSidebar()">⛶ Sidebar</button>
+      </div>
+    </div>
+
+    <!-- Tab 0: Home / Overview -->
+    <div class="tab-pane active" id="pane-home">
+      <button class="fullscreen-btn" onclick="toggleFullscreen('pane-home')" title="Fullscreen">⛶</button>
+      <div class="home-container">
+        <div class="home-title">Welcome to <span id="welcome-logo-name" style="color:var(--accent-color)">Knowledge Base</span> Wiki Portal</div>
+        <div class="home-subtitle">Your project knowledge base — <span id="stat-file-count">…</span> markdown notes indexed</div>
+
+        <div class="stats-grid" id="stats-grid">
+          <div class="stat-card"><div class="stat-value" id="sv-files">—</div><div class="stat-label">Markdown Files</div></div>
+          <div class="stat-card"><div class="stat-value" id="sv-words">—</div><div class="stat-label">Total Words</div></div>
+          <div class="stat-card"><div class="stat-value" id="sv-nodes">—</div><div class="stat-label">Graph Nodes</div></div>
+          <div class="stat-card"><div class="stat-value" id="sv-edges">—</div><div class="stat-label">Graph Edges</div></div>
+          <div class="stat-card"><div class="stat-value" id="sv-communities">—</div><div class="stat-label">Communities</div></div>
+          <div class="stat-card"><div class="stat-value" id="sv-orphans">—</div><div class="stat-label">Orphan Nodes</div></div>
+        </div>
+
+        <div class="home-section" style="margin-top: 24px;">
+          <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:12px; flex-wrap:wrap; gap:8px;">
+            <h3 style="margin:0; font-size:15px; color:#f8fafc; display:flex; align-items:center; gap:8px;">
+              <span>🧭</span> Tutte le Viste dell'Architettura (21 Viste Interattive)
+            </h3>
+            <span style="font-size:11px; color:#38bdf8; background:rgba(56,189,248,0.1); border:1px solid rgba(56,189,248,0.25); padding:3px 8px; border-radius:12px;">
+              Tocca una card per aprire la vista
+            </span>
+          </div>
+
+          <div style="font-size:11px; font-weight:700; text-transform:uppercase; letter-spacing:0.06em; color:#94a3b8; margin: 14px 0 8px 0; display:flex; align-items:center; gap:6px;">
+            <span>🌌</span> Visualizzazioni a Grafo &amp; 3D WebGL
+          </div>
+          <div class="views-hub-grid">
+            <div class="view-hub-card" onclick="switchTab('graph')">
+              <div class="hub-card-icon">🔗</div>
+              <div class="hub-card-content">
+                <div class="hub-card-title">2D Network Graph</div>
+                <div class="hub-card-desc">Grafo organico interattivo Vis.js con nodi, community e filtri.</div>
+              </div>
+              <span class="hub-card-badge">2D Vis.js</span>
+            </div>
+            <div class="view-hub-card" onclick="switchTab('graph_3d')">
+              <div class="hub-card-icon">🌐</div>
+              <div class="hub-card-content">
+                <div class="hub-card-title">3D WebGL Force Graph</div>
+                <div class="hub-card-desc">Rete tridimensionale immersiva Three.js con cluster e orbite.</div>
+              </div>
+              <span class="hub-card-badge">3D WebGL</span>
+            </div>
+            <div class="view-hub-card" onclick="switchTab('canvas')">
+              <div class="hub-card-icon">🎨</div>
+              <div class="hub-card-content">
+                <div class="hub-card-title">Whiteboard Canvas 2D</div>
+                <div class="hub-card-desc">Lavagna concettuale libera con nodi e raggruppamenti logici.</div>
+              </div>
+              <span class="hub-card-badge">Canvas 2D</span>
+            </div>
+            <div class="view-hub-card" onclick="switchTab('canvas_3d')">
+              <div class="hub-card-icon">🧊</div>
+              <div class="hub-card-content">
+                <div class="hub-card-title">3D WebGL Canvas</div>
+                <div class="hub-card-desc">Visualizzazione volumetrica 3D dello spazio canvas.</div>
+              </div>
+              <span class="hub-card-badge">Canvas 3D</span>
+            </div>
+            <div class="view-hub-card" onclick="switchTab('tree')">
+              <div class="hub-card-icon">🌳</div>
+              <div class="hub-card-content">
+                <div class="hub-card-title">Directory Tree Gerarchico</div>
+                <div class="hub-card-desc">Albero gerarchico collassabile di moduli, classi e funzioni.</div>
+              </div>
+              <span class="hub-card-badge">Tree 2D</span>
+            </div>
+            <div class="view-hub-card" onclick="switchTab('tree_3d')">
+              <div class="hub-card-icon">🌲</div>
+              <div class="hub-card-content">
+                <div class="hub-card-title">3D DAG Tree</div>
+                <div class="hub-card-desc">Albero volumetrico 3D con layout discendente top-down.</div>
+              </div>
+              <span class="hub-card-badge">Tree 3D</span>
+            </div>
+            <div class="view-hub-card" onclick="switchTab('graph_full')">
+              <div class="hub-card-icon">🗺️</div>
+              <div class="hub-card-content">
+                <div class="hub-card-title">Full Organic Network</div>
+                <div class="hub-card-desc">Visualizzatore a schermo intero con ricerca integrata e legende.</div>
+              </div>
+              <span class="hub-card-badge">Full Net</span>
+            </div>
+          </div>
+
+          <div style="font-size:11px; font-weight:700; text-transform:uppercase; letter-spacing:0.06em; color:#94a3b8; margin: 20px 0 8px 0; display:flex; align-items:center; gap:6px;">
+            <span>🏗️</span> Architettura, Dati &amp; Flussi Operativi
+          </div>
+          <div class="views-hub-grid">
+            <div class="view-hub-card" onclick="switchTab('floorplan')">
+              <div class="hub-card-icon">🏗️</div>
+              <div class="hub-card-content">
+                <div class="hub-card-title">Floorplan SVG Full-Stack</div>
+                <div class="hub-card-desc">Mappa vettoriale dell'infrastruttura con hotspot interattivi (ADR-053).</div>
+              </div>
+              <span class="hub-card-badge">ADR-053</span>
+            </div>
+            <div class="view-hub-card" onclick="switchTab('db-lineage')">
+              <div class="hub-card-icon">🗄️</div>
+              <div class="hub-card-content">
+                <div class="hub-card-title">Database Lineage &amp; Schema</div>
+                <div class="hub-card-desc">Relazioni tabelle Timescale/Postgres, chiavi, hypertable e trigger.</div>
+              </div>
+              <span class="hub-card-badge">DB Schema</span>
+            </div>
+            <div class="view-hub-card" onclick="switchTab('async-topology')">
+              <div class="hub-card-icon">⚡</div>
+              <div class="hub-card-content">
+                <div class="hub-card-title">Async &amp; WebSocket Topology</div>
+                <div class="hub-card-desc">Mappa canali Redis pub/sub, broker e stream WebSocket real-time.</div>
+              </div>
+              <span class="hub-card-badge">Real-Time</span>
+            </div>
+            <div class="view-hub-card" onclick="switchTab('frontend-state')">
+              <div class="hub-card-icon">⚡</div>
+              <div class="hub-card-content">
+                <div class="hub-card-title">Frontend State &amp; Pinia</div>
+                <div class="hub-card-desc">Reattività store, flussi eventi, composable e sincronizzazione UI.</div>
+              </div>
+              <span class="hub-card-badge">Pinia Stores</span>
+            </div>
+            <div class="view-hub-card" onclick="switchTab('worker-tasks')">
+              <div class="hub-card-icon">⚙️</div>
+              <div class="hub-card-content">
+                <div class="hub-card-title">Celery Worker Tasks</div>
+                <div class="hub-card-desc">Code Celery, schedulazioni Beat e worker asincroni in background.</div>
+              </div>
+              <span class="hub-card-badge">Celery / Beat</span>
+            </div>
+            <div class="view-hub-card" onclick="switchTab('data-ingestion')">
+              <div class="hub-card-icon">📊</div>
+              <div class="hub-card-content">
+                <div class="hub-card-title">Data Ingestion Pipeline</div>
+                <div class="hub-card-desc">Pipeline scaricamento tick External Stream, rate-limiting e deduplica.</div>
+              </div>
+              <span class="hub-card-badge">DataOps</span>
+            </div>
+          </div>
+
+          <div style="font-size:11px; font-weight:700; text-transform:uppercase; letter-spacing:0.06em; color:#94a3b8; margin: 20px 0 8px 0; display:flex; align-items:center; gap:6px;">
+            <span>📜</span> Governance, API &amp; Documentazione Tecnica
+          </div>
+          <div class="views-hub-grid">
+            <div class="view-hub-card" onclick="switchTab('api-catalog')">
+              <div class="hub-card-icon">🔌</div>
+              <div class="hub-card-content">
+                <div class="hub-card-title">API Catalog (Scalar Offline)</div>
+                <div class="hub-card-desc">Riferimento interattivo OpenAPI locale bundled per tutti gli endpoint.</div>
+              </div>
+              <span class="hub-card-badge">Scalar API</span>
+            </div>
+            <div class="view-hub-card" onclick="switchTab('quant-codex')">
+              <div class="hub-card-icon">📐</div>
+              <div class="hub-card-content">
+                <div class="hub-card-title">Quant Codex &amp; Utilities</div>
+                <div class="hub-card-desc">Catalogo formule LaTeX e funzioni numeriche con deep-search.</div>
+              </div>
+              <span class="hub-card-badge">LaTeX / Math</span>
+            </div>
+            <div class="view-hub-card" onclick="switchTab('adr-governance')">
+              <div class="hub-card-icon">📜</div>
+              <div class="hub-card-content">
+                <div class="hub-card-title">ADR Architecture Governance</div>
+                <div class="hub-card-desc">Tutti i 53 Architecture Decision Records con stato e motivazioni.</div>
+              </div>
+              <span class="hub-card-badge">53 ADR</span>
+            </div>
+            <div class="view-hub-card" onclick="switchTab('framework-constitution')">
+              <div class="hub-card-icon">🏛️</div>
+              <div class="hub-card-content">
+                <div class="hub-card-title">Costituzione &amp; 9 Pilastri</div>
+                <div class="hub-card-desc">Operational Engineering Framework, 9 pilastri e standard di qualità.</div>
+              </div>
+              <span class="hub-card-badge">9 Pilastri</span>
+            </div>
+            <div class="view-hub-card" onclick="switchTab('threat-matrix')">
+              <div class="hub-card-icon">🛡️</div>
+              <div class="hub-card-content">
+                <div class="hub-card-title">Threat Matrix &amp; Sicurezza</div>
+                <div class="hub-card-desc">Matrice dei rischi, perimetri di isolamento e circuit breakers.</div>
+              </div>
+              <span class="hub-card-badge">Security</span>
+            </div>
+            <div class="view-hub-card" onclick="switchTab('runbook-ops')">
+              <div class="hub-card-icon">🛠️</div>
+              <div class="hub-card-content">
+                <div class="hub-card-title">Ops Incident Runbook</div>
+                <div class="hub-card-desc">Procedure operative standard di recovery e diagnosi disservizi.</div>
+              </div>
+              <span class="hub-card-badge">Runbook</span>
+            </div>
+            <div class="view-hub-card" onclick="switchTab('visual-explainer')">
+              <div class="hub-card-icon">✨</div>
+              <div class="hub-card-content">
+                <div class="hub-card-title">Visual Explainers Interattivi</div>
+                <div class="hub-card-desc">Diagrammi animati interattivi per architettura, AI e trading.</div>
+              </div>
+              <span class="hub-card-badge">9 Explainers</span>
+            </div>
+            <div class="view-hub-card" onclick="switchTab('console')">
+              <div class="hub-card-icon">💻</div>
+              <div class="hub-card-content">
+                <div class="hub-card-title">Terminal Console</div>
+                <div class="hub-card-desc">Console diagnostica per interrogare lo stato e i test del sistema.</div>
+              </div>
+              <span class="hub-card-badge">CLI Tool</span>
+            </div>
+          </div>
+        </div>
+        <div class="home-section">
+          <h3>🔝 Top Connected Nodes</h3>
+          <div class="top-nodes-list" id="top-nodes-list"></div>
+        </div>
+
+        <div class="home-section">
+          <h3>📝 Recently Modified Files</h3>
+          <div class="recent-list" id="home-recent-list"></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Tab 1: Reader / Editor -->
+    <div class="tab-pane" id="pane-reader">
+      <button class="fullscreen-btn" onclick="toggleFullscreen('pane-reader')" title="Fullscreen">⛶</button>
+      <div class="reader-layout">
+        <div class="reader-main">
+          <div class="reader-header">
+            <h2 id="current-filename">No note selected</h2>
+            <div style="display: flex; gap: 6px; align-items: center;">
+              <button class="action-btn" id="ide-btn" onclick="openInEditor()" style="display:none;" title="Open in VS Code / Cursor">📂 IDE</button>
+              <button class="action-btn" id="diff-btn" onclick="toggleDiff()" style="display:none;">Diff</button>
+              <button class="action-btn" id="pdf-btn" onclick="exportPDF()" style="display:none;">📄 PDF</button>
+              <button class="action-btn" id="edit-btn" onclick="toggleEdit()" style="display:none;">Edit Note</button>
+              <button class="action-btn success" id="save-btn" onclick="saveFile()" style="display:none;">Save Note</button>
+            </div>
+          </div>
+          <div class="reader-body markdown-body" id="reader-body">
+            Select a note from the file tree, or press <kbd>Ctrl+K</kbd> to search.
+          </div>
+          <textarea id="editor-textarea"></textarea>
+          <div class="diff-container" id="diff-container"></div>
+          <div id="backlinks-panel">
+            <h4>🔗 Backlinks (referenced by)</h4>
+            <div id="backlinks-list"></div>
+          </div>
+        </div>
+        <div id="toc-sidebar">
+          <h4>📑 Table of Contents</h4>
+          <div id="toc-list"></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Tab 2: Interactive Graph -->
+    <div class="tab-pane" id="pane-graph">
+      <div style="position: absolute; right: 60px; top: 15px; z-index: 10;">
+        <button class="action-btn" onclick="toggleGraphDimension()" style="font-size: 11px; padding: 4px 8px; border: 1px solid #38bdf8; background: rgba(56, 189, 248, 0.1); color: #38bdf8; border-radius: 6px; cursor: pointer;">🌐 Switch to 3D</button>
+      </div>
+      <button class="fullscreen-btn" onclick="toggleFullscreen('pane-graph')" title="Fullscreen">⛶</button>
+      <iframe id="graph-iframe" data-src="views/graph.html?v=10" style="width:100%; height:100%; border:none; background:#000000;"></iframe>
+    </div>
+
+    <!-- Tab 3: Whiteboard Canvas -->
+    <div class="tab-pane" id="pane-canvas">
+      <div style="position: absolute; right: 60px; top: 15px; z-index: 10;">
+        <button class="action-btn" onclick="toggleCanvasDimension()" style="font-size: 11px; padding: 4px 8px; border: 1px solid #38bdf8; background: rgba(56, 189, 248, 0.1); color: #38bdf8; border-radius: 6px; cursor: pointer;">🌐 Switch to 3D</button>
+      </div>
+      <button class="fullscreen-btn" onclick="toggleFullscreen('pane-canvas')" title="Fullscreen">⛶</button>
+      <iframe id="canvas-iframe" data-src="views/canvas.html?v=10" style="width:100%; height:100%; border:none; background:#000000;"></iframe>
+    </div>
+
+    <!-- Tab 4: Collapsible Tree View -->
+    <div class="tab-pane" id="pane-tree">
+      <div style="position: absolute; right: 60px; top: 15px; z-index: 10;">
+        <button class="action-btn" onclick="toggleTreeDimension()" style="font-size: 11px; padding: 4px 8px; border: 1px solid #38bdf8; background: rgba(56, 189, 248, 0.1); color: #38bdf8; border-radius: 6px; cursor: pointer;">🌐 Switch to 3D</button>
+      </div>
+      <button class="fullscreen-btn" onclick="toggleFullscreen('pane-tree')" title="Fullscreen">⛶</button>
+      <iframe id="tree-iframe" data-src="views/GRAPH_TREE.html?v=10" style="width:100%; height:100%; border:none; background:#000000;"></iframe>
+    </div>
+
+    <!-- Tab 5: Floorplan Interactive Full-Stack & HTTP Map (ADR-053) -->
+    <div class="tab-pane" id="pane-floorplan">
+      <button class="fullscreen-btn" onclick="toggleFullscreen('pane-floorplan')" title="Fullscreen">⛶</button>
+      <iframe id="floorplan-iframe" data-src="views/floorplan.html" title="Floorplan Full-Stack & HTTP Map" style="width:100%; height:100%; border:none; background:#000000;"></iframe>
+    </div>
+
+    <!-- Tab 6: SQL & TimescaleDB Lineage Map (ADR-054) -->
+    <div class="tab-pane" id="pane-db-lineage">
+      <button class="fullscreen-btn" onclick="toggleFullscreen('pane-db-lineage')" title="Fullscreen">⛶</button>
+      <iframe id="db-lineage-iframe" data-src="views/db-lineage.html" title="SQL & TimescaleDB Lineage Map" style="width:100%; height:100%; border:none; background:#000000;"></iframe>
+    </div>
+
+    <!-- Tab 7: AsyncAPI 3.0, WebSocket, Redis Pub/Sub & Celery Topology (ADR-054) -->
+    <div class="tab-pane" id="pane-async-topology">
+      <button class="fullscreen-btn" onclick="toggleFullscreen('pane-async-topology')" title="Fullscreen">⛶</button>
+      <iframe id="async-topology-iframe" data-src="views/async-topology.html" title="AsyncAPI 3.0 & WS/PubSub/Celery Topology" style="width:100%; height:100%; border:none; background:#000000;"></iframe>
+    </div>
+
+    <!-- Tab 8: Visual Explainer Interactive Architecture (ADR-053) -->
+    <div class="tab-pane" id="pane-visual-explainer">
+      <button class="fullscreen-btn" onclick="toggleFullscreen('pane-visual-explainer')" title="Fullscreen">⛶</button>
+      <iframe id="visual-explainer-iframe" data-src="views/visual-explainers.html" title="Knowledge Portal Architecture Hub &amp; Visual Explainers" style="width:100%; height:100%; border:none; background:#000000;"></iframe>
+    </div>
+
+    <!-- Tab 9: API Gateway & OpenAPI Contracts -->
+    <div class="tab-pane" id="pane-api-catalog">
+      <button class="fullscreen-btn" onclick="toggleFullscreen('pane-api-catalog')" title="Fullscreen">⛶</button>
+      <iframe id="api-catalog-iframe" data-src="views/api-catalog.html" title="Knowledge Portal API Contracts &amp; Gateway Explorer" style="width:100%; height:100%; border:none; background:#000000;"></iframe>
+    </div>
+
+    <!-- Tab 10: ADR Architecture Governance Matrix -->
+    <div class="tab-pane" id="pane-adr-governance">
+      <button class="fullscreen-btn" onclick="toggleFullscreen('pane-adr-governance')" title="Fullscreen">⛶</button>
+      <iframe id="adr-governance-iframe" data-src="views/adr-governance.html" title="Architecture Decision Records &amp; Governance Matrix" style="width:100%; height:100%; border:none; background:#000000;"></iframe>
+    </div>
+
+    <!-- Tab 11: Mathematical & Quant Theory Codex -->
+    <div class="tab-pane" id="pane-quant-codex">
+      <button class="fullscreen-btn" onclick="toggleFullscreen('pane-quant-codex')" title="Fullscreen">⛶</button>
+      <iframe id="quant-codex-iframe" data-src="views/quant-codex.html" title="Mathematical &amp; Quant Theory Codex" style="width:100%; height:100%; border:none; background:#000000;"></iframe>
+    </div>
+
+    <!-- Tab 12: Operations & Disaster Recovery Runbook -->
+    <div class="tab-pane" id="pane-runbook-ops">
+      <button class="fullscreen-btn" onclick="toggleFullscreen('pane-runbook-ops')" title="Fullscreen">⛶</button>
+      <iframe id="runbook-ops-iframe" data-src="views/runbook-ops.html" title="Operations &amp; Disaster Recovery Runbook" style="width:100%; height:100%; border:none; background:#000000;"></iframe>
+    </div>
+
+    <!-- Tab: Framework Constitution & 9 Pilastri -->
+    <div class="tab-pane" id="pane-framework-constitution">
+      <button class="fullscreen-btn" onclick="toggleFullscreen('pane-framework-constitution')" title="Fullscreen">⛶</button>
+      <iframe id="framework-constitution-iframe" data-src="views/framework-constitution.html" title="Framework Constitution &amp; 9 Pilastri" style="width:100%; height:100%; border:none; background:#000000;"></iframe>
+    </div>
+
+    <!-- Tab: Frontend Pinia State Architecture -->
+    <div class="tab-pane" id="pane-frontend-state">
+      <button class="fullscreen-btn" onclick="toggleFullscreen('pane-frontend-state')" title="Fullscreen">⛶</button>
+      <iframe id="frontend-state-iframe" data-src="views/frontend-state.html" title="Frontend Pinia State Architecture" style="width:100%; height:100%; border:none; background:#000000;"></iframe>
+    </div>
+
+    <!-- Tab: Background Worker Tasks & Queues -->
+    <div class="tab-pane" id="pane-worker-tasks">
+      <button class="fullscreen-btn" onclick="toggleFullscreen('pane-worker-tasks')" title="Fullscreen">⛶</button>
+      <iframe id="worker-tasks-iframe" data-src="views/worker-tasks.html" title="Background Worker Tasks &amp; Queues" style="width:100%; height:100%; border:none; background:#000000;"></iframe>
+    </div>
+
+    <!-- Tab: Threat Model & Security Matrix -->
+    <div class="tab-pane" id="pane-threat-matrix">
+      <button class="fullscreen-btn" onclick="toggleFullscreen('pane-threat-matrix')" title="Fullscreen">⛶</button>
+      <iframe id="threat-matrix-iframe" data-src="views/threat-matrix.html" title="Threat Model &amp; Security Matrix" style="width:100%; height:100%; border:none; background:#000000;"></iframe>
+    </div>
+
+    <!-- Tab: Ingestion Pipelines & Feed Health -->
+    <div class="tab-pane" id="pane-data-ingestion">
+      <button class="fullscreen-btn" onclick="toggleFullscreen('pane-data-ingestion')" title="Fullscreen">⛶</button>
+      <iframe id="data-ingestion-iframe" data-src="views/data-ingestion.html" title="Data Ingestion Pipelines &amp; Feed Health" style="width:100%; height:100%; border:none; background:#000000;"></iframe>
+    </div>
+
+    <!-- Tab 8: Dev-Console -->
+    <div class="tab-pane" id="pane-console">
+      <button class="fullscreen-btn" onclick="toggleFullscreen('pane-console')" title="Fullscreen">⛶</button>
+      <div style="display: flex; flex-direction: column; height: 100%; padding: 20px; box-sizing: border-box; background: #000;">
+        <div style="display: flex; gap: 10px; align-items: center; margin-bottom: 15px;">
+          <h2 style="margin: 0; font-size: 1.5rem; font-weight: bold; color: var(--accent-color); flex: 1;">💻 Dev-Console & Test Runner</h2>
+          <button class="action-btn" onclick="runConsoleCommand('sextet-refresh')">✨ Refresh Sextet</button>
+          <button class="action-btn" onclick="runConsoleCommand('floorplan-refresh')">🏗️ Refresh Floorplan</button>
+          <button class="action-btn" onclick="runConsoleCommand('pytest-unit')">🧪 Pytest (Unit)</button>
+          <button class="action-btn" onclick="runConsoleCommand('frontend-test')">⚛️ Frontend Tests</button>
+          <button class="action-btn" onclick="runConsoleCommand('frontend-lint')">🚨 Frontend Lint</button>
+          <button class="action-btn danger" onclick="clearConsole()">🗑️ Clear</button>
+        </div>
+        <div id="console-terminal" style="flex: 1; background: #070707; border: 1px solid #1f2937; border-radius: 8px; padding: 15px; overflow-y: auto; font-family: monospace; font-size: 13px; line-height: 1.5; color: #10b981; white-space: pre-wrap; word-break: break-all;">
+          Console initialized. Ready to execute commands...
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Keyboard Shortcuts Modal -->
+  <div id="shortcuts-modal">
+    <div class="shortcuts-content">
+      <h3>⌨️ Keyboard Shortcuts</h3>
+      <div class="shortcut-row"><span>Focus search</span><kbd>Ctrl+K</kbd></div>
+      <div class="shortcut-row"><span>Toggle edit mode</span><kbd>Ctrl+E</kbd></div>
+      <div class="shortcut-row"><span>Save note</span><kbd>Ctrl+S</kbd></div>
+      <div class="shortcut-row"><span>Toggle sidebar</span><kbd>Ctrl+B</kbd></div>
+      <div class="shortcut-row"><span>Fullscreen current tab</span><kbd>Ctrl+Shift+F</kbd></div>
+      <div class="shortcut-row"><span>Go to Home</span><kbd>Alt+1</kbd></div>
+      <div class="shortcut-row"><span>Go to Reader</span><kbd>Alt+2</kbd></div>
+      <div class="shortcut-row"><span>Go to Graph</span><kbd>Alt+3</kbd></div>
+      <div class="shortcut-row"><span>Go to Canvas</span><kbd>Alt+4</kbd></div>
+      <div class="shortcut-row"><span>Go to Tree</span><kbd>Alt+5</kbd></div>
+      <div class="shortcut-row"><span>Go to Floorplan</span><kbd>Alt+6</kbd></div>
+      <div class="shortcut-row"><span>Go to DB Lineage</span><kbd>Alt+7</kbd></div>
+      <div class="shortcut-row"><span>Go to Async &amp; WS</span><kbd>Alt+8</kbd></div>
+      <div class="shortcut-row"><span>Go to Console</span><kbd>Alt+9</kbd></div>
+      <div class="shortcut-row"><span>Close this modal</span><kbd>Esc</kbd></div>
+      <div style="margin-top: 16px; text-align: center;">
+        <button class="action-btn" onclick="hideShortcuts()">Close</button>
+      </div>
+    </div>
+  </div>
+
+  <script src="data/config.js"></script>
+  <script src="data/graph_meta.js"></script>
+  <script>
+    function esc(str) {
+      if (str === null || str === undefined) return "";
+      return String(str)
+        .replace(/&/g, "&amp;")
+        .replace(/</g, "&lt;")
+        .replace(/>/g, "&gt;")
+        .replace(/"/g, "&quot;")
+        .replace(/'/g, "&#039;");
+    }
+
+    // Purge legacy un-namespaced storage keys to prevent cross-project contamination
+    try {
+      localStorage.removeItem("wikiRecentFiles");
+      localStorage.removeItem("wiki_Knowledge_Base_recentFiles");
+    } catch(e) {}
+
+    let API_BASE = "";
+    if (!window.PROJECT_CONFIG) {
+      window.PROJECT_CONFIG = { projectName: "Knowledge Base", apiPort: 18115 };
+    }
+
+    function initProjectConfig() {
+      if (window.PROJECT_CONFIG && window.PROJECT_CONFIG.projectName) {
+        const h = document.getElementById("header-logo-name");
+        const w = document.getElementById("welcome-logo-name");
+        if (h) h.textContent = window.PROJECT_CONFIG.projectName;
+        if (w) w.textContent = window.PROJECT_CONFIG.projectName;
+        document.title = window.PROJECT_CONFIG.projectName + " Wiki Portal";
+      }
+      if (window.PROJECT_CONFIG && window.PROJECT_CONFIG.apiPort && window.location.protocol !== "file:") {
+        API_BASE = "http://localhost:" + window.PROJECT_CONFIG.apiPort;
+      } else {
+        API_BASE = "";
+      }
+      return Promise.resolve(window.PROJECT_CONFIG);
+    }
+
+    function getStorageKey(key) {
+      const pName = (window.PROJECT_CONFIG && window.PROJECT_CONFIG.projectName) ? window.PROJECT_CONFIG.projectName : "default";
+      return "wiki_" + pName.replace(/[^a-zA-Z0-9]/g, "_") + "_" + key;
+    }
+
+    function getRecentFiles() {
+      try { return JSON.parse(localStorage.getItem(getStorageKey("recentFiles")) || "[]"); } catch { return []; }
+    }
+
+    function addRecentFile(name, path) {
+      let recent = getRecentFiles().filter(r => r.path !== path);
+      recent.unshift({ name, path, ts: Date.now() });
+      if (recent.length > 15) recent = recent.slice(0, 15);
+      localStorage.setItem(getStorageKey("recentFiles"), JSON.stringify(recent));
+      renderRecentFiles();
+    }
+
+    function renderRecentFiles() {
+      const recent = getRecentFiles();
+      const section = document.getElementById("recent-files-section");
+      const list = document.getElementById("recent-files-list");
+      if (!section || !list) return;
+      if (recent.length === 0) { section.style.display = "none"; return; }
+      section.style.display = "block";
+      list.innerHTML = "";
+      recent.slice(0, 8).forEach(r => {
+        const el = document.createElement("div");
+        el.className = "recent-item";
+        el.innerText = r.name.replace(".md", "");
+        el.onclick = () => loadFile(r.path);
+        list.appendChild(el);
+      });
+    }
+
+    function ensureGraphDataLoaded() {
+      if (window.GRAPH_DATA) return Promise.resolve(window.GRAPH_DATA);
+      return new Promise((resolve, reject) => {
+        const s = document.createElement("script");
+        s.src = "data/graph_data.js";
+        s.onload = () => resolve(window.GRAPH_DATA || {});
+        s.onerror = () => {
+          fetch("data/graph.json").then(r => r.json()).then(resolve).catch(() => resolve({}));
+        };
+        document.head.appendChild(s);
+      });
+    }
+
+    function renderStatsData(data) {
+      if (!data) return;
+      const fmt = (n) => typeof n === "number" ? (n >= 1000 ? (n/1000).toFixed(1) + "K" : n) : (n || "—");
+      const svFiles = document.getElementById("sv-files");
+      const svWords = document.getElementById("sv-words");
+      const svNodes = document.getElementById("sv-nodes");
+      const svEdges = document.getElementById("sv-edges");
+      const svComm = document.getElementById("sv-communities");
+      const svOrph = document.getElementById("sv-orphans");
+      const statCount = document.getElementById("stat-file-count");
+
+      if (svFiles) svFiles.textContent = fmt(data.total_files);
+      if (svWords) svWords.textContent = fmt(data.total_words);
+      if (svNodes) svNodes.textContent = fmt(data.total_nodes);
+      if (svEdges) svEdges.textContent = fmt(data.total_edges);
+      if (svComm) svComm.textContent = fmt(data.communities);
+      if (svOrph) svOrph.textContent = fmt(data.orphan_count);
+      if (statCount) statCount.textContent = fmt(data.total_files) + " files";
+
+      const topList = document.getElementById("top-nodes-list");
+      if (topList) {
+        topList.innerHTML = "";
+        (data.top_connected || []).forEach(n => {
+          topList.innerHTML += "<div class=\"top-node-item\"><span class=\"top-node-name\">" + esc(n.name) + "</span><span class=\"top-node-degree\">" + n.degree + "</span></div>";
+        });
+      }
+
+      const recentList = document.getElementById("home-recent-list");
+      if (recentList) {
+        recentList.innerHTML = "";
+        (data.recent_files || []).forEach(f => {
+          const div = document.createElement("div");
+          div.className = "recent-list-item";
+          div.innerHTML = "<span>" + esc(f.name.replace(".md","")) + "</span><span class=\"time\">" + (f.modified ? new Date(f.modified).toLocaleDateString() : "") + "</span>";
+          div.onclick = () => loadFile(f.path);
+          recentList.appendChild(div);
+        });
+      }
+    }
+
+    function loadStatsFromLocalFiles() {
+      if (window.GRAPH_META) {
+        renderStatsData(window.GRAPH_META);
+        return;
+      }
+      ensureGraphDataLoaded().then(gdata => {
+        const nodes = gdata.nodes || [];
+        const edges = gdata.links || gdata.edges || [];
+        const det = gdata.detect || gdata || {};
+        const deg = {};
+        edges.forEach(l => {
+          const s = l.source || l.from, t = l.target || l.to;
+          if (s) deg[s] = (deg[s] || 0) + 1;
+          if (t) deg[t] = (deg[t] || 0) + 1;
+        });
+
+        const cset = new Set(nodes.map(n => n.community).filter(c => c !== undefined && c !== null));
+        let orphans = 0;
+        const topList = [];
+        nodes.forEach(n => {
+          const d = deg[n.id] || 0;
+          if (d === 0) orphans++;
+          topList.push({ name: n.label || n.id, degree: d, path: n.source_file || "" });
+        });
+        topList.sort((a, b) => b.degree - a.degree);
+
+        renderStatsData({
+          total_files: det.total_files || nodes.length,
+          total_words: det.total_words || 0,
+          total_nodes: nodes.length,
+          total_edges: edges.length,
+          communities: cset.size,
+          orphan_count: orphans,
+          top_connected: topList.slice(0, 8),
+          recent_files: topList.slice(0, 8).map(n => ({ name: n.name + ".md", path: n.path })),
+          loading: false
+        });
+      });
+    }
+
+    function loadStats() {
+      if (window.location.protocol !== "file:" && API_BASE) {
+        fetch(API_BASE + "/api/stats")
+          .then(r => r.json())
+          .then(data => renderStatsData(data))
+          .catch(() => loadStatsFromLocalFiles());
+      } else {
+        loadStatsFromLocalFiles();
+      }
+    }
+
+    function renderTree(treeData) {
+      const container = document.getElementById("tree-root");
+      if (!container) return;
+      container.innerHTML = "";
+      if (Array.isArray(treeData)) {
+        treeData = { name: "Knowledge Base", type: "folder", children: treeData };
+      }
+      if (!treeData || (!treeData.children && treeData.type !== "file")) {
+        container.innerHTML = "<div style='color:var(--text-muted); font-size:12px; padding:10px;'>No notes found</div>";
+        return;
+      }
+
+      function buildNode(node) {
+        if (node.type === "file") {
+          const el = document.createElement("div");
+          el.className = "tree-file-row";
+          el.style.cssText = "display:flex; align-items:center; gap:6px; padding:3px 6px; cursor:pointer; font-size:12px; border-radius:4px; color:var(--text-muted); white-space:nowrap; overflow:hidden; text-overflow:ellipsis; transition:background 0.15s, color 0.15s;";
+          el.innerHTML = `<span style="font-size:12px; flex-shrink:0;">📄</span><span style="overflow:hidden; text-overflow:ellipsis;" title="${esc(node.name)}">${esc(node.name.replace(".md", ""))}</span>`;
+          el.onclick = (e) => {
+            e.stopPropagation();
+            document.querySelectorAll(".tree-file-row").forEach(r => r.style.background = "none");
+            el.style.background = "var(--accent-glow)";
+            el.style.color = "var(--accent-color)";
+            loadFile(node.path || node.name);
+          };
+          return el;
+        }
+
+        // Folder node
+        const folderWrap = document.createElement("div");
+        folderWrap.className = "tree-folder-wrap";
+        folderWrap.style.cssText = "margin-bottom:2px;";
+
+        const folderHeader = document.createElement("div");
+        folderHeader.className = "tree-folder-header";
+        folderHeader.style.cssText = "display:flex; align-items:center; gap:6px; padding:4px 6px; cursor:pointer; font-size:12px; font-weight:600; color:var(--accent-color); user-select:none; border-radius:4px;";
+        folderHeader.innerHTML = `<span class="toggle-arrow" style="font-size:10px; width:12px; display:inline-block; transition:transform 0.2s;">▼</span><span style="font-size:12px;">📁</span><span style="overflow:hidden; text-overflow:ellipsis;">${esc(node.name)}</span>`;
+
+        const childrenContainer = document.createElement("div");
+        childrenContainer.className = "tree-children-container";
+        childrenContainer.style.cssText = "margin-left:12px; border-left:1px solid rgba(255,255,255,0.08); padding-left:4px;";
+
+        let isCollapsed = false;
+        folderHeader.onclick = (e) => {
+          e.stopPropagation();
+          isCollapsed = !isCollapsed;
+          childrenContainer.style.display = isCollapsed ? "none" : "block";
+          const arrow = folderHeader.querySelector(".toggle-arrow");
+          if (arrow) arrow.style.transform = isCollapsed ? "rotate(-90deg)" : "rotate(0deg)";
+        };
+
+        (node.children || []).forEach(child => {
+          childrenContainer.appendChild(buildNode(child));
+        });
+
+        folderWrap.appendChild(folderHeader);
+        folderWrap.appendChild(childrenContainer);
+        return folderWrap;
+      }
+
+      container.appendChild(buildNode(treeData));
+    }
+
+    function loadTreeFromLocalFiles() {
+      if (window.GRAPH_META && window.GRAPH_META.tree_sample) {
+        renderTree({ name: "obsidian", type: "folder", children: window.GRAPH_META.tree_sample });
+        return;
+      }
+      ensureGraphDataLoaded().then(gdata => {
+        if (!gdata || !gdata.nodes) return;
+        const nodes = gdata.nodes;
+        const root = { name: "obsidian", type: "folder", children: [] };
+        const fileSet = new Set();
+        nodes.forEach(n => {
+          let p = n.source_file || n.label || n.id;
+          if (!p) return;
+          let fname = p.split("/").pop().split("\\").pop();
+          if (!fname.endsWith(".md")) fname += ".md";
+          if (!fileSet.has(fname)) {
+            fileSet.add(fname);
+            root.children.push({ name: fname, type: "file", path: p });
+          }
+        });
+        root.children.sort((a,b) => a.name.localeCompare(b.name));
+        renderTree(root);
+      });
+    }
+
+    function fetchTree() {
+      if (window.location.protocol !== "file:" && API_BASE) {
+        fetch(API_BASE + "/api/tree")
+          .then(r => r.json())
+          .then(data => renderTree(data))
+          .catch(() => loadTreeFromLocalFiles());
+      } else {
+        loadTreeFromLocalFiles();
+      }
+    }
+
+
+    // ── Core State Variables ──
+    let currentFilePath = null;
+    let currentFileName = null;
+    let isEditing = false;
+    let activeTab = 'home';
+    const TAB_IDS = ['home', 'reader', 'graph', 'canvas', 'tree', 'floorplan', 'db-lineage', 'async-topology', 'visual-explainer', 'api-catalog', 'adr-governance', 'quant-codex', 'runbook-ops', 'framework-constitution', 'frontend-state', 'worker-tasks', 'threat-matrix', 'data-ingestion', 'console'];
+
+    // ── Load File (Reader) ──
+    function loadFile(filePath) {
+      currentFilePath = filePath;
+      const name = filePath.split('/').pop().split('\\').pop();
+      currentFileName = name;
+      document.getElementById('current-filename').textContent = name.replace('.md', '');
+      addRecentFile(name, filePath);
+
+      // Show action buttons
+      ['edit-btn', 'diff-btn', 'pdf-btn', 'ide-btn'].forEach(id => {
+        const el = document.getElementById(id);
+        if (el) el.style.display = 'inline-block';
+      });
+
+      // Switch to reader tab
+      switchTab('reader');
+
+      // Try API first, then fall back to local graph data
+      if (API_BASE) {
+        fetch(`${API_BASE}/api/file?path=${encodeURIComponent(filePath)}`)
+          .then(r => r.json())
+          .then(data => {
+            renderMarkdown(data.content || '');
+            loadBacklinks(filePath);
+          })
+          .catch(() => loadFileFromLocalData(filePath));
+      } else {
+        loadFileFromLocalData(filePath);
+      }
+    }
+
+    function loadFileFromLocalData(filePath) {
+      // When running on file:// with no server, show the node info from graph data
+      const meta = window.GRAPH_META;
+      if (meta && meta.tree_sample) {
+        const node = meta.tree_sample.find(n => n.path === filePath || n.name === filePath.split('/').pop());
+        if (node) {
+          renderMarkdown(`# ${node.name.replace('.md', '')}\n\nThis note is part of the knowledge graph.\n\n**File path**: \`${filePath}\`\n\n> To view the full content, start the wiki server with \`graphify-portal\` and reload the page.`);
+          return;
+        }
+      }
+      renderMarkdown(`# ${filePath.split('/').pop().replace('.md', '')}\n\n> Start the wiki server to view full content.`);
+    }
+
+    function renderMarkdown(content) {
+      const viewer = document.getElementById('reader-body');
+      const editor = document.getElementById('editor-textarea');
+      if (viewer) {
+        if (typeof marked !== 'undefined') {
+          // Process wiki-links [[target]] before rendering
+          let processed = content.replace(/\[\[([^\]]+)\]\]/g, (m, target) => {
+            return `<a href="#" class="wiki-link" data-target="${target}" onclick="loadFileByName('${target.replace(/'/g, "\\'")}'); return false;">${target}</a>`;
+          });
+          viewer.innerHTML = marked.parse(processed);
+        } else {
+          viewer.innerHTML = '<pre>' + esc(content) + '</pre>';
+        }
+        viewer.style.display = 'block';
+      }
+      if (editor) {
+        editor.value = content;
+        editor.style.display = 'none';
+        isEditing = false;
+      }
+    }
+
+    function loadFileByName(name) {
+      // Search for file by name in the tree data
+      const meta = window.GRAPH_META;
+      if (meta && meta.tree_sample) {
+        const node = meta.tree_sample.find(n => {
+          const nName = n.name.replace('.md', '').toLowerCase();
+          return nName === name.toLowerCase() || nName === name.toLowerCase().replace('.md', '');
+        });
+        if (node) {
+          loadFile(node.path || node.name);
+          return;
+        }
+      }
+      // Fallback: try loading directly
+      loadFile(name.endsWith('.md') ? name : name + '.md');
+    }
+
+    // ── Backlinks ──
+    function loadBacklinks(filePath) {
+      const panel = document.getElementById('backlinks-panel');
+      const list = document.getElementById('backlinks-list');
+      if (!panel || !list) return;
+
+      if (API_BASE) {
+        fetch(`${API_BASE}/api/backlinks?path=${encodeURIComponent(filePath)}`)
+          .then(r => r.json())
+          .then(data => {
+            if (data.length === 0) { panel.classList.remove('visible'); return; }
+            list.innerHTML = '';
+            data.forEach(bl => {
+              const item = document.createElement('span');
+              item.className = 'backlink-item';
+              item.textContent = bl.name.replace('.md', '');
+              item.onclick = () => loadFile(bl.path);
+              list.appendChild(item);
+            });
+            panel.classList.add('visible');
+          })
+          .catch(() => panel.classList.remove('visible'));
+      } else {
+        panel.classList.remove('visible');
+      }
+    }
+
+    // ── Search ──
+    function performSearch(query) {
+      const treeRoot = document.getElementById('tree-root');
+      const searchResults = document.getElementById('search-results');
+      if (!query || query.length < 2) {
+        if (treeRoot) treeRoot.style.display = 'block';
+        if (searchResults) { searchResults.style.display = 'none'; searchResults.innerHTML = ''; }
+        return;
+      }
+
+      if (treeRoot) treeRoot.style.display = 'none';
+      if (searchResults) searchResults.style.display = 'block';
+
+      if (API_BASE) {
+        fetch(`${API_BASE}/api/search?q=${encodeURIComponent(query)}`)
+          .then(r => r.json())
+          .then(results => renderSearchResults(results, query))
+          .catch(() => searchLocalData(query));
+      } else {
+        searchLocalData(query);
+      }
+    }
+
+    function searchLocalData(query) {
+      const meta = window.GRAPH_META;
+      if (!meta || !meta.tree_sample) return;
+      const q = query.toLowerCase();
+      const results = meta.tree_sample
+        .filter(n => n.name.toLowerCase().includes(q))
+        .slice(0, 30)
+        .map(n => ({ name: n.name, path: n.path, snippet: '' }));
+      renderSearchResults(results, query);
+    }
+
+    function renderSearchResults(results, query) {
+      const container = document.getElementById('search-results');
+      if (!container) return;
+      container.innerHTML = '';
+      if (!results || results.length === 0) {
+        container.innerHTML = '<div style="padding:15px; color:var(--text-muted); font-size:12px;">Nessun risultato trovato</div>';
+        return;
+      }
+      results.forEach(r => {
+        const item = document.createElement('div');
+        item.className = 'search-item';
+        item.style.padding = '8px 10px';
+        item.style.borderBottom = '1px solid var(--border-color)';
+        item.style.cursor = 'pointer';
+        item.style.transition = 'background 0.15s ease';
+
+        const name = r.name || (r.path ? r.path.split('/').pop() : 'Risultato');
+        const highlighted = name.replace(new RegExp(`(${query.replace(/[.*+?^${}()|[\\]\\\\]/g, '\\$&')})`, 'gi'), '<mark>$1</mark>');
+        
+        const badgeHtml = r.badge ? `<span style="font-size:10px; font-weight:600; padding:2px 6px; border-radius:4px; background:rgba(56,189,248,0.15); color:#38bdf8; border:1px solid rgba(56,189,248,0.3); flex-shrink:0;">${esc(r.badge)}</span>` : '';
+        const subtitleHtml = r.subtitle ? `<div style="font-size:11px; color:var(--text-muted); margin-top:2px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">${esc(r.subtitle)}</div>` : '';
+        const snippetHtml = r.snippet ? `<div class="search-item-snippet" style="font-size:11px; color:#94a3b8; margin-top:2px;">${esc(r.snippet.substring(0, 120))}</div>` : '';
+
+        item.innerHTML = `
+          <div style="display:flex; align-items:center; justify-content:space-between; gap:6px;">
+            <div class="search-item-title" style="font-size:12px; font-weight:600; color:#f3f4f6; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">${highlighted}</div>
+            ${badgeHtml}
+          </div>
+          ${subtitleHtml}
+          ${snippetHtml}
+        `;
+
+        item.onclick = () => {
+          document.getElementById('search-input').value = '';
+          performSearch('');
+
+          if (r.action === 'switch3d') {
+            switchTab(r.tab);
+            if (r.tab === 'graph' && !is3DGraph) toggleGraphDimension();
+            if (r.tab === 'canvas' && !is3DCanvas) toggleCanvasDimension();
+            if (r.tab === 'tree' && !is3DTree) toggleTreeDimension();
+            return;
+          }
+
+          if (r.tab && r.tab !== 'reader') {
+            switchTab(r.tab);
+            if (r.hash) {
+              setTimeout(() => {
+                const pane = document.getElementById(`pane-${r.tab}`);
+                if (pane) {
+                  const iframe = pane.querySelector('iframe');
+                  if (iframe && iframe.contentWindow) {
+                    try {
+                      iframe.contentWindow.location.hash = r.hash;
+                    } catch(e) {}
+                  }
+                }
+              }, 120);
+            }
+          } else if (r.path) {
+            loadFile(r.path);
+          }
+        };
+        container.appendChild(item);
+      });
+    }
+
+    // ── Edit / Save / Toggle ──
+    function toggleEdit() {
+      const viewer = document.getElementById('reader-body');
+      const editor = document.getElementById('editor-textarea');
+      const editBtn = document.getElementById('edit-btn');
+      if (!viewer || !editor) return;
+
+      isEditing = !isEditing;
+      if (isEditing) {
+        viewer.style.display = 'none';
+        editor.style.display = 'block';
+        editor.focus();
+        editBtn.textContent = 'Preview';
+      } else {
+        editor.style.display = 'none';
+        viewer.style.display = 'block';
+        renderMarkdown(editor.value);
+        editBtn.textContent = 'Edit Note';
+      }
+    }
+
+    function saveFile() {
+      if (!currentFilePath || !API_BASE) return;
+      const editor = document.getElementById('editor-textarea');
+      if (!editor) return;
+      fetch(`${API_BASE}/api/file`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ path: currentFilePath, content: editor.value })
+      })
+        .then(r => r.json())
+        .then(data => {
+          if (data.success) {
+            renderMarkdown(editor.value);
+            isEditing = false;
+            document.getElementById('edit-btn').textContent = 'Edit Note';
+          } else {
+            alert('Error saving: ' + data.message);
+          }
+        })
+        .catch(err => alert('Save error: ' + err));
+    }
+
+    function toggleDiff() {
+      // Toggle diff view for the current file
+      const diffContainer = document.querySelector('.diff-container');
+      if (!diffContainer) return;
+      if (diffContainer.style.display === 'block') {
+        diffContainer.style.display = 'none';
+        return;
+      }
+      if (!currentFilePath || !API_BASE) return;
+      fetch(`${API_BASE}/api/diff?path=${encodeURIComponent(currentFilePath)}`)
+        .then(r => r.json())
+        .then(data => {
+          if (data.diff) {
+            diffContainer.innerHTML = data.diff.split('\n').map(line => {
+              if (line.startsWith('+')) return `<span class="diff-line-add">${esc(line)}</span>`;
+              if (line.startsWith('-')) return `<span class="diff-line-del">${esc(line)}</span>`;
+              return `<span class="diff-line-ctx">${esc(line)}</span>`;
+            }).join('\n');
+            diffContainer.style.display = 'block';
+          }
+        })
+        .catch(() => {});
+    }
+
+    function exportPDF() {
+      if (!currentFilePath || !API_BASE) return;
+      window.open(`${API_BASE}/api/export-pdf?path=${encodeURIComponent(currentFilePath)}`, '_blank');
+    }
+
+
+    // Initialize config FIRST before rendering UI
+    initProjectConfig().then(() => {
+      renderRecentFiles();
+      fetchTree();
+      loadStats();
+    });
+
+    
+    function toggleMobileSidebar() {
+      const sb = document.getElementById("sidebar");
+      const bd = document.getElementById("mobile-sidebar-backdrop");
+      if (sb.classList.contains("mobile-open")) {
+        closeMobileSidebar();
+      } else {
+        sb.classList.add("mobile-open");
+        if (bd) bd.classList.add("active");
+      }
+    }
+
+    function closeMobileSidebar() {
+      const sb = document.getElementById("sidebar");
+      const bd = document.getElementById("mobile-sidebar-backdrop");
+      if (sb) sb.classList.remove("mobile-open");
+      if (bd) bd.classList.remove("active");
+    }
+
+    function switchTab(tabId) {
+      if (tabId === 'graph_3d') {
+        switchTab('graph');
+        if (!is3DGraph) toggleGraphDimension();
+        return;
+      }
+      if (tabId === 'canvas_3d') {
+        switchTab('canvas');
+        if (!is3DCanvas) toggleCanvasDimension();
+        return;
+      }
+      if (tabId === 'tree_3d') {
+        switchTab('tree');
+        if (!is3DTree) toggleTreeDimension();
+        return;
+      }
+      if (tabId === 'graph_full') {
+        switchTab('graph');
+        const iframe = document.getElementById('graph-iframe');
+        if (iframe) {
+          iframe.dataset.src = 'views/graph_full.html';
+          iframe.src = 'views/graph_full.html';
+        }
+        return;
+      }
+      const picker = document.getElementById('mobile-view-picker');
+      if (picker) picker.value = tabId;
+
+      closeMobileSidebar();
+      activeTab = tabId;
+      document.querySelectorAll(".tab-button").forEach(btn => btn.classList.remove("active"));
+      document.querySelectorAll(".tab-pane").forEach(pane => pane.classList.remove("active"));
+      const btn = document.querySelector(`[onclick="switchTab('${tabId}')"]`);
+      if (btn) {
+        btn.classList.add("active");
+        try { btn.scrollIntoView({ behavior: 'smooth', block: 'nearest', inline: 'center' }); } catch(e){}
+      }
+      const pane = document.getElementById(`pane-${tabId}`);
+      if (pane) pane.classList.add("active");
+      const iframe = pane.querySelector("iframe");
+      if (iframe && iframe.dataset.src && (!iframe.getAttribute("src") || iframe.getAttribute("src") === "about:blank")) {
+        iframe.src = iframe.dataset.src;
+      }
+
+      // Auto-center / fit visual panels when tabs are shown to fix off-center loading
+      if (pane) {
+        const iframe = pane.querySelector('iframe');
+        if (iframe && iframe.contentWindow) {
+          const triggerFit = () => {
+            try {
+              iframe.contentWindow.postMessage({ type: 'fitTab', tabId: tabId }, '*');
+            } catch (e) {}
+          };
+          triggerFit();
+          setTimeout(triggerFit, 150);
+        }
+      }
+    }
+
+    // ── Sidebar Toggle ──
+    function toggleSidebar() { closeMobileSidebar(); document.body.classList.toggle("sidebar-collapsed"); }
+
+    // ── Fullscreen Toggle ──
+    function toggleFullscreen(paneId) {
+      const pane = document.getElementById(paneId);
+      pane.classList.toggle('fullscreen');
+      const btn = pane.querySelector('.fullscreen-btn');
+      btn.textContent = pane.classList.contains('fullscreen') ? '✕' : '⛶';
+    }
+
+    // ── Shortcuts Modal ──
+    function showShortcuts() { document.getElementById('shortcuts-modal').classList.add('visible'); }
+    function hideShortcuts() { document.getElementById('shortcuts-modal').classList.remove('visible'); }
+
+    // ── Keyboard Shortcuts ──
+    document.addEventListener('keydown', (e) => {
+      // Escape: close modal or exit fullscreen
+      if (e.key === 'Escape') {
+        hideShortcuts();
+        document.querySelectorAll('.tab-pane.fullscreen').forEach(p => {
+          p.classList.remove('fullscreen');
+          p.querySelector('.fullscreen-btn').textContent = '⛶';
+        });
+        return;
+      }
+
+      // Don't intercept if typing in input/textarea (except for specific shortcuts)
+      const inInput = ['INPUT', 'TEXTAREA'].includes(document.activeElement.tagName);
+
+      // Ctrl+K: Focus search
+      if (e.ctrlKey && e.key === 'k') {
+        e.preventDefault();
+        document.getElementById('search-input').focus();
+        return;
+      }
+
+      // Ctrl+B: Toggle sidebar
+      if (e.ctrlKey && e.key === 'b' && !inInput) {
+        e.preventDefault();
+        toggleSidebar();
+        return;
+      }
+
+      // Ctrl+E: Toggle edit
+      if (e.ctrlKey && e.key === 'e') {
+        e.preventDefault();
+        if (currentFilePath) toggleEdit();
+        return;
+      }
+
+      // Ctrl+S: Save
+      if (e.ctrlKey && e.key === 's') {
+        e.preventDefault();
+        if (isEditing) saveFile();
+        return;
+      }
+
+      // Ctrl+Shift+F: Fullscreen current tab
+      if (e.ctrlKey && e.shiftKey && e.key === 'F') {
+        e.preventDefault();
+        const pane = document.getElementById(`pane-${activeTab}`);
+        if (pane) toggleFullscreen(`pane-${activeTab}`);
+        return;
+      }
+
+      // Alt+1-5: Switch tabs
+      if (e.altKey && !inInput) {
+        const num = parseInt(e.key);
+        if (num >= 1 && num <= TAB_IDS.length) {
+          e.preventDefault();
+          switchTab(TAB_IDS[num - 1]);
+        }
+      }
+    });
+    // ── Open in IDE ──
+    function openInEditor() {
+      if (!currentFilePath) return;
+      fetch(`${API_BASE}/api/open-editor?path=${encodeURIComponent(currentFilePath)}`)
+        .then(res => res.json())
+        .then(data => {
+          if (!data.success) alert("Error opening editor: " + data.message);
+        })
+        .catch(err => alert("Error connecting to editor: " + err));
+    }
+
+    // ── Rebuild Knowledge Graph ──
+    let rebuildPollInterval = null;
+
+    function rebuildKnowledge() {
+      const btn = document.getElementById("rebuild-btn");
+      const useLlm = document.getElementById("rebuild-llm-toggle").checked;
+      btn.disabled = true;
+      btn.innerText = "🔄 Rebuilding...";
+      
+      fetch(`${API_BASE}/api/rebuild?llm=${useLlm}`)
+        .then(res => res.json())
+        .then(data => {
+          if (data.success) {
+            rebuildPollInterval = setInterval(pollRebuildStatus, 2000);
+          } else {
+            alert("Error: " + data.message);
+            btn.disabled = false;
+            btn.innerText = "🔄 Rebuild";
+          }
+        })
+        .catch(err => {
+          alert("Error starting rebuild: " + err);
+          btn.disabled = false;
+          btn.innerText = "🔄 Rebuild";
+        });
+    }
+
+    // ── 3D/2D Graph Switcher ──
+    let is3DGraph = false;
+    function toggleGraphDimension() {
+      is3DGraph = !is3DGraph;
+      const iframe = document.getElementById('graph-iframe');
+      const btn = document.querySelector('[onclick="toggleGraphDimension()"]');
+      if (is3DGraph) {
+        iframe.dataset.src = 'views/graph_3d.html'; iframe.src = 'views/graph_3d.html';
+        btn.textContent = '🔗 Switch to 2D';
+      } else {
+        iframe.dataset.src = 'views/graph.html'; iframe.src = 'views/graph.html';
+        btn.textContent = '🌐 Switch to 3D';
+      }
+    }
+
+    let is3DCanvas = false;
+    function toggleCanvasDimension() {
+      is3DCanvas = !is3DCanvas;
+      const iframe = document.getElementById('canvas-iframe');
+      const btn = document.querySelector('[onclick="toggleCanvasDimension()"]');
+      if (is3DCanvas) {
+        iframe.dataset.src = 'views/canvas_3d.html'; iframe.src = 'views/canvas_3d.html';
+        btn.textContent = '🔗 Switch to 2D';
+      } else {
+        iframe.dataset.src = 'views/canvas.html'; iframe.src = 'views/canvas.html';
+        btn.textContent = '🌐 Switch to 3D';
+      }
+    }
+
+    let is3DTree = false;
+    function toggleTreeDimension() {
+      is3DTree = !is3DTree;
+      const iframe = document.getElementById('tree-iframe');
+      const btn = document.querySelector('[onclick="toggleTreeDimension()"]');
+      if (is3DTree) {
+        iframe.dataset.src = 'views/tree_3d.html'; iframe.src = 'views/tree_3d.html';
+        btn.textContent = '🔗 Switch to 2D';
+      } else {
+        iframe.dataset.src = 'views/GRAPH_TREE.html'; iframe.src = 'views/GRAPH_TREE.html';
+        btn.textContent = '🌐 Switch to 3D';
+      }
+    }
+
+    // ── Autocomplete [[ Wiki-Links ──
+    const editorTextarea = document.getElementById('editor-textarea');
+    const autocompletePopup = document.createElement('div');
+    autocompletePopup.id = 'autocomplete-popup';
+    autocompletePopup.style.cssText = `
+      position: absolute;
+      z-index: 1000;
+      background: #0c0c0c;
+      border: 1px solid #1f2937;
+      border-radius: 8px;
+      box-shadow: 0 10px 25px -5px rgba(0,0,0,0.8);
+      display: none;
+      max-height: 180px;
+      overflow-y: auto;
+      width: 250px;
+    `;
+    document.querySelector('.reader-main').appendChild(autocompletePopup);
+
+    let autocompleteActive = false;
+    let autocompleteQuery = '';
+    let autocompleteTriggerIndex = -1;
+    let autocompleteSelectedIndex = 0;
+    let allMarkdownNotes = [];
+
+    editorTextarea.addEventListener('input', (e) => {
+      const val = editorTextarea.value;
+      const selStart = editorTextarea.selectionStart;
+      
+      const textBefore = val.substring(0, selStart);
+      const openIdx = textBefore.lastIndexOf('[[');
+      
+      if (openIdx !== -1 && openIdx >= textBefore.lastIndexOf(']]')) {
+        autocompleteActive = true;
+        autocompleteTriggerIndex = openIdx;
+        autocompleteQuery = textBefore.substring(openIdx + 2);
+        
+        if (allMarkdownNotes.length === 0) {
+          fetch(`${API_BASE}/api/tree`)
+            .then(res => res.json())
+            .then(treeData => {
+              const notes = [];
+              const traverse = (node) => {
+                if (node.type === 'file' && node.name.endsWith('.md')) {
+                  notes.push(node.name);
+                }
+                if (node.children) {
+                  node.children.forEach(traverse);
+                }
+              };
+              traverse(treeData);
+              allMarkdownNotes = notes;
+              renderAutocomplete();
+            });
+        } else {
+          renderAutocomplete();
+        }
+      } else {
+        closeAutocomplete();
+      }
+    });
+
+    function renderAutocomplete() {
+      if (!autocompleteActive) return;
+      
+      const filtered = allMarkdownNotes.filter(name => 
+        name.toLowerCase().includes(autocompleteQuery.toLowerCase())
+      ).slice(0, 10);
+      
+      if (filtered.length === 0) {
+        autocompletePopup.style.display = 'none';
+        return;
+      }
+      
+      const coords = getCaretPos(editorTextarea);
+      autocompletePopup.style.top = coords.top + 'px';
+      autocompletePopup.style.left = coords.left + 'px';
+      autocompletePopup.style.display = 'block';
+      
+      autocompletePopup.innerHTML = '';
+      filtered.forEach((name, idx) => {
+        const item = document.createElement('div');
+        item.className = 'search-item';
+        item.style.padding = '8px 12px';
+        item.style.fontSize = '12px';
+        item.style.cursor = 'pointer';
+        item.style.background = idx === autocompleteSelectedIndex ? '#1f2937' : 'transparent';
+        item.style.color = idx === autocompleteSelectedIndex ? '#38bdf8' : '#f3f4f6';
+        
+        const cleanName = name.replace('.md', '');
+        item.innerText = cleanName;
+        
+        item.onclick = () => {
+          insertAutocomplete(name);
+        };
+        autocompletePopup.appendChild(item);
+      });
+    }
+
+    function getCaretPos(textarea) {
+      const text = textarea.value.substring(0, textarea.selectionStart);
+      const lines = text.split('\n');
+      const currentLine = lines.length;
+      const currentCol = lines[lines.length - 1].length;
+      
+      const charWidth = 8.5;
+      const charHeight = 20;
+      
+      const rect = textarea.getBoundingClientRect();
+      const readerMain = document.querySelector('.reader-main');
+      const mainRect = readerMain.getBoundingClientRect();
+      
+      const top = rect.top - mainRect.top + (currentLine * charHeight) - textarea.scrollTop + 5;
+      const left = rect.left - mainRect.left + (currentCol * charWidth) - textarea.scrollLeft + 15;
+      
+      return {
+        top: Math.max(10, Math.min(rect.height + 50, top)),
+        left: Math.max(10, Math.min(rect.width - 200, left))
+      };
+    }
+
+    function insertAutocomplete(fileName) {
+      const cleanName = fileName.replace('.md', '');
+      const val = editorTextarea.value;
+      const start = autocompleteTriggerIndex;
+      const end = editorTextarea.selectionStart;
+      
+      const replaced = val.substring(0, start) + '[[' + cleanName + ']]' + val.substring(end);
+      editorTextarea.value = replaced;
+      
+      const newCursorPos = start + cleanName.length + 4;
+      editorTextarea.setSelectionRange(newCursorPos, newCursorPos);
+      editorTextarea.focus();
+      
+      closeAutocomplete();
+    }
+
+    function closeAutocomplete() {
+      autocompleteActive = false;
+      autocompletePopup.style.display = 'none';
+      autocompleteSelectedIndex = 0;
+    }
+
+    editorTextarea.addEventListener('keydown', (e) => {
+      if (!autocompleteActive || autocompletePopup.style.display === 'none') return;
+      
+      const filtered = allMarkdownNotes.filter(name => 
+        name.toLowerCase().includes(autocompleteQuery.toLowerCase())
+      ).slice(0, 10);
+      
+      if (e.key === 'ArrowDown') {
+        e.preventDefault();
+        autocompleteSelectedIndex = (autocompleteSelectedIndex + 1) % filtered.length;
+        renderAutocomplete();
+      } else if (e.key === 'ArrowUp') {
+        e.preventDefault();
+        autocompleteSelectedIndex = (autocompleteSelectedIndex - 1 + filtered.length) % filtered.length;
+        renderAutocomplete();
+      } else if (e.key === 'Enter') {
+        e.preventDefault();
+        if (filtered[autocompleteSelectedIndex]) {
+          insertAutocomplete(filtered[autocompleteSelectedIndex]);
+        }
+      } else if (e.key === 'Escape') {
+        e.preventDefault();
+        closeAutocomplete();
+      }
+    });
+
+    // ── Hover Preview Cards ──
+    let hoverTimeout = null;
+    let hoverPreviewDiv = null;
+
+    function initHoverPreviews() {
+      const readerBody = document.getElementById("reader-body");
+      
+      readerBody.addEventListener("mouseover", (e) => {
+        const anchor = e.target.closest(".wiki-link-anchor");
+        if (!anchor) return;
+        
+        const target = anchor.getAttribute("data-target");
+        if (!target) return;
+        
+        clearTimeout(hoverTimeout);
+        
+        hoverTimeout = setTimeout(() => {
+          showHoverPreview(anchor, target);
+        }, 350);
+      });
+      
+      readerBody.addEventListener("mouseout", (e) => {
+        const anchor = e.target.closest(".wiki-link-anchor");
+        if (!anchor) return;
+        
+        clearTimeout(hoverTimeout);
+        hideHoverPreview();
+      });
+    }
+    
+    function showHoverPreview(anchor, targetName) {
+      fetch(`${API_BASE}/api/search?q=${encodeURIComponent(targetName)}`)
+        .then(res => res.json())
+        .then(results => {
+          const match = results.find(r => r.name.toLowerCase().replace(".md", "") === targetName.toLowerCase()) || results[0];
+          if (!match) return;
+          
+          fetch(`${API_BASE}/api/file?path=${encodeURIComponent(match.path)}`)
+            .then(res => res.json())
+            .then(data => {
+              let content = data.content;
+              content = content.replace(/#+\s+/g, '')
+                               .replace(/\[\[(.*?)\]\]/g, '$1')
+                               .replace(/\[(.*?)\]\((.*?)\)/g, '$1');
+                               
+              const previewText = content.substring(0, 300) + (content.length > 300 ? '...' : '');
+              
+              if (!hoverPreviewDiv) {
+                hoverPreviewDiv = document.createElement("div");
+                hoverPreviewDiv.id = "hover-preview-card";
+                hoverPreviewDiv.style.cssText = `
+                  position: absolute;
+                  z-index: 2000;
+                  background: rgba(12, 12, 12, 0.95);
+                  backdrop-filter: blur(8px);
+                  border: 1px solid #1f2937;
+                  border-radius: 8px;
+                  padding: 12px;
+                  width: 260px;
+                  box-shadow: 0 10px 25px -5px rgba(0,0,0,0.8);
+                  font-size: 12px;
+                  color: #94a3b8;
+                  line-height: 1.5;
+                  pointer-events: none;
+                  opacity: 0;
+                  transition: opacity 0.2s ease;
+                `;
+                document.body.appendChild(hoverPreviewDiv);
+              }
+              
+              hoverPreviewDiv.innerHTML = `
+                <div style="font-weight:bold; color:#38bdf8; margin-bottom: 6px; border-bottom: 1px solid #1f2937; padding-bottom: 4px;">
+                  📄 ${esc(targetName)}
+                </div>
+                <div>${esc(previewText)}</div>
+              `;
+              
+              const rect = anchor.getBoundingClientRect();
+              const top = rect.bottom + window.scrollY + 8;
+              const left = rect.left + window.scrollX;
+              
+              hoverPreviewDiv.style.top = top + "px";
+              hoverPreviewDiv.style.left = left + "px";
+              hoverPreviewDiv.style.opacity = 1;
+            });
+        });
+    }
+    
+    function hideHoverPreview() {
+      if (hoverPreviewDiv) {
+        hoverPreviewDiv.style.opacity = 0;
+      }
+    }
+
+    // ── Dev-Console Runner ──
+    let consoleEventSource = null;
+    
+    function clearConsole() {
+      document.getElementById('console-terminal').innerHTML = '<span style="color:#666;">Console cleared.</span>\n';
+    }
+    
+    function runConsoleCommand(cmdId) {
+      if (consoleEventSource) {
+        consoleEventSource.close();
+      }
+      
+      const term = document.getElementById('console-terminal');
+      term.innerHTML = `<span style="color:#38bdf8; font-weight:bold;">> Launching ${cmdId}...</span>\n`;
+      
+      consoleEventSource = new EventSource(`${API_BASE}/api/console/run?cmd=${cmdId}`);
+      
+      consoleEventSource.onmessage = (event) => {
+        const line = event.data;
+        
+        if (line.startsWith('[PROCESS_COMPLETED_WITH_EXIT_CODE:')) {
+          const code = line.split(':')[1].replace(']', '');
+          const color = code === '0' ? '#10b981' : '#ef4444';
+          term.innerHTML += `\n<span style="color:${color}; font-weight:bold;">> Process completed with exit code: ${code}</span>\n`;
+          consoleEventSource.close();
+          consoleEventSource = null;
+          term.scrollTop = term.scrollHeight;
+          return;
+        }
+        
+        let formattedLine = esc(line);
+        
+        const relPathRegex = /((?:backend|frontend|docs)[a-zA-Z0-9_\-\/\\.]+\.py):(\d+)/g;
+        formattedLine = formattedLine.replace(relPathRegex, (match, path, lineNum) => {
+          const normalizedPath = path.replace(/\\/g, '/');
+          return `<a href="#" onclick="openInEditorFromConsole('${normalizedPath}', ${lineNum}); return false;" style="color:#38bdf8; text-decoration:underline;">${match}</a>`;
+        });
+        
+        const fileLineRegex = /File &quot;([^&]+)&quot;, line (\d+)/g;
+        formattedLine = formattedLine.replace(fileLineRegex, (match, path, lineNum) => {
+          const normalizedPath = path.replace(/\\/g, '/');
+          return `File &quot;<a href="#" onclick="openInEditorFromConsole('${normalizedPath}', ${lineNum}); return false;" style="color:#38bdf8; text-decoration:underline;">${path}</a>&quot;, line ${lineNum}`;
+        });
+        
+        term.innerHTML += formattedLine + '\n';
+        term.scrollTop = term.scrollHeight;
+      };
+      
+      consoleEventSource.onerror = (err) => {
+        term.innerHTML += `<span style="color:#ef4444; font-weight:bold;">\n> Connection error or process interrupted.</span>\n`;
+        consoleEventSource.close();
+        consoleEventSource = null;
+        term.scrollTop = term.scrollHeight;
+      };
+    }
+    
+    function openInEditorFromConsole(path, line) {
+      fetch(`${API_BASE}/api/open-editor?path=${encodeURIComponent(path)}&line=${line}`)
+        .then(res => res.json())
+        .then(data => {
+          console.log("IDE link success:", data);
+        })
+        .catch(err => {
+          console.error("IDE link error:", err);
+        });
+    }
+    window.openInEditorFromConsole = openInEditorFromConsole;
+
+    // Run custom inits
+    initHoverPreviews();
+    window.toggleGraphDimension = toggleGraphDimension;
+    window.toggleCanvasDimension = toggleCanvasDimension;
+    window.toggleTreeDimension = toggleTreeDimension;
+    window.runConsoleCommand = runConsoleCommand;
+    window.clearConsole = clearConsole;
+
+    function pollRebuildStatus() {
+      fetch(`${API_BASE}/api/rebuild/status`)
+        .then(res => res.json())
+        .then(data => {
+          if (!data.rebuilding) {
+            clearInterval(rebuildPollInterval);
+            const btn = document.getElementById("rebuild-btn");
+            btn.disabled = false;
+            btn.innerText = "🔄 Rebuild";
+            
+            // Refresh dashboard data
+            loadStats();
+            fetchTree();
+            
+            // Reload all iframes (Graph, Canvas, Tree)
+            document.querySelectorAll("iframe").forEach(iframe => {
+              iframe.src = iframe.src;
+            });
+          }
+        })
+        .catch(() => {
+          clearInterval(rebuildPollInterval);
+          const btn = document.getElementById("rebuild-btn");
+          btn.disabled = false;
+          btn.innerText = "🔄 Rebuild";
+        });
+    }
+  </script>
+
+  <!-- Omni-Search Modal Overlay (Ctrl+K) -->
+  <div id="omniModal" style="display:none; position:fixed; inset:0; background:rgba(0,0,0,0.75); z-index:9999; align-items:flex-start; justify-content:center; padding-top:10vh; backdrop-filter:blur(4px);">
+    <div style="background:#161b22; border:1px solid #30363d; border-radius:10px; width:90%; max-width:640px; box-shadow:0 16px 36px rgba(0,0,0,0.5); overflow:hidden; display:flex; flex-direction:column;">
+      <div style="padding:14px 18px; border-bottom:1px solid #30363d; display:flex; align-items:center; gap:12px;">
+        <span style="font-size:1.2rem; color:#58a6ff;">🔍</span>
+        <input type="text" id="omniInput" placeholder="Cerca viste, architettura, endpoint, worker, pilastri... (ESC per chiudere)" style="flex:1; background:transparent; border:none; outline:none; color:#e6edf3; font-size:1.05rem;" oninput="filterOmniResults()" onkeydown="handleOmniKey(event)">
+        <span style="font-size:0.75rem; color:#8b949e; background:#21262d; padding:2px 8px; border-radius:4px; border:1px solid #30363d;">ESC</span>
+      </div>
+      <div id="omniResults" style="max-height:380px; overflow-y:auto; padding:8px 0;">
+        <!-- Dynamic Results -->
+      </div>
+    </div>
+  </div>
+
+  <script>
+    // Knowledge Index for Omni-Search (19 Viste)
+        const OMNI_ITEMS = [
+      // 19 Sezioni di Sistema
+      { id: 'home', title: 'Dashboard Panoramica', desc: 'Metriche repo, commit history, nodi e cluster', icon: '🏠', tags: 'overview home stats' },
+      { id: 'reader', title: 'Documentation Reader', desc: 'Navigatore markdown documentazione e paper quantitativi', icon: '📖', tags: 'docs manuali markdown' },
+      { id: 'graph', title: 'Knowledge Graph 2D/3D', desc: 'Grafo delle relazioni di codice, simboli e chiamate', icon: '🕸️', tags: 'ast vis.js three.js grafo' },
+      { id: 'canvas', title: 'Obsidian Canvas', desc: 'Lavagna visuale e nodi concettuali', icon: '🎨', tags: 'canvas nodi mappa' },
+      { id: 'tree', title: 'Directory Tree 3D', desc: 'Albero gerarchico dei file e moduli del monorepo', icon: '🌳', tags: 'files folder albero' },
+      { id: 'floorplan', title: 'Floorplan Macro Cartografia', desc: 'Pianta topologica interattiva delle strategie sample_service', icon: '🗺️', tags: 'macro floorplan svg architettura' },
+      { id: 'db-lineage', title: 'TimescaleDB Lineage', desc: 'Tabelle, hypertables, 17 migrazioni Alembic e relazioni dati', icon: '🗄️', tags: 'db sql timescale alembic schema' },
+      { id: 'async-topology', title: 'AsyncAPI & WebSocket', desc: 'Mappa dei flussi realtime, bridge Redis Pub/Sub e socket', icon: '⚡', tags: 'websocket socket redis async' },
+      { id: 'visual-explainer', title: '✨ Visual Explainer Hub', desc: 'Hub centrale dei 9 spiegatori interattivi sequenziali', icon: '✨', tags: 'visual explainer suite hub' },
+      { id: 'api-catalog', title: '🌐 API Catalog (193 Endpoint)', desc: 'Catalogo completo 35 router FastAPI OpenAPI con schemi request/response', icon: '🌐', tags: 'api rest fastapi openapi router' },
+      { id: 'adr-governance', title: '⚖️ ADR Governance (74 ADR)', desc: 'Matrice delle decisioni architetturali ufficiali e trade-off', icon: '⚖️', tags: 'adr decisioni governance architettura' },
+      { id: 'quant-codex', title: '📐 Quant Codex', desc: 'Formulario matematico con KaTeX (Hurst, FLD, cross_validation, PBO, DSR, HRP, CVD)', icon: '📐', tags: 'quant matematica formule hurst cross_validation katex' },
+      { id: 'runbook-ops', title: '🛠️ Ops Runbook', desc: 'Manuale operativo container, backup 3-2-1 e procedure di emergenza', icon: '🛠️', tags: 'ops docker backup disaster recovery flat cancel' },
+      { id: 'framework-constitution', title: '🏛️ Framework & Quality Constitution', desc: 'I 9 Pilastri di Ingegneria, i 4 Tier AI Agent e il Technical Debt Ledger', icon: '🏛️', tags: 'framework pilastri debito tier dod' },
+      { id: 'frontend-state', title: '⚡ UI Reactive State (17 Stores)', desc: 'Mappa degli store Pinia, associazione con le 19 viste Vue e WebSocket', icon: '⚡', tags: 'pinia vue stores frontend state reattivo' },
+      { id: 'worker-tasks', title: '⚙️ Workers & Celery Matrix', desc: 'I 13 moduli worker distribuito, code Celery, triggers e deduplica Redis', icon: '⚙️', tags: 'celery workers tasks redis code cron' },
+      { id: 'threat-matrix', title: '🛡️ Threat Model & Security Gates', desc: 'THREAT-001 a 004, Confine IP §8 e verifiche CI meccaniche', icon: '🛡️', tags: 'security threat sandbox ip gates csp' },
+      { id: 'data-ingestion', title: '🔌 Market Ingestion Connectors', desc: 'I 18 connettori: Binance, External Stream, cTrader, CFTC COT, FRED e RAG', icon: '🔌', tags: 'ingestion market provider External Stream ctrader feeds' },
+      { id: 'console', title: 'System Console', desc: 'Terminale di comando e log diagnostici del wiki server', icon: '💻', tags: 'console log cli terminal' },
+
+      // I 9 Visual Explainers (Deep Dive)
+      { id: 'visual-explainer', targetUrl: 'views/explainers/visual_explainer_time_series_confluence_20261109.html', title: '📊 01 Hurst & FLD Confluence', desc: 'Intersezione Hurst, proiezione FLD a meta ciclo, verifica non-repainting', icon: '✨', tags: 'time_series ciclo non repainting confluenza quant' },
+      { id: 'visual-explainer', targetUrl: 'views/explainers/visual_explainer_Knowledge Portal_architecture_connections_20261110.html', title: '🏛️ 02 Architettura & Connessioni', desc: 'Topologia end-to-end FastAPI, Redis, TimescaleDB, Nautilus Trader', icon: '🏛️', tags: 'architettura connessioni topologia redis timescale nautilus' },
+      { id: 'visual-explainer', targetUrl: 'views/explainers/visual_explainer_Knowledge Portal_realtime_data_pipeline_20261110.html', title: '⚡ 03 Pipeline Dati Realtime', desc: 'Ciclo vitale tick: ingestion External Stream/Binance -> Redis -> klinecharts 60fps', icon: '⚡', tags: 'realtime pipeline tick klinecharts External Stream provider 60fps' },
+      { id: 'visual-explainer', targetUrl: 'views/explainers/visual_explainer_ai_copilot_triad_20261110.html', title: '🤖 04 AI Copilot Triade Zero-Leak', desc: 'useUiContext client, FastPath deterministic router, RAG context, SSE stream', icon: '🤖', tags: 'copilot ai llm useuicontext fastpath rag sse' },
+      { id: 'visual-explainer', targetUrl: 'views/explainers/visual_explainer_live_trading_safety_guards_20261110.html', title: '🛡️ 05 Live Safety Guards', desc: 'Demone Nautilus isolato, 3-level Breakers, Flat & Cancel on Disconnect', icon: '🛡️', tags: 'safety guards circuit breaker flat cancel nautilus live trading' },
+      { id: 'visual-explainer', targetUrl: 'views/explainers/visual_explainer_god_mode_cross_validation_validation_20261110.html', title: '🧪 06 God Mode & cross_validation Validation', desc: 'Optuna HPO, Purged K-Fold con embargo, PBO, DSR, allocazione HRP', icon: '🧪', tags: 'god mode cross_validation optuna pbo dsr hrp purged kfold' },
+      { id: 'visual-explainer', targetUrl: 'views/explainers/visual_explainer_event_stream_footprint_20261110.html', title: '📈 07 Orderflow Footprint & CVD', desc: 'L2 orderbook depth, delta volume aggregato per tick, POC/VAH/VAL sessione', icon: '📈', tags: 'orderflow footprint cvd poc vah val l2 volume' },
+      { id: 'visual-explainer', targetUrl: 'views/explainers/visual_explainer_dataops_anti_ban_ingestion_20261110.html', title: '🛑 08 DataOps Anti-Ban Ingestion', desc: 'Combined WebSocket, upsert idempotente, gap scan, throttle anti-418/429', icon: '🛑', tags: 'dataops anti ban throttle 418 429 gap scan upsert' },
+      { id: 'visual-explainer', targetUrl: 'views/explainers/visual_explainer_frontend_goldenlayout_multiplexing_20261110.html', title: '🎛️ 09 Frontend GoldenLayout', desc: 'GoldenLayout v2 multi-chart, Pinia bus reattivo, Canvas rendering', icon: '🎛️', tags: 'goldenlayout frontend pinia bus canvas multi chart' }
+    ];
+
+    function openOmniSearch() {
+      const modal = document.getElementById('omniModal');
+      modal.style.display = 'flex';
+      const input = document.getElementById('omniInput');
+      input.value = '';
+      input.focus();
+      filterOmniResults();
+    }
+
+    function closeOmniSearch() {
+      const modal = document.getElementById('omniModal');
+      modal.style.display = 'none';
+    }
+
+    function filterOmniResults() {
+      const query = document.getElementById('omniInput').value.toLowerCase().trim();
+      const container = document.getElementById('omniResults');
+      container.innerHTML = '';
+      
+      const filtered = OMNI_ITEMS.filter(item => {
+        return !query || item.title.toLowerCase().includes(query) || item.desc.toLowerCase().includes(query) || item.tags.toLowerCase().includes(query);
+      });
+
+      if (filtered.length === 0) {
+        container.innerHTML = '<div style="padding:16px 20px; color:#8b949e; text-align:center;">Nessun risultato trovato</div>';
+        return;
+      }
+
+      filtered.forEach((item, index) => {
+        const div = document.createElement('div');
+        div.style = 'padding:10px 18px; display:flex; align-items:center; gap:12px; cursor:pointer; transition:background 0.15s; border-left:3px solid transparent;';
+        div.onmouseover = () => { div.style.background = '#21262d'; div.style.borderLeftColor = '#58a6ff'; };
+        div.onmouseout = () => { div.style.background = 'transparent'; div.style.borderLeftColor = 'transparent'; };
+        div.onclick = () => {
+          closeOmniSearch();
+          switchTab(item.id);
+          window.location.hash = `tab=${item.id}`;
+        };
+        div.innerHTML = `
+          <span style="font-size:1.3rem;">${item.icon}</span>
+          <div style="flex:1;">
+            <div style="font-weight:600; color:#e6edf3; font-size:0.95rem;">${item.title}</div>
+            <div style="font-size:0.8rem; color:#8b949e;">${item.desc}</div>
+          </div>
+          <span style="font-size:0.75rem; color:#58a6ff; font-family:monospace;">${item.id}</span>
+        `;
+        container.appendChild(div);
+      });
+    }
+
+    function handleOmniKey(e) {
+      if (e.key === 'Escape') {
+        closeOmniSearch();
+      } else if (e.key === 'Enter') {
+        const first = document.querySelector('#omniResults > div');
+        if (first) first.click();
+      }
+    }
+
+    // Keyboard Shortcuts: Ctrl+K / Cmd+K
+    window.addEventListener('keydown', (e) => {
+      if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'k') {
+        e.preventDefault();
+        const modal = document.getElementById('omniModal');
+        if (modal.style.display === 'flex') {
+          closeOmniSearch();
+        } else {
+          openOmniSearch();
+        }
+      } else if (e.key === 'Escape') {
+        closeOmniSearch();
+      }
+    });
+
+    // Deep-Linking via Hash (#tab=api-catalog)
+    function handleHashNavigation() {
+      const hash = window.location.hash;
+      if (!hash) return;
+      const match = hash.match(/tab=([a-z0-9-]+)/i);
+      if (match && TAB_IDS.includes(match[1])) {
+        switchTab(match[1]);
+      }
+    }
+
+    // Floorplan Non-Invasive Hotspot Bridge (ADR-054)
+    function setupFloorplanHotspots() {
+      const iframe = document.getElementById('floorplan-iframe');
+      if (!iframe) return;
+
+      const hookHotspots = () => {
+        try {
+          const doc = iframe.contentDocument || iframe.contentWindow.document;
+          if (!doc) return;
+
+          const mappings = [
+            { match: ['redis', 'websocket', 'pubsub', 'realtime'], tab: 'async-topology' },
+            { match: ['timescaledb', 'postgres', 'database', 'sql', 'lineage'], tab: 'db-lineage' },
+            { match: ['celery', 'worker', 'task', 'beat', 'flower'], tab: 'worker-tasks' },
+            { match: ['quant', 'metrics', 'formula', 'hurst', 'cycle', 'codex'], tab: 'quant-codex' },
+            { match: ['fastapi', 'endpoint', 'rest', 'api catalog', 'swagger'], tab: 'api-catalog' },
+            { match: ['pinia', 'frontend', 'store', 'vue'], tab: 'frontend-state' },
+            { match: ['threat', 'security', 'vault', 'p4 gate'], tab: 'threat-matrix' },
+            { match: ['ingestion', 'provider', 'provider', 'External Stream', 'feed'], tab: 'data-ingestion' },
+            { match: ['adr', 'governance', 'decision'], tab: 'adr-governance' },
+            { match: ['runbook', 'disaster recovery', 'ops'], tab: 'runbook-ops' },
+            { match: ['constitution', 'pilastri'], tab: 'framework-constitution' }
+          ];
+
+          doc.querySelectorAll('svg g, svg rect, svg text').forEach(el => {
+            const txt = (el.textContent || '').toLowerCase().trim();
+            if (txt.length < 3) return;
+
+            for (const m of mappings) {
+              if (m.match.some(k => txt.includes(k))) {
+                el.style.cursor = 'pointer';
+                el.setAttribute('title', `Clicca per aprire il tab: ${m.tab}`);
+                el.addEventListener('click', (e) => {
+                  e.stopPropagation();
+                  switchTab(m.tab);
+                });
+                break;
+              }
+            }
+          });
+        } catch(e) {}
+      };
+
+      iframe.addEventListener('load', hookHotspots);
+      hookHotspots();
+    }
+
+    window.addEventListener('message', (e) => {
+      if (e.data && e.data.action === 'switchTab' && e.data.tab) {
+        switchTab(e.data.tab);
+      }
+    });
+
+    window.addEventListener('hashchange', handleHashNavigation);
+    window.addEventListener('DOMContentLoaded', () => {
+      handleHashNavigation();
+      setupFloorplanHotspots();
+    });
+    setTimeout(handleHashNavigation, 200);
+    setTimeout(setupFloorplanHotspots, 600);
+  </script>
+
+</body>
+</html>

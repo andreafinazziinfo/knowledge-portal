@@ -1,0 +1,195 @@
+{
+  "nodes": [
+    {
+      "id": "class_app_services_order_service_py_OrderService",
+      "label": "OrderService",
+      "community": 0,
+      "color": "#38bdf8",
+      "degree": 1,
+      "path": "app/services/order_service.py",
+      "x": -400,
+      "y": -200,
+      "doc": ""
+    },
+    {
+      "id": "func_app_services_order_service_py___init__",
+      "label": "__init__()",
+      "community": 1,
+      "color": "#818cf8",
+      "degree": 1,
+      "path": "app/services/order_service.py",
+      "x": -360,
+      "y": -200,
+      "doc": ""
+    },
+    {
+      "id": "func_app_services_order_service_py_create_order",
+      "label": "create_order()",
+      "community": 2,
+      "color": "#34d399",
+      "degree": 1,
+      "path": "app/services/order_service.py",
+      "x": -320,
+      "y": -200,
+      "doc": ""
+    },
+    {
+      "id": "class_app_services_user_service_py_UserService",
+      "label": "UserService",
+      "community": 3,
+      "color": "#f472b6",
+      "degree": 1,
+      "path": "app/services/user_service.py",
+      "x": -280,
+      "y": -200,
+      "doc": ""
+    },
+    {
+      "id": "func_app_services_user_service_py___init__",
+      "label": "__init__()",
+      "community": 4,
+      "color": "#fbbf24",
+      "degree": 1,
+      "path": "app/services/user_service.py",
+      "x": -240,
+      "y": -200,
+      "doc": ""
+    },
+    {
+      "id": "func_app_services_user_service_py_register_user",
+      "label": "register_user()",
+      "community": 5,
+      "color": "#a78bfa",
+      "degree": 1,
+      "path": "app/services/user_service.py",
+      "x": -200,
+      "y": -200,
+      "doc": ""
+    },
+    {
+      "id": "func_app_services_user_service_py_get_user",
+      "label": "get_user()",
+      "community": 6,
+      "color": "#f87171",
+      "degree": 1,
+      "path": "app/services/user_service.py",
+      "x": -160,
+      "y": -200,
+      "doc": ""
+    },
+    {
+      "id": "class_app_models_user_py_User",
+      "label": "User",
+      "community": 7,
+      "color": "#2dd4bf",
+      "degree": 1,
+      "path": "app/models/user.py",
+      "x": -120,
+      "y": -200,
+      "doc": ""
+    },
+    {
+      "id": "func_app_models_user_py___init__",
+      "label": "__init__()",
+      "community": 8,
+      "color": "#fb923c",
+      "degree": 1,
+      "path": "app/models/user.py",
+      "x": -80,
+      "y": -200,
+      "doc": ""
+    },
+    {
+      "id": "func_app_models_user_py_to_dict",
+      "label": "to_dict()",
+      "community": 9,
+      "color": "#e879f9",
+      "degree": 1,
+      "path": "app/models/user.py",
+      "x": -40,
+      "y": -200,
+      "doc": ""
+    },
+    {
+      "id": "class_app_models_order_py_Order",
+      "label": "Order",
+      "community": 0,
+      "color": "#38bdf8",
+      "degree": 1,
+      "path": "app/models/order.py",
+      "x": 0,
+      "y": -200,
+      "doc": ""
+    },
+    {
+      "id": "func_app_models_order_py___init__",
+      "label": "__init__()",
+      "community": 1,
+      "color": "#818cf8",
+      "degree": 1,
+      "path": "app/models/order.py",
+      "x": 40,
+      "y": -200,
+      "doc": ""
+    },
+    {
+      "id": "func_app_models_order_py_mark_completed",
+      "label": "mark_completed()",
+      "community": 2,
+      "color": "#34d399",
+      "degree": 1,
+      "path": "app/models/order.py",
+      "x": 80,
+      "y": -200,
+      "doc": ""
+    }
+  ],
+  "edges": [
+    {
+      "source": "class_app_services_order_service_py_OrderService",
+      "target": "func_app_services_order_service_py___init__",
+      "type": "method_of"
+    },
+    {
+      "source": "class_app_services_order_service_py_OrderService",
+      "target": "func_app_services_order_service_py_create_order",
+      "type": "method_of"
+    },
+    {
+      "source": "class_app_services_user_service_py_UserService",
+      "target": "func_app_services_user_service_py___init__",
+      "type": "method_of"
+    },
+    {
+      "source": "class_app_services_user_service_py_UserService",
+      "target": "func_app_services_user_service_py_register_user",
+      "type": "method_of"
+    },
+    {
+      "source": "class_app_services_user_service_py_UserService",
+      "target": "func_app_services_user_service_py_get_user",
+      "type": "method_of"
+    },
+    {
+      "source": "class_app_models_user_py_User",
+      "target": "func_app_models_user_py___init__",
+      "type": "method_of"
+    },
+    {
+      "source": "class_app_models_user_py_User",
+      "target": "func_app_models_user_py_to_dict",
+      "type": "method_of"
+    },
+    {
+      "source": "class_app_models_order_py_Order",
+      "target": "func_app_models_order_py___init__",
+      "type": "method_of"
+    },
+    {
+      "source": "class_app_models_order_py_Order",
+      "target": "func_app_models_order_py_mark_completed",
+      "type": "method_of"
+    }
+  ],
+  "labels": {}
+}

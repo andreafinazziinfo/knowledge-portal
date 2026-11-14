@@ -1,0 +1,98 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Graphify Obsidian Canvas Grouped Layout</title>
+<script src="../data/config.js"></script>
+<script src="../data/graph_viz.js"></script>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { background: #070a13; color: #f1f5f9; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; height: 100vh; overflow: auto; padding: 20px; }
+  .canvas-header { margin-bottom: 16px; border-bottom: 1px solid #1e293b; padding-bottom: 10px; display: flex; justify-content: space-between; align-items: center; }
+  .canvas-header h2 { font-size: 15px; color: #38bdf8; font-weight: 700; }
+  .canvas-containers { display: flex; flex-direction: column; gap: 20px; }
+  .group-box { background: rgba(15, 23, 42, 0.6); border: 1.5px solid #1e293b; border-radius: 10px; padding: 16px; }
+  .group-title { font-size: 13px; font-weight: 700; color: #38bdf8; margin-bottom: 12px; display: flex; align-items: center; gap: 8px; }
+  .group-dot { width: 10px; height: 10px; border-radius: 50%; }
+  .cards-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 12px; }
+  .canvas-card { background: #0b101d; border: 1px solid #1e293b; border-radius: 6px; padding: 10px; cursor: pointer; transition: transform 0.15s, border-color 0.15s; }
+  .canvas-card:hover { transform: translateY(-2px); border-color: #38bdf8; }
+  .canvas-card-title { font-weight: 600; font-size: 12px; color: #f8fafc; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .canvas-card-path { font-size: 10px; color: #64748b; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; margin-top: 4px; }
+</style>
+  <script src="live-reload.js"></script>
+</head>
+<body>
+<div class="canvas-header">
+  <h2>🎨 Obsidian Canvas Grouped Containers</h2>
+  <span id="canvas-stats" style="font-size:11px; color:#64748b;">Loading grouped containers...</span>
+</div>
+<div class="canvas-containers" id="containers"></div>
+
+<script>
+  const COMMUNITY_COLORS = [
+    "#4E79A7", "#F28E2B", "#E15759", "#76B7B2", "#59A14F", 
+    "#EDC948", "#B07AA1", "#FF9DA7", "#9C755F", "#BAB0AC",
+    "#38bdf8", "#fbbf24", "#f87171", "#34d399", "#a78bfa"
+  ];
+
+  function getVizData() {
+    return window.GRAPH_VIZ || (window.parent && window.parent.GRAPH_VIZ) || { nodes: [] };
+  }
+
+  window.addEventListener('DOMContentLoaded', () => {
+    const raw = getVizData();
+    const nodes = raw.nodes || [];
+    const labelsMap = raw.labels || (window.GRAPH_LABELS) || {};
+    const containers = document.getElementById('containers');
+    containers.innerHTML = '';
+
+    // Group nodes by community into styled group boxes
+    const groups = {};
+    nodes.forEach(n => {
+      const cid = n.community || 0;
+      if (!groups[cid]) groups[cid] = [];
+      groups[cid].push(n);
+    });
+
+    document.getElementById('canvas-stats').textContent = `${nodes.length.toLocaleString()} files grouped into ${Object.keys(groups).length} Obsidian Canvas containers`;
+
+    Object.keys(groups).slice(0, 15).forEach(cid => {
+      const groupNodes = groups[cid];
+      const color = COMMUNITY_COLORS[cid % COMMUNITY_COLORS.length];
+      const commName = labelsMap[cid] || `Community Container ${cid}`;
+
+      const box = document.createElement('div');
+      box.className = 'group-box';
+      box.style.borderColor = color;
+
+      const title = document.createElement('div');
+      title.className = 'group-title';
+      title.innerHTML = `<div class="group-dot" style="background:${color};"></div><span>📦 ${commName} (${groupNodes.length} files)</span>`;
+      box.appendChild(title);
+
+      const cardsGrid = document.createElement('div');
+      cardsGrid.className = 'cards-grid';
+
+      groupNodes.slice(0, 40).forEach(n => {
+        const card = document.createElement('div');
+        card.className = 'canvas-card';
+        card.innerHTML = `
+          <div class="canvas-card-title">📄 ${n.label}</div>
+          <div class="canvas-card-path">${n.path}</div>
+        `;
+        card.onclick = () => {
+          if (window.parent && typeof window.parent.loadFile === 'function') {
+            window.parent.loadFile(n.path);
+          }
+        };
+        cardsGrid.appendChild(card);
+      });
+
+      box.appendChild(cardsGrid);
+      containers.appendChild(box);
+    });
+  });
+</script>
+</body>
+</html>
