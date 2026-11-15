@@ -19,8 +19,8 @@ class CodeVisitor(ast.NodeVisitor):
     def __init__(self, file_path: str, rel_path: str):
         self.file_path = file_path
         self.rel_path = rel_path
-        self.nodes = []
-        self.edges = []
+        self.nodes: List[Dict[str, Any]] = []
+        self.edges: List[Dict[str, Any]] = []
         self.current_class = None
 
     def visit_ClassDef(self, node):
