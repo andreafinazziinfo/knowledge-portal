@@ -4,8 +4,6 @@ Serves the portal web application, static vendor assets, and provides REST/SSE A
 Zero external runtime dependencies (Python standard library only).
 """
 
-import os
-import sys
 import json
 import time
 import urllib.parse

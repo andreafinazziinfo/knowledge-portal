@@ -43,7 +43,7 @@ def main():
         omni_file = pkg_root.parent / "template" / "views" / "data" / "omni-search-index.json"
         indexed_count = generate_search_index(target, omni_file)
 
-        print(f"✅ Scan complete!")
+        print("✅ Scan complete!")
         print(f"   AST Nodes: {stats['total_nodes']} | Edges: {stats['total_edges']} | Indexed Docs: {indexed_count}")
         print(f"   Data written to: {out}")
 

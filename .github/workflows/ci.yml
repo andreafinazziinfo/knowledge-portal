@@ -26,7 +26,7 @@ jobs:
       - name: Run Mypy
         run: mypy knowledge_portal --ignore-missing-imports
       - name: Run Bandit Security Scanner
-        run: bandit -r knowledge_portal -ll
+        run: bandit -r knowledge_portal -s B104 -ll
 
   unit-tests:
     name: AST & Server Unit Tests

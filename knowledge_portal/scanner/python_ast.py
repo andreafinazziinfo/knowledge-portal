@@ -8,7 +8,7 @@ import ast
 import os
 import json
 from pathlib import Path
-from typing import Dict, List, Any
+from typing import Dict, Any
 
 COMMUNITY_COLORS = [
     "#38bdf8", "#818cf8", "#34d399", "#f472b6", "#fbbf24",

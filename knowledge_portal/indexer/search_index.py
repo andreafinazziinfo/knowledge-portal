@@ -5,7 +5,6 @@ Indexes markdown documents, classes, and functions into a single omni-search-ind
 
 import json
 from pathlib import Path
-from typing import Dict, List, Any
 
 def generate_search_index(codebase_dir: Path, output_file: Path) -> int:
     entities = []
