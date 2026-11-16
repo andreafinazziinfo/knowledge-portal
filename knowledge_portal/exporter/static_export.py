@@ -6,11 +6,11 @@ ready for GitHub Pages, Netlify, or local offline browsing (file://).
 
 import shutil
 from pathlib import Path
-from typing import Any, Dict
+from typing import Any, Dict, Optional
 from knowledge_portal.scanner.polyglot import scan_polyglot_codebase
 from knowledge_portal.indexer.search_index import generate_search_index
 
-def export_static_portal(source_dir: Path, output_dir: Path, project_name: str = None) -> Dict[str, Any]:
+def export_static_portal(source_dir: Path, output_dir: Path, project_name: Optional[str] = None) -> Dict[str, Any]:
     source_dir = source_dir.resolve()
     output_dir = output_dir.resolve()
 
