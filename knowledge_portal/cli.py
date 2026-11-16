@@ -38,9 +38,10 @@ def main():
     args = parser.parse_args()
 
     if args.command == "scan":
+        from knowledge_portal.server import get_template_dir
         target = Path(args.path).resolve()
-        pkg_root = Path(__file__).resolve().parent
-        out = Path(args.output).resolve() if args.output else (pkg_root.parent / "template" / "data")
+        template_dir = get_template_dir()
+        out = Path(args.output).resolve() if args.output else (template_dir / "data")
 
         print(f"🔍 Scanning codebase: {target}")
         if args.classic:
@@ -51,7 +52,7 @@ def main():
             stats = scan_polyglot_codebase(target, out)
 
         from knowledge_portal.indexer.search_index import generate_search_index
-        omni_file = pkg_root.parent / "template" / "views" / "data" / "omni-search-index.json"
+        omni_file = template_dir / "views" / "data" / "omni-search-index.json"
         indexed_count = generate_search_index(target, omni_file)
 
         print("✅ Scan complete!")
@@ -65,10 +66,8 @@ def main():
         export_static_portal(target, out, project_name=args.name)
 
     elif args.command == "serve":
-        from knowledge_portal.server import run_server
-        pkg_root = Path(__file__).resolve().parent
-        template_dir = pkg_root.parent / "template"
-        run_server(host=args.host, port=args.port, template_dir=template_dir, project_dir=Path(args.dir))
+        from knowledge_portal.server import run_server, get_template_dir
+        run_server(host=args.host, port=args.port, template_dir=get_template_dir(), project_dir=Path(args.dir))
 
     elif args.command == "audit":
         audit_script = Path(__file__).resolve().parent.parent / "verify_sanitization.py"
