@@ -1359,8 +1359,8 @@
         if (w) w.textContent = window.PROJECT_CONFIG.projectName;
         document.title = window.PROJECT_CONFIG.projectName + " Wiki Portal";
       }
-      if (window.PROJECT_CONFIG && window.PROJECT_CONFIG.apiPort && window.location.protocol !== "file:") {
-        API_BASE = "http://localhost:" + window.PROJECT_CONFIG.apiPort;
+      if (window.location.protocol !== "file:") {
+        API_BASE = window.location.origin;
       } else {
         API_BASE = "";
       }

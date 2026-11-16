@@ -9,6 +9,7 @@ var pollTimer = null;
   }
 
   let lastKnownSync = null;
+  let pollTimer = null;
 
   function showToast(msg) {
     let toast = document.getElementById("portal-live-toast");
