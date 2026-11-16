@@ -158,6 +158,24 @@ knowledge-portal scan sample_project --output template/data
 knowledge-portal serve --port 8000 --dir sample_project
 ```
 
+### 4. Static Zero-Server Export (GitHub Pages)
+
+```bash
+# Export self-contained static site with pre-calculated graphs and omni-search
+knowledge-portal export /path/to/your/project --output ./dist --name "My Project"
+
+# The dist/ directory can be opened locally via file:// or pushed directly to GitHub Pages!
+```
+
+### 5. Run with Docker
+
+```bash
+# Pull and run the official lightweight multi-arch Alpine container (< 50MB)
+docker run -d -p 8000:8000 -v $(pwd):/app/data ghcr.io/andreafinazziinfo/knowledge-portal:latest
+```
+
+📖 **Per la guida operativa completa consulta il [Manuale Operativo](docs/MANUALE_OPERATIVO.md).**
+
 Open **`http://localhost:8000/dashboard.html`** in your browser.
 
 ---

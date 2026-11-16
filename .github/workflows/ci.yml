@@ -28,20 +28,32 @@ jobs:
       - name: Run Bandit Security Scanner
         run: bandit -r knowledge_portal -s B104 -ll
 
-  unit-tests:
-    name: AST & Server Unit Tests
+  polyglot-and-export-tests:
+    name: AST, Polyglot & Exporter Tests
     needs: code-quality
+    strategy:
+      matrix:
+        python-version: ["3.10", "3.11", "3.12"]
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - name: Set up Python
+      - name: Set up Python ${{ matrix.python-version }}
         uses: actions/setup-python@v5
         with:
-          python-version: "3.11"
+          python-version: ${{ matrix.python-version }}
       - name: Install Package
         run: pip install -e .[test]
+      - name: Run Polyglot Unit Tests
+        run: python -m unittest discover tests/unit -v
       - name: Test AST Scan on Sample Project
         run: |
           python -m knowledge_portal.cli scan sample_project --output template/data
           test -f template/data/graph.json
           test -f template/data/graph_viz.js
+      - name: Test Static Zero-Server Export
+        run: |
+          python -m knowledge_portal.cli export sample_project --output /tmp/static-dist
+          test -f /tmp/static-dist/index.html
+          test -f /tmp/static-dist/data/graph.json
+          test -f /tmp/static-dist/data/graph_viz.js
+          test -f /tmp/static-dist/.nojekyll

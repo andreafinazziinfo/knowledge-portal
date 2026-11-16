@@ -819,8 +819,10 @@
 
   </style>
 
-  <script src="assets/marked.min.js"></script>
+    <script src="assets/marked.min.js"></script>
 <script>if (typeof marked === "undefined") { document.write('<script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"><\/script>'); }</script>
+  <script src="vendor/mermaid.min.js"></script>
+<script>if (typeof mermaid === "undefined") { document.write('<script src="https://cdn.jsdelivr.net/npm/mermaid@10.9.1/dist/mermaid.min.js"><\/script>'); }</script>
 </head>
 <body>
 
@@ -1656,7 +1658,58 @@
       renderMarkdown(`# ${filePath.split('/').pop().replace('.md', '')}\n\n> Start the wiki server to view full content.`);
     }
 
-    function renderMarkdown(content) {
+        async function renderMermaidDiagrams(container) {
+      if (typeof mermaid === 'undefined') return;
+      try {
+        mermaid.initialize({
+          startOnLoad: false,
+          theme: 'dark',
+          securityLevel: 'loose',
+          themeVariables: {
+            darkMode: true,
+            background: '#090d16',
+            primaryColor: '#1e293b',
+            primaryTextColor: '#f8fafc',
+            primaryBorderColor: '#38bdf8',
+            lineColor: '#64748b',
+            secondaryColor: '#0f172a',
+            tertiaryColor: '#1e293b'
+          }
+        });
+      } catch (e) {
+        console.warn('Mermaid init warning:', e);
+      }
+
+      const codeBlocks = container.querySelectorAll('pre code.language-mermaid, pre code.lang-mermaid');
+      for (let i = 0; i < codeBlocks.length; i++) {
+        const codeEl = codeBlocks[i];
+        const preEl = codeEl.closest('pre');
+        if (!preEl) continue;
+        const rawCode = codeEl.textContent.trim();
+        const diagramId = 'mermaid-diag-' + Math.random().toString(36).substring(2, 9);
+        const wrapper = document.createElement('div');
+        wrapper.className = 'mermaid-container';
+        wrapper.style.background = '#090d16';
+        wrapper.style.border = '1px solid #1e293b';
+        wrapper.style.borderRadius = '8px';
+        wrapper.style.padding = '16px';
+        wrapper.style.margin = '18px 0';
+        wrapper.style.overflowX = 'auto';
+        wrapper.style.textAlign = 'center';
+
+        try {
+          const { svg } = await mermaid.render(diagramId, rawCode);
+          wrapper.innerHTML = svg;
+          preEl.parentNode.replaceChild(wrapper, preEl);
+        } catch (err) {
+          console.warn('Mermaid render error:', err);
+          wrapper.innerHTML = '<div style="color:#f87171; background:rgba(239,68,68,0.1); border:1px solid rgba(239,68,68,0.3); border-radius:6px; padding:10px 14px; font-size:12px; font-family:monospace; text-align:left;">⚠️ <strong>Diagramma Mermaid non renderizzabile:</strong> ' + esc(err.message || String(err)) + '</div><pre style="margin-top:8px; opacity:0.7; text-align:left;">' + esc(rawCode) + '</pre>';
+          preEl.parentNode.replaceChild(wrapper, preEl);
+        }
+      }
+    }
+
+    async function renderMarkdown(content) {
       const viewer = document.getElementById('reader-body');
       const editor = document.getElementById('editor-textarea');
       if (viewer) {
@@ -1666,6 +1719,7 @@
             return `<a href="#" class="wiki-link" data-target="${target}" onclick="loadFileByName('${target.replace(/'/g, "\\'")}'); return false;">${target}</a>`;
           });
           viewer.innerHTML = marked.parse(processed);
+          await renderMermaidDiagrams(viewer);
         } else {
           viewer.innerHTML = '<pre>' + esc(content) + '</pre>';
         }

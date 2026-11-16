@@ -32,14 +32,58 @@
     #sidebar { display: none; }
     #graph { width: 100vw !important; }
   }
+
+  .analytics-btn {
+    flex: 1;
+    background: #0f172a;
+    border: 1px solid #334155;
+    color: #cbd5e1;
+    padding: 6px 8px;
+    border-radius: 6px;
+    font-size: 11px;
+    font-weight: 600;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 4px;
+    transition: all 0.15s ease;
+  }
+  .analytics-btn:hover {
+    border-color: #38bdf8;
+    background: #1e293b;
+    color: #fff;
+  }
+  .analytics-btn.active-cycle {
+    background: rgba(239, 68, 68, 0.25) !important;
+    border-color: #ef4444 !important;
+    color: #f87171 !important;
+  }
+  .analytics-btn.active-orphan {
+    background: rgba(245, 158, 11, 0.25) !important;
+    border-color: #f59e0b !important;
+    color: #fbbf24 !important;
+  }
+
 </style>
   <script src="live-reload.js"></script>
 </head>
 <body>
 <div id="graph"></div>
 <div id="sidebar">
-  <div id="search-wrap">
+    <div id="search-wrap">
     <input id="search" type="text" placeholder="🔍 Search nodes..." autocomplete="off" oninput="filterGraphNodes(this.value)">
+    <div style="display:flex; gap:6px; margin-top:8px;">
+      <button id="btn-toggle-cycles" onclick="toggleCycles()" class="analytics-btn" title="Rileva e illumina dipendenze cicliche">
+        <span>🔴</span> Cicli
+      </button>
+      <button id="btn-toggle-orphans" onclick="toggleOrphans()" class="analytics-btn" title="Isola nodi senza collegamenti (orfani)">
+        <span>⚪</span> Orfani
+      </button>
+      <button id="btn-reset-analytics" onclick="resetAnalyticsView()" class="analytics-btn" title="Ripristina vista standard" style="display:none; max-width:32px;">
+        <span>↺</span>
+      </button>
+    </div>
   </div>
   <div id="info-panel">
     <h3>Node Inspector</h3>
@@ -67,6 +111,157 @@
   let network = null;
   let visNodesDataSet = null;
   let allNodesData = [];
+
+  // ── Graph Analytics Engine (Cicli & Orfani) ──
+  let analyticsMode = null; // 'cycles' | 'orphans' | null
+
+  function resetAnalyticsView() {
+    analyticsMode = null;
+    const btnC = document.getElementById('btn-toggle-cycles');
+    const btnO = document.getElementById('btn-toggle-orphans');
+    const btnR = document.getElementById('btn-reset-analytics');
+    if (btnC) btnC.classList.remove('active-cycle');
+    if (btnO) btnO.classList.remove('active-orphan');
+    if (btnR) btnR.style.display = 'none';
+
+    if (visNodesDataSet && allNodesData.length > 0) {
+      visNodesDataSet.update(allNodesData.map(n => ({
+        id: n.id,
+        color: n.color,
+        opacity: 1.0,
+        font: { color: '#f1f5f9' },
+        borderWidth: 1
+      })));
+    }
+    const info = document.getElementById('info-content');
+    if (info) info.innerHTML = '<span style="color:#64748b; font-style:italic;">Click a node to inspect details</span>';
+  }
+
+  function toggleCycles() {
+    if (analyticsMode === 'cycles') {
+      resetAnalyticsView();
+      return;
+    }
+    resetAnalyticsView();
+    analyticsMode = 'cycles';
+    const btnC = document.getElementById('btn-toggle-cycles');
+    const btnR = document.getElementById('btn-reset-analytics');
+    if (btnC) btnC.classList.add('active-cycle');
+    if (btnR) btnR.style.display = 'flex';
+
+    const raw = getVizData();
+    const nodes = raw.nodes || [];
+    const links = raw.links || [];
+
+    // Costruisci adiacenze dirette
+    const adj = new Map();
+    nodes.forEach(n => adj.set(n.id, []));
+    links.forEach(l => {
+      const u = typeof l.source === 'object' ? l.source.id : l.source;
+      const v = typeof l.target === 'object' ? l.target.id : l.target;
+      if (adj.has(u)) adj.get(u).push(v);
+    });
+
+    // DFS per trovare nodi in cicli diretti
+    const visited = new Set();
+    const recStack = new Set();
+    const cycleNodes = new Set();
+
+    function dfs(u, path) {
+      visited.add(u);
+      recStack.add(u);
+      path.push(u);
+
+      const neighbors = adj.get(u) || [];
+      for (const v of neighbors) {
+        if (!visited.has(v)) {
+          dfs(v, path);
+        } else if (recStack.has(v)) {
+          // Ciclo trovato!
+          const cycleStartIdx = path.indexOf(v);
+          if (cycleStartIdx !== -1) {
+            for (let i = cycleStartIdx; i < path.length; i++) {
+              cycleNodes.add(path[i]);
+            }
+          }
+        }
+      }
+      recStack.delete(u);
+      path.pop();
+    }
+
+    nodes.forEach(n => {
+      if (!visited.has(n.id)) dfs(n.id, []);
+    });
+
+    const info = document.getElementById('info-content');
+    if (cycleNodes.size === 0) {
+      if (info) {
+        info.innerHTML = '<div style="color:#10b981; font-weight:700; font-size:13px;">✅ Nessun Ciclo Rilevato</div><div style="font-size:12px; color:#94a3b8; margin-top:4px;">Il grafo delle dipendenze è un <strong>DAG aciclico perfetto</strong> (zero accoppiamenti circolari).</div>';
+      }
+    } else {
+      if (info) {
+        info.innerHTML = `<div style="color:#ef4444; font-weight:700; font-size:13px;">⚠️ ${cycleNodes.size} Nodi in Dipendenze Cicliche</div><div style="font-size:12px; color:#94a3b8; margin-top:4px;">I nodi ciclici sono evidenziati in <strong>rosso brillante</strong>. Gli altri nodi sono attenuati.</div>`;
+      }
+      if (visNodesDataSet) {
+        const updates = allNodesData.map(n => {
+          if (cycleNodes.has(n.id)) {
+            return { id: n.id, color: '#ef4444', font: { color: '#fca5a5' }, borderWidth: 3, opacity: 1.0 };
+          } else {
+            return { id: n.id, color: '#1e293b', font: { color: '#475569' }, borderWidth: 1, opacity: 0.15 };
+          }
+        });
+        visNodesDataSet.update(updates);
+      }
+    }
+  }
+
+  function toggleOrphans() {
+    if (analyticsMode === 'orphans') {
+      resetAnalyticsView();
+      return;
+    }
+    resetAnalyticsView();
+    analyticsMode = 'orphans';
+    const btnO = document.getElementById('btn-toggle-orphans');
+    const btnR = document.getElementById('btn-reset-analytics');
+    if (btnO) btnO.classList.add('active-orphan');
+    if (btnR) btnR.style.display = 'flex';
+
+    const raw = getVizData();
+    const nodes = raw.nodes || [];
+    const links = raw.links || [];
+
+    const connectedNodes = new Set();
+    links.forEach(l => {
+      const u = typeof l.source === 'object' ? l.source.id : l.source;
+      const v = typeof l.target === 'object' ? l.target.id : l.target;
+      connectedNodes.add(u);
+      connectedNodes.add(v);
+    });
+
+    const orphanNodes = new Set();
+    nodes.forEach(n => {
+      if (!connectedNodes.has(n.id)) orphanNodes.add(n.id);
+    });
+
+    const info = document.getElementById('info-content');
+    if (info) {
+      info.innerHTML = `<div style="color:#f59e0b; font-weight:700; font-size:13px;">⚪ ${orphanNodes.size} Nodi Orfani / Isolati</div><div style="font-size:12px; color:#94a3b8; margin-top:4px;">Nodi senza alcuna connessione in entrata o uscita (possibile codice morto o note non referenziate).</div>`;
+    }
+
+    if (visNodesDataSet) {
+      const updates = allNodesData.map(n => {
+        if (orphanNodes.has(n.id)) {
+          return { id: n.id, color: '#f59e0b', font: { color: '#fef08a' }, borderWidth: 3, opacity: 1.0 };
+        } else {
+          return { id: n.id, color: '#1e293b', font: { color: '#475569' }, borderWidth: 1, opacity: 0.12 };
+        }
+      });
+      visNodesDataSet.update(updates);
+    }
+  }
+
 
   function initGraph() {
     const raw = getVizData();

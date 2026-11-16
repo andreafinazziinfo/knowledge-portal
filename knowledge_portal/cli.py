@@ -16,7 +16,14 @@ def main():
     # Command: scan
     scan_p = subparsers.add_parser("scan", help="Scan codebase AST and generate graph data")
     scan_p.add_argument("path", nargs="?", default=".", help="Root directory of the codebase to scan (default: current directory)")
-    scan_p.add_argument("--output", "-o", default=None, help="Output directory for generated graph data (default: ./knowledge-portal-data)")
+    scan_p.add_argument("--output", "-o", default=None, help="Output directory for generated graph data (default: ./template/data)")
+    scan_p.add_argument("--classic", action="store_true", help="Use classic Python-only AST scanner instead of polyglot")
+
+    # Command: export
+    export_p = subparsers.add_parser("export", help="Export static zero-server bundle ready for GitHub Pages or offline use")
+    export_p.add_argument("path", nargs="?", default=".", help="Root directory of the codebase to export (default: current directory)")
+    export_p.add_argument("--output", "-o", default="./dist", help="Output directory for static site (default: ./dist)")
+    export_p.add_argument("--name", "-n", default=None, help="Project name (default: directory name)")
 
     # Command: serve
     serve_p = subparsers.add_parser("serve", help="Start the Knowledge Portal HTTP server with SSE live-reload")
@@ -31,21 +38,31 @@ def main():
     args = parser.parse_args()
 
     if args.command == "scan":
-        from knowledge_portal.scanner.python_ast import scan_codebase
-        from knowledge_portal.indexer.search_index import generate_search_index
-
         target = Path(args.path).resolve()
         pkg_root = Path(__file__).resolve().parent
         out = Path(args.output).resolve() if args.output else (pkg_root.parent / "template" / "data")
 
         print(f"🔍 Scanning codebase: {target}")
-        stats = scan_codebase(target, out)
+        if args.classic:
+            from knowledge_portal.scanner.python_ast import scan_codebase
+            stats = scan_codebase(target, out)
+        else:
+            from knowledge_portal.scanner.polyglot import scan_polyglot_codebase
+            stats = scan_polyglot_codebase(target, out)
+
+        from knowledge_portal.indexer.search_index import generate_search_index
         omni_file = pkg_root.parent / "template" / "views" / "data" / "omni-search-index.json"
         indexed_count = generate_search_index(target, omni_file)
 
         print("✅ Scan complete!")
-        print(f"   AST Nodes: {stats['total_nodes']} | Edges: {stats['total_edges']} | Indexed Docs: {indexed_count}")
+        print(f"   Architecture Nodes: {stats['total_nodes']} | Edges: {stats['total_edges']} | Indexed Docs: {indexed_count}")
         print(f"   Data written to: {out}")
+
+    elif args.command == "export":
+        from knowledge_portal.exporter.static_export import export_static_portal
+        target = Path(args.path).resolve()
+        out = Path(args.output).resolve()
+        export_static_portal(target, out, project_name=args.name)
 
     elif args.command == "serve":
         from knowledge_portal.server import run_server
