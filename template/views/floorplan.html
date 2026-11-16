@@ -1,0 +1,182 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Architecture Full-Stack Floorplan</title>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    background: #050811;
+    color: #f1f5f9;
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+    display: flex;
+    flex-direction: column;
+    height: 100vh;
+    overflow: hidden;
+  }
+  header {
+    padding: 12px 20px;
+    background: #0b101d;
+    border-bottom: 1px solid #1e293b;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    flex-shrink: 0;
+  }
+  header h1 {
+    font-size: 15px;
+    font-weight: 700;
+    color: #38bdf8;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+  .badge {
+    background: rgba(56, 189, 248, 0.15);
+    border: 1px solid rgba(56, 189, 248, 0.3);
+    color: #38bdf8;
+    font-size: 11px;
+    padding: 2px 8px;
+    border-radius: 12px;
+  }
+  #main {
+    flex: 1;
+    display: flex;
+    overflow: hidden;
+    position: relative;
+  }
+  #svg-container {
+    flex: 1;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    padding: 20px;
+    overflow: auto;
+  }
+  svg {
+    max-width: 100%;
+    max-height: 100%;
+    filter: drop-shadow(0 10px 25px rgba(0,0,0,0.5));
+  }
+  .box {
+    transition: all 0.2s ease;
+    cursor: pointer;
+  }
+  .box:hover {
+    filter: brightness(1.2);
+  }
+  #sidebar {
+    width: 320px;
+    background: #090e1a;
+    border-left: 1px solid #1e293b;
+    padding: 20px;
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+    overflow-y: auto;
+    flex-shrink: 0;
+  }
+  #sidebar h2 {
+    font-size: 13px;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    color: #38bdf8;
+  }
+  .card {
+    background: #0f172a;
+    border: 1px solid #1e293b;
+    border-radius: 8px;
+    padding: 14px;
+    font-size: 13px;
+    line-height: 1.5;
+    color: #94a3b8;
+  }
+  .card strong { color: #f8fafc; }
+  @media (max-width: 768px) {
+    #sidebar { display: none; }
+  }
+</style>
+</head>
+<body>
+<header>
+  <h1><span>🏗️</span> Architecture Full-Stack Floorplan</h1>
+  <span class="badge">Universal SVG Blueprint</span>
+</header>
+<div id="main">
+  <div id="svg-container">
+    <svg viewBox="0 0 900 550" width="900" height="550" xmlns="http://www.w3.org/2000/svg">
+      <defs>
+        <linearGradient id="gradClient" x1="0" y1="0" x2="1" y2="1">
+          <stop offset="0%" stop-color="#1e293b"/>
+          <stop offset="100%" stop-color="#0f172a"/>
+        </linearGradient>
+        <linearGradient id="gradApi" x1="0" y1="0" x2="1" y2="1">
+          <stop offset="0%" stop-color="#0c4a6e"/>
+          <stop offset="100%" stop-color="#0369a1"/>
+        </linearGradient>
+        <linearGradient id="gradCore" x1="0" y1="0" x2="1" y2="1">
+          <stop offset="0%" stop-color="#4c1d95"/>
+          <stop offset="100%" stop-color="#6d28d9"/>
+        </linearGradient>
+        <linearGradient id="gradDb" x1="0" y1="0" x2="1" y2="1">
+          <stop offset="0%" stop-color="#064e3b"/>
+          <stop offset="100%" stop-color="#047857"/>
+        </linearGradient>
+      </defs>
+
+      <!-- Client Tier -->
+      <g class="box" onclick="showDetails('Clients & UI Shell', 'Vue 3, TypeScript, React o CLI frontend. Responsabile per la presentazione dati, interattività e navigazione visuale.')">
+        <rect x="50" y="40" width="800" height="90" rx="10" fill="url(#gradClient)" stroke="#334155" stroke-width="2"/>
+        <text x="70" y="70" fill="#38bdf8" font-size="14" font-weight="700">LAYER 1: PRESENTATION &amp; CLIENTS</text>
+        <text x="70" y="100" fill="#94a3b8" font-size="12">Web App (Vue 3 / React) · Mobile Responsive Shell · CLI Terminal Tools · API Consumers</text>
+      </g>
+
+      <!-- Connection 1 -> 2 -->
+      <line x1="450" y1="130" x2="450" y2="170" stroke="#38bdf8" stroke-width="3" stroke-dasharray="5,5"/>
+
+      <!-- API Gateway Tier -->
+      <g class="box" onclick="showDetails('API Gateway &amp; Event Bus', 'FastAPI, Express o Reverse Proxy Nginx. Gestisce routing REST, streaming SSE/WebSocket e sicurezza.')">
+        <rect x="50" y="170" width="800" height="90" rx="10" fill="url(#gradApi)" stroke="#0284c7" stroke-width="2"/>
+        <text x="70" y="200" fill="#e0f2fe" font-size="14" font-weight="700">LAYER 2: API GATEWAY &amp; REAL-TIME BUS</text>
+        <text x="70" y="230" fill="#bae6fd" font-size="12">REST Endpoints · WebSocket Real-Time Bridge · SSE Live Streams · Auth &amp; Rate-Limiting</text>
+      </g>
+
+      <!-- Connection 2 -> 3 -->
+      <line x1="450" y1="260" x2="450" y2="300" stroke="#a78bfa" stroke-width="3" stroke-dasharray="5,5"/>
+
+      <!-- Core Logic Tier -->
+      <g class="box" onclick="showDetails('Core Services &amp; Workers', 'Logica applicativa core, elaborazione dati, code asincrone Celery/Redis e worker in background.')">
+        <rect x="50" y="300" width="800" height="90" rx="10" fill="url(#gradCore)" stroke="#8b5cf6" stroke-width="2"/>
+        <text x="70" y="330" fill="#ede9fe" font-size="14" font-weight="700">LAYER 3: DOMAIN LOGIC &amp; ASYNC WORKERS</text>
+        <text x="70" y="360" fill="#ddd6fe" font-size="12">Business Services · Calculation Engines · Background Tasks · Data Pipelines</text>
+      </g>
+
+      <!-- Connection 3 -> 4 -->
+      <line x1="450" y1="390" x2="450" y2="430" stroke="#34d399" stroke-width="3" stroke-dasharray="5,5"/>
+
+      <!-- Database & Storage Tier -->
+      <g class="box" onclick="showDetails('Persistence &amp; Storage', 'TimescaleDB, PostgreSQL, Redis cache e storage filesystem. Persistenza affidabile e caching ad alta velocità.')">
+        <rect x="50" y="430" width="800" height="90" rx="10" fill="url(#gradDb)" stroke="#10b981" stroke-width="2"/>
+        <text x="70" y="460" fill="#d1fae5" font-size="14" font-weight="700">LAYER 4: PERSISTENCE &amp; STORAGE</text>
+        <text x="70" y="490" fill="#a7f3d0" font-size="12">Relational &amp; Time-Series DB (Postgres/Timescale) · Redis In-Memory Cache · Blob Storage</text>
+      </g>
+    </svg>
+  </div>
+  <div id="sidebar">
+    <h2>Dettagli Layer</h2>
+    <div class="card" id="details-card">
+      <strong>Tocca o clicca un blocco</strong> dell'architettura per ispezionarne il ruolo, le tecnologie e i flussi di comunicazione.
+    </div>
+  </div>
+</div>
+<script>
+  function showDetails(title, desc) {
+    const card = document.getElementById('details-card');
+    if (card) {
+      card.innerHTML = `<strong style="color:#38bdf8; font-size:14px; display:block; margin-bottom:6px;">${title}</strong>${desc}`;
+    }
+  }
+</script>
+</body>
+</html>

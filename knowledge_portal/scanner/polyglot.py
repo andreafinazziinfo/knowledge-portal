@@ -1,7 +1,7 @@
 """
 Polyglot Architecture AST Scanner (Zero Dependencies)
-Scans Python, TypeScript, JavaScript, Vue, Go, and Rust source trees,
-extracts structural symbols (classes, interfaces, functions, stores, structs, methods),
+Scans Python, TypeScript, JavaScript, Vue, Go, Rust, C/C++, Java/Kotlin, C#, and SQL source trees,
+extracts structural symbols (classes, interfaces, functions, stores, structs, methods, tables),
 and maps inter-file dependency edges into unified graph structures (graph.json and graph_viz.js).
 """
 
@@ -61,20 +61,13 @@ class PolyglotScanner:
 
     def parse_typescript_javascript(self, content: str, rel_path: str):
         lines = content.splitlines()
-
-        # 1. Classes & Interfaces
         cls_pattern = re.compile(r"^\s*(?:export\s+)?(?:default\s+)?(?:abstract\s+)?(class|interface)\s+([A-Za-z0-9_]+)")
-        # 2. Pinia Stores: const use...Store = defineStore('name', ...)
         pinia_pattern = re.compile(r"^\s*(?:export\s+)?const\s+(use[A-Za-z0-9_]*Store)\s*=\s*defineStore\s*\(\s*['\"]([^'\"]+)['\"]")
-        # 3. Functions
         func_pattern = re.compile(r"^\s*(?:export\s+)?(?:async\s+)?function\s+([A-Za-z0-9_]+)\s*\(")
-        # 4. Exported Arrow Functions / Constants
         const_fn_pattern = re.compile(r"^\s*export\s+const\s+([A-Za-z0-9_]+)\s*=\s*(?:async\s*)?\(")
-        # 5. Imports
         import_pattern = re.compile(r"import\s+.*?from\s+['\"]([^'\"]+)['\"]")
 
         for idx, line in enumerate(lines, start=1):
-            # Classes / Interfaces
             m_cls = cls_pattern.search(line)
             if m_cls:
                 kind, name = m_cls.group(1), m_cls.group(2)
@@ -90,7 +83,6 @@ class PolyglotScanner:
                 })
                 continue
 
-            # Pinia Stores
             m_pinia = pinia_pattern.search(line)
             if m_pinia:
                 store_var, store_id = m_pinia.group(1), m_pinia.group(2)
@@ -106,7 +98,6 @@ class PolyglotScanner:
                 })
                 continue
 
-            # Functions
             m_fn = func_pattern.search(line) or const_fn_pattern.search(line)
             if m_fn:
                 name = m_fn.group(1)
@@ -121,22 +112,18 @@ class PolyglotScanner:
                     "doc": "TypeScript Function"
                 })
 
-            # Imports
             m_imp = import_pattern.search(line)
             if m_imp:
                 imp_target = m_imp.group(1)
-                if not imp_target.startswith("."):
-                    continue
-                # Create a dependency edge
-                target_rel = os.path.normpath(os.path.join(os.path.dirname(rel_path), imp_target)).replace("\\", "/")
-                self.edges.append({
-                    "source": rel_path,
-                    "target": target_rel,
-                    "type": "imports"
-                })
+                if imp_target.startswith("."):
+                    target_rel = os.path.normpath(os.path.join(os.path.dirname(rel_path), imp_target)).replace("\\", "/")
+                    self.edges.append({
+                        "source": rel_path,
+                        "target": target_rel,
+                        "type": "imports"
+                    })
 
     def parse_vue(self, content: str, rel_path: str):
-        # Extract script section
         script_match = re.search(r"<script[^>]*>(.*?)</script>", content, re.DOTALL)
         comp_name = Path(rel_path).stem
         comp_id = f"vue_comp_{sanitize_id(rel_path)}_{comp_name}"
@@ -149,16 +136,12 @@ class PolyglotScanner:
             "line": 1,
             "doc": "Vue 3 Component"
         })
-
         if script_match:
-            script_content = script_match.group(1)
-            self.parse_typescript_javascript(script_content, rel_path)
+            self.parse_typescript_javascript(script_match.group(1), rel_path)
 
     def parse_go(self, content: str, rel_path: str):
         lines = content.splitlines()
-        # Structs & Interfaces
         type_pattern = re.compile(r"^\s*type\s+([A-Za-z0-9_]+)\s+(struct|interface)")
-        # Functions & Methods
         fn_pattern = re.compile(r"^\s*func\s+(?:\((?:[A-Za-z0-9_*\s]+)\)\s+)?([A-Za-z0-9_]+)\s*\(")
 
         for idx, line in enumerate(lines, start=1):
@@ -193,9 +176,7 @@ class PolyglotScanner:
 
     def parse_rust(self, content: str, rel_path: str):
         lines = content.splitlines()
-        # Struct, Enum, Trait
         decl_pattern = re.compile(r"^\s*(?:pub(?:\([^)]+\))?\s+)?(struct|enum|trait)\s+([A-Za-z0-9_]+)")
-        # Functions
         fn_pattern = re.compile(r"^\s*(?:pub(?:\([^)]+\))?\s+)?(?:async\s+)?fn\s+([A-Za-z0-9_]+)")
 
         for idx, line in enumerate(lines, start=1):
@@ -228,15 +209,158 @@ class PolyglotScanner:
                     "doc": "Rust Function"
                 })
 
+    def parse_cpp_c(self, content: str, rel_path: str):
+        lines = content.splitlines()
+        cls_pattern = re.compile(r"^\s*(?:class|struct)\s+([A-Za-z0-9_]+)\s*(?::\s*[^{]*)?\{?")
+        fn_pattern = re.compile(r"^\s*(?:(?:virtual|static|inline|explicit)\s+)*[A-Za-z0-9_:<>&*]+\s+([A-Za-z0-9_]+)\s*\([^)]*\)\s*(?:const)?\s*(?:\{.*)?$")
+
+        for idx, line in enumerate(lines, start=1):
+            m_c = cls_pattern.search(line)
+            if m_c:
+                name = m_c.group(1)
+                c_id = f"cpp_cls_{sanitize_id(rel_path)}_{name}"
+                self.nodes.append({
+                    "id": c_id,
+                    "label": name,
+                    "type": "class",
+                    "lang": "cpp",
+                    "path": rel_path,
+                    "line": idx,
+                    "doc": "C/C++ Class/Struct"
+                })
+                continue
+
+            m_f = fn_pattern.search(line)
+            if m_f:
+                name = m_f.group(1)
+                if name not in ["if", "for", "while", "switch"]:
+                    f_id = f"cpp_fn_{sanitize_id(rel_path)}_{name}"
+                    self.nodes.append({
+                        "id": f_id,
+                        "label": f"{name}()",
+                        "type": "function",
+                        "lang": "cpp",
+                        "path": rel_path,
+                        "line": idx,
+                        "doc": "C/C++ Function"
+                    })
+
+    def parse_java_kotlin(self, content: str, rel_path: str):
+        lines = content.splitlines()
+        type_pattern = re.compile(r"^\s*(?:public|protected|private)?\s*(?:abstract|final|open|data)?\s*(class|interface|enum|record)\s+([A-Za-z0-9_]+)")
+        fn_pattern = re.compile(r"^\s*(?:public|protected|private|override)?\s*(?:fun\s+|[A-Za-z0-9_<>\[\]]+\s+)([A-Za-z0-9_]+)\s*\(")
+
+        for idx, line in enumerate(lines, start=1):
+            m_t = type_pattern.search(line)
+            if m_t:
+                kind, name = m_t.group(1), m_t.group(2)
+                t_id = f"jvm_{kind}_{sanitize_id(rel_path)}_{name}"
+                self.nodes.append({
+                    "id": t_id,
+                    "label": name,
+                    "type": kind,
+                    "lang": "java",
+                    "path": rel_path,
+                    "line": idx,
+                    "doc": f"JVM {kind}"
+                })
+                continue
+
+            m_fn = fn_pattern.search(line)
+            if m_fn:
+                name = m_fn.group(1)
+                if name not in ["if", "for", "while", "catch", "synchronized"]:
+                    f_id = f"jvm_fn_{sanitize_id(rel_path)}_{name}"
+                    self.nodes.append({
+                        "id": f_id,
+                        "label": f"{name}()",
+                        "type": "function",
+                        "lang": "java",
+                        "path": rel_path,
+                        "line": idx,
+                        "doc": "JVM Method"
+                    })
+
+    def parse_csharp(self, content: str, rel_path: str):
+        lines = content.splitlines()
+        type_pattern = re.compile(r"^\s*(?:public|internal|private)?\s*(?:static|abstract|sealed)?\s*(class|interface|record|struct)\s+([A-Za-z0-9_]+)")
+        fn_pattern = re.compile(r"^\s*(?:public|private|protected|internal)\s+(?:async\s+)?[A-Za-z0-9_<>\[\]]+\s+([A-Za-z0-9_]+)\s*\(")
+
+        for idx, line in enumerate(lines, start=1):
+            m_t = type_pattern.search(line)
+            if m_t:
+                kind, name = m_t.group(1), m_t.group(2)
+                t_id = f"cs_{kind}_{sanitize_id(rel_path)}_{name}"
+                self.nodes.append({
+                    "id": t_id,
+                    "label": name,
+                    "type": kind,
+                    "lang": "csharp",
+                    "path": rel_path,
+                    "line": idx,
+                    "doc": f"C# {kind}"
+                })
+                continue
+
+            m_fn = fn_pattern.search(line)
+            if m_fn:
+                name = m_fn.group(1)
+                f_id = f"cs_fn_{sanitize_id(rel_path)}_{name}"
+                self.nodes.append({
+                    "id": f_id,
+                    "label": f"{name}()",
+                    "type": "function",
+                    "lang": "csharp",
+                    "path": rel_path,
+                    "line": idx,
+                    "doc": "C# Method"
+                })
+
+    def parse_sql(self, content: str, rel_path: str):
+        table_pattern = re.compile(r"CREATE\s+TABLE\s+(?:IF\s+NOT\s+EXISTS\s+)?([A-Za-z0-9_.\"']+)", re.IGNORECASE)
+        fk_pattern = re.compile(r"FOREIGN\s+KEY\s*\([^)]+\)\s*REFERENCES\s+([A-Za-z0-9_.\"']+)", re.IGNORECASE)
+
+        current_table = None
+        for line in content.splitlines():
+            m_tbl = table_pattern.search(line)
+            if m_tbl:
+                raw_tbl = m_tbl.group(1).strip("\"'").split(".")[-1]
+                t_id = f"sql_tbl_{sanitize_id(rel_path)}_{raw_tbl}"
+                current_table = t_id
+                self.nodes.append({
+                    "id": t_id,
+                    "label": f"🗄️ {raw_tbl}",
+                    "type": "table",
+                    "lang": "sql",
+                    "path": rel_path,
+                    "line": 1,
+                    "doc": "SQL Table"
+                })
+                continue
+
+            m_fk = fk_pattern.search(line)
+            if m_fk and current_table:
+                ref_tbl = m_fk.group(1).strip("\"'").split(".")[-1]
+                self.edges.append({
+                    "source": current_table,
+                    "target": ref_tbl,
+                    "type": "foreign_key"
+                })
+
     def scan(self, max_files: int = 15000) -> Tuple[List[Dict[str, Any]], List[Dict[str, Any]]]:
+        supported_exts = {
+            ".py", ".ts", ".js", ".vue", ".go", ".rs",
+            ".cpp", ".c", ".h", ".hpp", ".cc", ".cxx",
+            ".java", ".kt", ".cs", ".sql"
+        }
         for root, _, files in os.walk(self.target_dir):
-            if any(p in root for p in [".git", "node_modules", "dist", "build", "target", "vendor", "__pycache__", ".venv", "venv"]):
+            if any(p in root for p in [".git", "node_modules", "dist", "build", "target", "vendor", "__pycache__", ".venv", "venv", "bin", "obj"]):
                 continue
             for file in files:
                 if self.file_count >= max_files:
                     break
                 ext = Path(file).suffix.lower()
-                if ext not in [".py", ".ts", ".js", ".vue", ".go", ".rs"]:
+                if ext not in supported_exts:
                     continue
 
                 fpath = Path(root) / file
@@ -244,7 +368,6 @@ class PolyglotScanner:
                 self.file_count += 1
 
                 try:
-                    # Circuit breaker on file size: skip files > 1.5MB
                     if fpath.stat().st_size > 1_500_000:
                         continue
                     content = fpath.read_text(encoding="utf-8", errors="replace")
@@ -260,6 +383,14 @@ class PolyglotScanner:
                         self.parse_go(content, rel)
                     elif ext == ".rs":
                         self.parse_rust(content, rel)
+                    elif ext in [".cpp", ".c", ".h", ".hpp", ".cc", ".cxx"]:
+                        self.parse_cpp_c(content, rel)
+                    elif ext in [".java", ".kt"]:
+                        self.parse_java_kotlin(content, rel)
+                    elif ext == ".cs":
+                        self.parse_csharp(content, rel)
+                    elif ext == ".sql":
+                        self.parse_sql(content, rel)
                 except Exception as e:
                     print(f"[Polyglot Scanner] Warning: could not parse {rel}: {e}")
 
@@ -271,7 +402,6 @@ def scan_polyglot_codebase(target_dir: Path, output_dir: Path) -> Dict[str, Any]
 
     output_dir.mkdir(parents=True, exist_ok=True)
 
-    # Assign layout coordinates and communities
     viz_nodes = []
     for i, node in enumerate(nodes):
         comm = i % len(COMMUNITY_COLORS)
@@ -294,7 +424,6 @@ def scan_polyglot_codebase(target_dir: Path, output_dir: Path) -> Dict[str, Any]
         "labels": {}
     }
 
-    # Write data files
     graph_json_path = output_dir / "graph.json"
     graph_viz_js = output_dir / "graph_viz.js"
     config_js = output_dir / "config.js"

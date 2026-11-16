@@ -10,8 +10,20 @@ import urllib.parse
 from pathlib import Path
 from http.server import ThreadingHTTPServer, SimpleHTTPRequestHandler
 
+def get_template_dir() -> Path:
+    candidates = [
+        Path(__file__).resolve().parent.parent / "template",
+        Path.cwd() / "template",
+        Path("/app/template"),
+        Path(__file__).resolve().parent / "template",
+    ]
+    for c in candidates:
+        if c.exists() and (c / "dashboard.html").exists():
+            return c
+    return candidates[0]
+
 class PortalRequestHandler(SimpleHTTPRequestHandler):
-    template_dir = Path(__file__).resolve().parent.parent / "template"
+    template_dir = get_template_dir()
     project_dir = Path.cwd()
 
     def send_cors_headers(self):
@@ -147,8 +159,7 @@ class PortalRequestHandler(SimpleHTTPRequestHandler):
         self.wfile.write(content)
 
 def run_server(host="0.0.0.0", port=8000, template_dir=None, project_dir=None):
-    if template_dir:
-        PortalRequestHandler.template_dir = Path(template_dir)
+    PortalRequestHandler.template_dir = Path(template_dir) if template_dir else get_template_dir()
     if project_dir:
         PortalRequestHandler.project_dir = Path(project_dir)
 
