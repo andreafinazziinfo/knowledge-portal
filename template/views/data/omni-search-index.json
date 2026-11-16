@@ -1,0 +1,65 @@
+{
+  "total": 6,
+  "entities": [
+    {
+      "id": "doc_README.md",
+      "title": "\ud83c\udf0c Knowledge Portal",
+      "subtitle": "README.md",
+      "badge": "\ud83d\udcd6 Note",
+      "category": "documentation",
+      "tab": "reader",
+      "path": "README.md",
+      "search_text": "# \ud83c\udf0c Knowledge Portal\n\n> **Universal Interactive Software Architecture, Multi-Dimensional AST Knowledge Graph & Air-Gapped Documentation Engine**\n\n[![CI Suite](https://github.com/andreafinazziinfo/knowledge-portal/actions/workflows/ci.yml/badge.svg)](https://github.com/andreafinazziinfo/knowledge-portal/actions)\n[![License: Apache 2.0](https://img.shields.io/badge/License-Apache%202.0-blue.svg)](LICENSE)\n[![Python: 3.10+](https://img.shields.io/badge/python-3.10+-blue.svg)](https://www.python.org"
+    },
+    {
+      "id": "doc_.pytest_cache/README.md",
+      "title": "pytest cache directory",
+      "subtitle": ".pytest_cache/README.md",
+      "badge": "\ud83d\udcd6 Note",
+      "category": "documentation",
+      "tab": "reader",
+      "path": ".pytest_cache/README.md",
+      "search_text": "# pytest cache directory #\n\nThis directory contains data from the pytest's cache plugin,\nwhich provides the `--lf` and `--ff` options, as well as the `cache` fixture.\n\n**Do not** commit this to version control.\n\nSee [the docs](https://docs.pytest.org/en/stable/how-to/cache.html) for more information.\n"
+    },
+    {
+      "id": "doc_docs/MANUALE_OPERATIVO.md",
+      "title": "\ud83d\udcd8 Manuale Operativo \u2014 Knowledge Portal (V2.2)",
+      "subtitle": "docs/MANUALE_OPERATIVO.md",
+      "badge": "\ud83d\udcd6 Note",
+      "category": "documentation",
+      "tab": "reader",
+      "path": "docs/MANUALE_OPERATIVO.md",
+      "search_text": "# \ud83d\udcd8 Manuale Operativo \u2014 Knowledge Portal (V2.2)\n\n> **Piattaforma**: Knowledge Portal \u2014 Architecture Intelligence & Living Documentation Engine  \n> **Versione**: 2.2.0 (Pragmatic Streamlined Release)  \n> **Licenza**: Apache 2.0 (Open Source)\n\n---\n\n## 1. Introduzione & Architettura\n\n**Knowledge Portal** trasforma qualsiasi repository o codebase complessa in un portale interattivo esplorabile via browser (desktop e mobile). Non richiede framework esterni pesanti: il core server, lo scanner poliglot"
+    },
+    {
+      "id": "doc_sample_project/docs/adr-001.md",
+      "title": "ADR-001: Adoption of Hexagonal Architecture",
+      "subtitle": "sample_project/docs/adr-001.md",
+      "badge": "\ud83d\udcd6 Note",
+      "category": "documentation",
+      "tab": "reader",
+      "path": "sample_project/docs/adr-001.md",
+      "search_text": "# ADR-001: Adoption of Hexagonal Architecture\n\n- **Status**: Accepted\n- **Context**: Decouple domain entities from external storage.\n- **Decision**: Implement domain-driven design with decoupled services.\n"
+    },
+    {
+      "id": "doc_sample_project/docs/architecture.md",
+      "title": "Architecture Overview",
+      "subtitle": "sample_project/docs/architecture.md",
+      "badge": "\ud83d\udcd6 Note",
+      "category": "documentation",
+      "tab": "reader",
+      "path": "sample_project/docs/architecture.md",
+      "search_text": "# Architecture Overview\n\nThis is a generic microservices architecture sample demonstrating:\n- User Management (`UserService`)\n- Order Processing (`OrderService`)\n- Entity Domain Models (`User`, `Order`)\n"
+    },
+    {
+      "id": "doc_template/data/GRAPH_REPORT.md",
+      "title": "Polyglot Codebase Architecture Report",
+      "subtitle": "template/data/GRAPH_REPORT.md",
+      "badge": "\ud83d\udcd6 Note",
+      "category": "documentation",
+      "tab": "reader",
+      "path": "template/data/GRAPH_REPORT.md",
+      "search_text": "# Polyglot Codebase Architecture Report\n\n- Scanned Root: `knowledge-portal`\n- Total Source Files: 31\n- Total Architecture Nodes: 77\n- Total Edges: 0\n- Total DB Tables: 0\n"
+    }
+  ]
+}

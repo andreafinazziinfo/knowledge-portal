@@ -31,6 +31,11 @@ def main():
     serve_p.add_argument("--port", "-p", type=int, default=8000, help="Port to listen on (default: 8000)")
     serve_p.add_argument("--dir", "-d", default=".", help="Project directory to serve (default: current directory)")
 
+    # Command: floorplan
+    floorplan_p = subparsers.add_parser("floorplan", help="Generate interactive vector floorplan from architecture.yaml")
+    floorplan_p.add_argument("file", nargs="?", default="architecture.yaml", help="Path to architecture.yaml (default: architecture.yaml)")
+    floorplan_p.add_argument("--output", "-o", default=None, help="Output path for generated HTML (default: template/views/floorplan.html)")
+
     # Command: audit
     audit_p = subparsers.add_parser("audit", help="Run Zero-Proprietary Sanitization Audit")
     audit_p.add_argument("path", nargs="?", default=".", help="Directory to audit")
@@ -64,6 +69,18 @@ def main():
         target = Path(args.path).resolve()
         out = Path(args.output).resolve()
         export_static_portal(target, out, project_name=args.name)
+
+    elif args.command == "floorplan":
+        from knowledge_portal.server import get_template_dir
+        from knowledge_portal.generators.floorplan import generate_floorplan_from_yaml
+        yaml_file = Path(args.file).resolve()
+        template_dir = get_template_dir()
+        out_html = Path(args.output).resolve() if args.output else (template_dir / "views" / "floorplan.html")
+
+        print(f"🏗️ Compiling declarative floorplan: {yaml_file}")
+        generated = generate_floorplan_from_yaml(yaml_file, out_html)
+        print("✅ Floorplan generated successfully!")
+        print(f"   Interactive Vector View: {generated}")
 
     elif args.command == "serve":
         from knowledge_portal.server import run_server, get_template_dir

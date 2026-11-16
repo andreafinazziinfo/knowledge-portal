@@ -77,8 +77,11 @@ def audit_directory(root_dir: Path):
                 lower_line = line.lower()
                 for kw in FORBIDDEN_KEYWORDS:
                     if kw in lower_line:
-                        # Allow author name in official project metadata
-                        if kw == "finazzi" and (fpath.name in ["pyproject.toml", "LICENSE", "README.md"]):
+                        # Allow public GitHub org/repo metadata and author in official docs
+                        if kw == "finazzi" and (
+                            fpath.name in ["pyproject.toml", "LICENSE", "README.md", "MANUALE_OPERATIVO.md", "omni-search-index.json"]
+                            or "andreafinazziinfo" in lower_line
+                        ):
                             continue
                         # Skip if in generic explanation of the check itself
                         if "verify_sanitization" in lower_line or "forbidden" in lower_line:
@@ -98,7 +101,7 @@ def audit_directory(root_dir: Path):
                 clean_files += 1
 
     print("=" * 70)
-    print(f"📊 Audit Summary:")
+    print("📊 Audit Summary:")
     print(f"   Files Scanned: {scanned_files}")
     print(f"   Clean Files:   {clean_files}")
     print(f"   Violations:    {len(violations)}")

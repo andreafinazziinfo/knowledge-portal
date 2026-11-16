@@ -50,10 +50,19 @@ jobs:
           python -m knowledge_portal.cli scan sample_project --output template/data
           test -f template/data/graph.json
           test -f template/data/graph_viz.js
+          test -f template/data/db-schema.json
+          test -f template/data/views-manifest.json
+      - name: Test Declarative Floorplan Generation
+        run: |
+          python -m knowledge_portal.cli floorplan architecture.yaml --output template/views/floorplan.html
+          test -f template/views/floorplan.html
       - name: Test Static Zero-Server Export
         run: |
           python -m knowledge_portal.cli export sample_project --output /tmp/static-dist
           test -f /tmp/static-dist/index.html
           test -f /tmp/static-dist/data/graph.json
           test -f /tmp/static-dist/data/graph_viz.js
+          test -f /tmp/static-dist/data/views-manifest.json
+          test -f /tmp/static-dist/views/db-lineage.html
+          test -f /tmp/static-dist/views/floorplan.html
           test -f /tmp/static-dist/.nojekyll

@@ -123,6 +123,43 @@ def scan_codebase(target_dir: Path, output_dir: Path) -> Dict[str, Any]:
     with open(config_js, "w", encoding="utf-8") as f:
         f.write("window.GRAPH_CONFIG = { title: 'Knowledge Portal', node_limit: 5000 };\n")
 
+    # Write default db-schema files
+    db_schema_data = {
+        "schema_version": "1.0.0",
+        "summary": {"total_tables": 0, "relationships_count": 0},
+        "tables": []
+    }
+    with open(output_dir / "db-schema.json", "w", encoding="utf-8") as f:
+        json.dump(db_schema_data, f, indent=2)
+    with open(output_dir / "db_schema.js", "w", encoding="utf-8") as f:
+        f.write("window.DB_SCHEMA = " + json.dumps(db_schema_data) + ";\n")
+
+    # Detect active views
+    views_dir = output_dir.parent / "views" if output_dir.name == "data" else output_dir / "views"
+    pkg_views_dir = Path(__file__).resolve().parent.parent.parent / "template" / "views"
+
+    def has_view(view_name: str) -> bool:
+        return (views_dir / f"{view_name}.html").exists() or (pkg_views_dir / f"{view_name}.html").exists()
+
+    available_views = ["home", "reader"]
+    if len(all_nodes) > 0:
+        available_views.extend(["graph", "canvas", "tree", "graph_3d"])
+    if has_view("db-lineage"):
+        available_views.append("db-lineage")
+    if has_view("floorplan"):
+        available_views.append("floorplan")
+    if has_view("api-catalog"):
+        available_views.append("api-catalog")
+
+    views_manifest = {
+        "version": "1.0.0",
+        "available_views": available_views
+    }
+    with open(output_dir / "views-manifest.json", "w", encoding="utf-8") as f:
+        json.dump(views_manifest, f, indent=2)
+    with open(output_dir / "views_manifest.js", "w", encoding="utf-8") as f:
+        f.write("window.VIEWS_MANIFEST = " + json.dumps(views_manifest) + ";\n")
+
     report_md = output_dir / "GRAPH_REPORT.md"
     report_content = f"# Codebase Architecture Report\n\n- Scanned Root: `{target_dir.name}`\n- Total Files: {file_count}\n- Total AST Nodes: {len(all_nodes)}\n- Total Edges: {len(all_edges)}\n"
     report_md.write_text(report_content, encoding="utf-8")

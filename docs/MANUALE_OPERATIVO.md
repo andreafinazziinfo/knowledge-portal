@@ -1,7 +1,7 @@
-# 📘 Manuale Operativo — Knowledge Portal (V2.2)
+# 📘 Manuale Operativo — Knowledge Portal (V2.3)
 
 > **Piattaforma**: Knowledge Portal — Architecture Intelligence & Living Documentation Engine  
-> **Versione**: 2.2.0 (Pragmatic Streamlined Release)  
+> **Versione**: 2.3.0 (Architecture & Data Lineage Engine)  
 > **Licenza**: Apache 2.0 (Open Source)
 
 ---
@@ -10,26 +10,36 @@
 
 **Knowledge Portal** trasforma qualsiasi repository o codebase complessa in un portale interattivo esplorabile via browser (desktop e mobile). Non richiede framework esterni pesanti: il core server, lo scanner poliglotta e l'indicizzatore girano in **pura Python Standard Library (3.10+)**.
 
-### 🌟 Funzionalità Principali (V2.2)
+### 🌟 Funzionalità Principali (V2.3)
 
-1. **Scanner Poliglotta Full-Stack**: Scansiona contemporaneamente:
+1. **Scanner Poliglotta Full-Stack (10 Linguaggi)**: Scansiona contemporaneamente:
    - **Python**: Classi, funzioni sincrone/asincrone, docstring, chiamate.
    - **TypeScript / JavaScript**: Classi, interfacce, tipi, funzioni arrow, export.
    - **Vue 3**: Componenti Single File (`.vue`), script setup, template.
    - **Pinia**: Store reattivi (`defineStore`) con tracciamento dipendenze.
    - **Go**: Struct, interfacce, metodi e funzioni.
    - **Rust**: Struct, enum, trait, blocchi `impl` e funzioni.
-2. **21 Viste Interattive**:
-   - Grafo 2D Vis.js, WebGL 3D Three.js, DAG ad albero top-down, Whiteboard Canvas, Floorplan SVG, DB Lineage, Async & WebSocket, Worker Tasks, Threat Matrix, Scalar OpenAPI Catalog.
-3. **Analytics Architetturali nel Grafo**:
+   - **C / C++**: Struct, classi, metodi, funzioni e header.
+   - **Java / Kotlin**: Classi, interfacce, dataclass e metodi.
+   - **C#**: Classi, interfacce, record e metodi.
+   - **SQL**: Tabelle DDL (`CREATE TABLE`), colonne, tipi, chiavi primarie e foreign keys.
+2. **Generatore Dichiarativo di Floorplan SVG (`architecture.yaml`)**:
+   - Compilazione automatica di piante topologiche e mappe microservizi vettoriali interattive a partire da un semplice file YAML, senza librerie grafiche pesanti.
+3. **Database & Schema Lineage Explorer**:
+   - Ispezione visiva di schede tabelle (colonne, PK, FK) e grafo relazionale interattivo Vis.js a nodi e archi orientati generato nativamente da file SQL.
+4. **Dashboard Adattiva Dinamica (`views-manifest.json`)**:
+   - Rilevamento automatico delle viste attive: tab, card e voci di menu per viste prive di dati vengono automaticamente nascoste, eliminando schede vuote e 404.
+5. **Indipendenza Totale da Graphify**:
+   - Le viste storiche (`graph`, `canvas`, `tree`, `graph_3d`) consumano i dati nativamente prodotti dallo scanner interno (`polyglot.py`), eliminando qualsiasi dipendenza da repository o tool esterni.
+6. **Analytics Architetturali nel Grafo**:
    - 🔴 **Rilevamento Dipendenze Cicliche**: Algoritmo DFS in-memory per scovare accoppiamenti circolari nel grafo delle chiamate.
    - ⚪ **Isolamento Nodi Orfani**: Individuazione immediata di codice morto o documentazione isolata.
-4. **Rendering Nativo Mermaid nel Reader**:
-   - Visualizzazione istantanea di flowchart, sequence diagrams e diagrammi di stato scritti in Markdown con bundle offline isolato e gestione errori graceful.
-5. **Esportatore Statico "Zero-Server"**:
+7. **Rendering Nativo Mermaid nel Reader**:
+   - Visualizzazione istantanea di diagrammi con bundle offline isolato e gestione errori graceful.
+8. **Esportatore Statico "Zero-Server"**:
    - Generazione di un sito statico pronto per **GitHub Pages** con `knowledge-portal export`.
-6. **Container Docker OCI**:
-   - Immagine ufficiale su GitHub Container Registry (`ghcr.io/your-org/knowledge-portal:latest`).
+9. **Container Docker OCI**:
+   - Immagine ufficiale su GitHub Container Registry (`ghcr.io/andreafinazziinfo/knowledge-portal:latest`).
 
 ---
 
@@ -96,7 +106,15 @@ git remote add origin https://github.com/<user>/<repo>.git
 git push -f origin gh-pages
 ```
 
-### 3.4 Audit di Sicurezza OPSEC (`audit`)
+### 3.4 Generatore Floorplan Dichiarativo (`floorplan`)
+
+Compila una pianta topologica e mappa architetturale SVG a partire da un descrittore `architecture.yaml`:
+
+```bash
+knowledge-portal floorplan architecture.yaml --output template/views/floorplan.html
+```
+
+### 3.5 Audit di Sicurezza OPSEC (`audit`)
 
 Verifica che nel portale non vi siano token segreti, credenziali, formule proprietarie o percorsi locali sensibili:
 
@@ -115,6 +133,19 @@ knowledge-portal audit .
   - Clicca su **🔴 Cicli** per evidenziare in rosso brillante eventuali dipendenze circolari.
   - Clicca su **⚪ Orfani** per evidenziare in giallo i nodi non collegati.
   - Clicca su **↺** per ripristinare la colorazione per community.
+
+### 🗄️ Database & Schema Lineage Explorer
+- **Catalogo Tabelle**: Visualizza ogni tabella estratta dai file SQL con tipi di colonna, chiavi primarie e foreign keys.
+- **Filtri di Ricerca**: Ricerca per tabella, colonna o relazione; filtri rapidi per tabelle con dipendenze o radici.
+- **Grafo Relazionale Interattivo (Vis.js)**: Mappa topologica delle tabelle collegate da foreign keys con fisica dinamica. Cliccando su un nodo del grafo, la vista passa alla scheda dettagliata della tabella selezionata.
+
+### 🏗️ Floorplan SVG Interattivo
+- Mappa vettoriale multilivello (Frontend, Gateway, Core Services, Database/Cache) generata da `architecture.yaml`.
+- Hotspot interattivi sui microservizi con cassetto laterale dettagliato, controlli Zoom In/Out e Reset.
+
+### 🧭 Dashboard Adattiva (Zero 404)
+- La dashboard rileva all'avvio il manifesto delle viste (`data/views-manifest.json`).
+- I tab e le card delle viste non attive vengono nascosti automaticamente.
 
 ### 📖 Reader Markdown con Mermaid
 - Seleziona un file dall'albero di sinistra o premi `Ctrl+K` per cercare qualsiasi termine.

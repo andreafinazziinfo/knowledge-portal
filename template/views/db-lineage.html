@@ -1,0 +1,373 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Database &amp; Schema Lineage Explorer — Knowledge Portal</title>
+<style>
+  :root {
+    --bg: #070a12;
+    --panel: #0b101d;
+    --card: #101524;
+    --border: rgba(255,255,255,0.09);
+    --cyan: #22d3ee;
+    --emerald: #10b981;
+    --amber: #f59e0b;
+    --purple: #a855f7;
+    --text: #f1f5f9;
+    --muted: #94a3b8;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { background: var(--bg); color: var(--text); font-family: system-ui, -apple-system, sans-serif; min-height: 100vh; }
+  header {
+    position: sticky; top: 0; z-index: 30;
+    background: rgba(7, 10, 18, 0.94); backdrop-filter: blur(12px);
+    border-bottom: 1px solid var(--border); padding: 14px 20px;
+    display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 12px;
+  }
+  .title-wrap h1 { font-size: 16px; font-weight: 700; display: flex; align-items: center; gap: 8px; }
+  .title-wrap p { font-size: 11px; color: var(--muted); margin-top: 2px; }
+  .kpis { display: flex; flex-wrap: wrap; gap: 8px; }
+  .kpi { background: var(--panel); border: 1px solid var(--border); border-radius: 8px; padding: 5px 10px; font-size: 11px; }
+  .kpi b { color: var(--cyan); font-family: monospace; font-size: 12px; }
+  .controls {
+    padding: 12px 20px; border-bottom: 1px solid var(--border); background: var(--panel);
+    display: flex; flex-wrap: wrap; gap: 10px; align-items: center; justify-content: space-between;
+  }
+  .search {
+    flex: 1; min-width: 240px; max-width: 440px;
+    background: #020617; border: 1px solid var(--border); border-radius: 8px;
+    color: #fff; padding: 7px 12px; font-size: 12px; outline: none;
+  }
+  .search:focus { border-color: var(--cyan); }
+  .pills { display: flex; flex-wrap: wrap; gap: 6px; }
+  .pill {
+    background: rgba(255,255,255,0.04); border: 1px solid var(--border); color: var(--muted);
+    padding: 5px 11px; border-radius: 999px; font-size: 11px; cursor: pointer; transition: all 0.2s;
+  }
+  .pill.active { background: rgba(34,211,238,0.16); border-color: var(--cyan); color: #fff; font-weight: 600; }
+  main { padding: 16px 20px 40px; }
+  .grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(380px, 1fr)); gap: 12px; }
+  .card {
+    background: var(--card); border: 1px solid var(--border); border-radius: 12px; padding: 14px;
+    display: flex; flex-direction: column; gap: 10px; transition: border-color 0.2s;
+  }
+  .card:hover { border-color: rgba(34,211,238,0.35); }
+  .card-head { display: flex; align-items: center; justify-content: space-between; gap: 8px; flex-wrap: wrap; }
+  .tname { font-family: ui-monospace, monospace; font-size: 13.5px; font-weight: 700; color: #fff; }
+  .badges { display: flex; gap: 5px; flex-wrap: wrap; }
+  .badge { font-size: 10px; padding: 2px 6px; border-radius: 5px; font-family: monospace; font-weight: 600; }
+  .b-tbl { background: rgba(16,185,129,0.14); color: var(--emerald); border: 1px solid rgba(16,185,129,0.35); }
+  .b-fk { background: rgba(34,211,238,0.14); color: var(--cyan); border: 1px solid rgba(34,211,238,0.35); }
+  .cols { font-size: 11px; color: var(--muted); font-family: monospace; line-height: 1.5; background: rgba(0,0,0,0.25); padding: 8px; border-radius: 6px; }
+  .col-item { display: inline-block; margin-right: 8px; }
+  .sec-title { font-size: 10.5px; text-transform: uppercase; letter-spacing: 0.04em; color: var(--muted); font-weight: 700; margin-top: 4px; }
+  .fk-list { display: flex; flex-direction: column; gap: 4px; }
+  .fk-row {
+    font-family: ui-monospace, monospace; font-size: 11px; padding: 4px 7px; border-radius: 6px;
+    background: rgba(255,255,255,0.03); display: flex; justify-content: space-between; gap: 8px;
+    border-left: 2px solid var(--cyan); cursor: pointer;
+  }
+  .fk-row:hover { background: rgba(34,211,238,0.1); }
+  .empty-state {
+    text-align: center; padding: 60px 20px; color: var(--muted);
+    background: var(--panel); border: 1px dashed var(--border); border-radius: 12px; margin-top: 20px;
+  }
+  .empty-state h3 { font-size: 15px; color: #fff; margin-bottom: 6px; }
+  .empty-state p { font-size: 12px; max-width: 500px; margin: 0 auto; line-height: 1.5; }
+</style>
+<script src="../vendor/vis-network.min.js"></script>
+<script>
+  if (typeof vis === 'undefined') {
+    document.write('<script src="../assets/vis-network.min.js"><\/script>');
+  }
+</script>
+<script src="../data/db_schema.js"></script>
+<script src="live-reload.js"></script>
+</head>
+<body>
+<header>
+  <div class="title-wrap">
+    <h1>🗄️ Database &amp; Schema Lineage Explorer</h1>
+    <p>Catalogo Relazionale e Topologia Tabelle ↔ Colonne ↔ Foreign Keys (Zero External Runtime)</p>
+  </div>
+  <div class="kpis">
+    <div class="kpi">Tabelle: <b id="kpi-tables">0</b></div>
+    <div class="kpi">Relazioni FK: <b id="kpi-fks">0</b></div>
+    <div class="kpi">Colonne Totali: <b id="kpi-cols">0</b></div>
+    <div class="kpi">Primary Keys: <b id="kpi-pks">0</b></div>
+  </div>
+</header>
+<div class="controls">
+  <div style="display:flex; align-items:center; gap:12px; flex:1;">
+    <div style="display:flex; background:#020617; border:1px solid var(--border); border-radius:8px; padding:3px; gap:4px;">
+      <button id="btn-grid-view" class="pill active" style="margin:0;" onclick="switchDbView('grid')">📋 Schede Tabelle</button>
+      <button id="btn-graph-view" class="pill" style="margin:0;" onclick="switchDbView('graph')">🕸️ Grafo Schema Relazionale (Vis.js)</button>
+    </div>
+    <input id="q" class="search" type="search" placeholder="Cerca tabella, colonna o foreign key..." />
+  </div>
+  <div class="pills">
+    <button class="pill active" data-f="all">Tutte</button>
+    <button class="pill" data-f="fks">🔗 Con Foreign Keys</button>
+    <button class="pill" data-f="roots">🌱 Radici (Senza Dipendenze FK)</button>
+  </div>
+</div>
+
+<main>
+  <div id="grid" class="grid"></div>
+  <div id="empty-state" class="empty-state" style="display:none;">
+    <h3>Nessuna Tabella SQL Rilevata</h3>
+    <p>Non sono stati trovati file <code>.sql</code> o schemi DDL nel progetto scansionato. Aggiungi migrazioni o file SQL per abilitare l'esploratore relazionale.</p>
+  </div>
+</main>
+
+<div id="network-container" style="display:none; height:calc(100vh - 160px); background:#05070f; border:1px solid var(--border); border-radius:12px; margin:0 20px 20px; position:relative; overflow:hidden;">
+  <div style="position:absolute; top:14px; left:16px; z-index:10; background:rgba(11,16,29,0.85); backdrop-filter:blur(8px); padding:8px 14px; border-radius:8px; border:1px solid var(--border); font-size:12px; display:flex; gap:12px; align-items:center;">
+    <span><span style="color:#10b981;">●</span> Tabella SQL</span>
+    <span><span style="color:#22d3ee;">➔</span> Relazione Foreign Key</span>
+    <span style="color:var(--muted);">| Clicca su un nodo per aprire la scheda dettagliata</span>
+  </div>
+  <div id="vis-network" style="width:100%; height:100%;"></div>
+</div>
+
+<script>
+let DATA = window.DB_SCHEMA || {
+  "schema_version": "1.0.0",
+  "summary": { "total_tables": 0, "relationships_count": 0 },
+  "tables": []
+};
+
+let filter = 'all';
+let query = '';
+let networkInitialized = false;
+let networkInstance = null;
+
+const esc = (s) => String(s || '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+
+async function init() {
+  if (!DATA.tables || DATA.tables.length === 0) {
+    try {
+      const res = await fetch('../data/db-schema.json');
+      if (res.ok) {
+        DATA = await res.json();
+      }
+    } catch (e) {
+      // In standalone or static offline mode without HTTP server
+    }
+  }
+  updateKPIs();
+  setupEvents();
+  render();
+}
+
+function updateKPIs() {
+  const tables = DATA.tables || [];
+  let totalCols = 0;
+  let totalPks = 0;
+  let totalFks = 0;
+
+  tables.forEach(t => {
+    (t.columns || []).forEach(c => {
+      totalCols++;
+      if (c.pk) totalPks++;
+    });
+    totalFks += (t.foreign_keys || []).length;
+  });
+
+  document.getElementById('kpi-tables').textContent = tables.length;
+  document.getElementById('kpi-fks').textContent = totalFks;
+  document.getElementById('kpi-cols').textContent = totalCols;
+  document.getElementById('kpi-pks').textContent = totalPks;
+}
+
+function setupEvents() {
+  const searchInput = document.getElementById('q');
+  searchInput.addEventListener('input', (e) => {
+    query = e.target.value.trim().toLowerCase();
+    render();
+  });
+
+  document.querySelectorAll('.pills button[data-f]').forEach(btn => {
+    btn.addEventListener('click', () => {
+      document.querySelectorAll('.pills button[data-f]').forEach(b => b.classList.remove('active'));
+      btn.classList.add('active');
+      filter = btn.getAttribute('data-f');
+      render();
+    });
+  });
+}
+
+function switchDbView(mode) {
+  const btnGrid = document.getElementById('btn-grid-view');
+  const btnGraph = document.getElementById('btn-graph-view');
+  const mainGrid = document.querySelector('main');
+  const networkContainer = document.getElementById('network-container');
+
+  if (mode === 'grid') {
+    btnGrid.classList.add('active');
+    btnGraph.classList.remove('active');
+    mainGrid.style.display = 'block';
+    networkContainer.style.display = 'none';
+  } else {
+    btnGraph.classList.add('active');
+    btnGrid.classList.remove('active');
+    mainGrid.style.display = 'none';
+    networkContainer.style.display = 'block';
+    if (!networkInitialized && typeof vis !== 'undefined') {
+      initRelationalGraph();
+      networkInitialized = true;
+    }
+  }
+}
+window.switchDbView = switchDbView;
+
+function render() {
+  const grid = document.getElementById('grid');
+  const emptyState = document.getElementById('empty-state');
+  const tables = DATA.tables || [];
+
+  if (tables.length === 0) {
+    grid.style.display = 'none';
+    emptyState.style.display = 'block';
+    return;
+  }
+
+  emptyState.style.display = 'none';
+  grid.style.display = 'grid';
+
+  const list = tables.filter(t => {
+    if (filter === 'fks' && (!t.foreign_keys || t.foreign_keys.length === 0)) return false;
+    if (filter === 'roots' && t.foreign_keys && t.foreign_keys.length > 0) return false;
+    if (!query) return true;
+    const hay = [
+      t.name,
+      ...(t.columns || []).map(c => c.name),
+      ...(t.foreign_keys || []).map(fk => fk.target_table + ' ' + (fk.column || ''))
+    ].join(' ').toLowerCase();
+    return hay.includes(query);
+  });
+
+  if (list.length === 0) {
+    grid.innerHTML = '<div style="grid-column: 1/-1; text-align:center; padding:40px; color:var(--muted)">Nessuna tabella corrispondente ai filtri di ricerca.</div>';
+    return;
+  }
+
+  grid.innerHTML = list.map(t => {
+    const cols = t.columns || [];
+    const fks = t.foreign_keys || [];
+    const colListHtml = cols.map(c => `
+      <span class="col-item">
+        ${c.pk ? '🔑 ' : ''}<span style="color:#fff">${esc(c.name)}</span>: <span style="color:var(--cyan)">${esc(c.type)}</span>
+      </span>
+    `).join('');
+
+    const fkListHtml = fks.map(fk => `
+      <div class="fk-row" onclick="filterTargetTable('${esc(fk.target_table)}')">
+        <span><b>${esc(fk.column || 'FK')}</b> ➔ ${esc(fk.target_table)}</span>
+        <span style="color:var(--muted);font-size:10px">Filtra target</span>
+      </div>
+    `).join('');
+
+    return `
+      <div class="card" id="tbl-${esc(t.name)}">
+        <div class="card-head">
+          <div class="tname">🗄️ ${esc(t.name)}</div>
+          <div class="badges">
+            <span class="badge b-tbl">${cols.length} COLONNE</span>
+            ${fks.length ? `<span class="badge b-fk">${fks.length} RELAZIONI FK</span>` : ''}
+          </div>
+        </div>
+        <div>
+          <div class="sec-title">Colonne &amp; Attributi</div>
+          <div class="cols">${colListHtml || '<span style="color:var(--muted)">Nessuna colonna definita</span>'}</div>
+        </div>
+        ${fks.length ? `
+        <div>
+          <div class="sec-title">Foreign Keys in Uscita</div>
+          <div class="fk-list">${fkListHtml}</div>
+        </div>` : ''}
+      </div>
+    `;
+  }).join('');
+}
+
+function filterTargetTable(target) {
+  document.getElementById('q').value = target;
+  query = target.toLowerCase();
+  render();
+}
+window.filterTargetTable = filterTargetTable;
+
+function initRelationalGraph() {
+  const container = document.getElementById('vis-network');
+  const nodes = [];
+  const edges = [];
+  const tables = DATA.tables || [];
+
+  tables.forEach(t => {
+    nodes.push({
+      id: t.name,
+      label: t.name,
+      shape: 'box',
+      color: {
+        background: '#0b101d',
+        border: '#10b981',
+        highlight: { background: '#101524', border: '#38bdf8' }
+      },
+      font: { color: '#f1f5f9', face: 'monospace', size: 12 },
+      margin: 9
+    });
+
+    (t.foreign_keys || []).forEach(fk => {
+      if (fk.target_table) {
+        edges.push({
+          from: t.name,
+          to: fk.target_table,
+          arrows: 'to',
+          label: fk.column || '',
+          font: { color: '#94a3b8', size: 10, align: 'middle' },
+          color: { color: 'rgba(34, 211, 238, 0.5)', highlight: '#22d3ee' }
+        });
+      }
+    });
+  });
+
+  const netData = {
+    nodes: new vis.DataSet(nodes),
+    edges: new vis.DataSet(edges)
+  };
+
+  const options = {
+    physics: {
+      solver: 'forceAtlas2Based',
+      forceAtlas2Based: {
+        gravitationalConstant: -45,
+        centralGravity: 0.005,
+        springLength: 100,
+        springConstant: 0.16
+      },
+      stabilization: { iterations: 120 }
+    },
+    interaction: {
+      hover: true,
+      zoomView: true,
+      dragView: true
+    }
+  };
+
+  networkInstance = new vis.Network(container, netData, options);
+  networkInstance.on('click', params => {
+    if (params.nodes.length > 0) {
+      const tableName = params.nodes[0];
+      switchDbView('grid');
+      document.getElementById('q').value = tableName;
+      query = tableName.toLowerCase();
+      render();
+    }
+  });
+}
+
+document.addEventListener('DOMContentLoaded', init);
+</script>
+</body>
+</html>

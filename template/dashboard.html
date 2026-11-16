@@ -887,25 +887,25 @@
         </optgroup>
       </select>
       <div class="tabs-left">
-        <button class="tab-button active" onclick="switchTab('home')">🏠 Home</button>
-        <button class="tab-button" onclick="switchTab('reader')">📖 Reader</button>
-        <button class="tab-button" onclick="switchTab('graph')">🔗 Graph</button>
-        <button class="tab-button" onclick="switchTab('canvas')">🎨 Canvas</button>
-        <button class="tab-button" onclick="switchTab('tree')">🌳 Tree</button>
-        <button class="tab-button" onclick="switchTab('floorplan')">🏗️ Floorplan</button>
-        <button class="tab-button" onclick="switchTab('db-lineage')">🗄️ DB Lineage</button>
-        <button class="tab-button" onclick="switchTab('async-topology')">⚡ Async &amp; WS</button>
-        <button class="tab-button" onclick="switchTab('visual-explainer')">✨ Visual Explainer</button>
-        <button class="tab-button" onclick="switchTab('api-catalog')">🔌 API Catalog</button>
-        <button class="tab-button" onclick="switchTab('adr-governance')">📜 ADR Governance</button>
-        <button class="tab-button" onclick="switchTab('quant-codex')">📐 Quant Codex</button>
-        <button class="tab-button" onclick="switchTab('framework-constitution')">🏛️ Costituzione</button>
-        <button class="tab-button" onclick="switchTab('frontend-state')">⚡ UI Stores</button>
-        <button class="tab-button" onclick="switchTab('worker-tasks')">⚙️ Worker Tasks</button>
-        <button class="tab-button" onclick="switchTab('threat-matrix')">🛡️ Threat Matrix</button>
-        <button class="tab-button" onclick="switchTab('data-ingestion')">📊 Data Ingestion</button>
-        <button class="tab-button" onclick="switchTab('runbook-ops')">🛠️ Ops Runbook</button>
-        <button class="tab-button" onclick="switchTab('console')">💻 Console</button>
+        <button class="tab-button active" data-tab="home" onclick="switchTab('home')">🏠 Home</button>
+        <button class="tab-button" data-tab="reader" onclick="switchTab('reader')">📖 Reader</button>
+        <button class="tab-button" data-tab="graph" onclick="switchTab('graph')">🔗 Graph</button>
+        <button class="tab-button" data-tab="canvas" onclick="switchTab('canvas')">🎨 Canvas</button>
+        <button class="tab-button" data-tab="tree" onclick="switchTab('tree')">🌳 Tree</button>
+        <button class="tab-button" data-tab="floorplan" onclick="switchTab('floorplan')">🏗️ Floorplan</button>
+        <button class="tab-button" data-tab="db-lineage" onclick="switchTab('db-lineage')">🗄️ DB Lineage</button>
+        <button class="tab-button" data-tab="async-topology" onclick="switchTab('async-topology')">⚡ Async &amp; WS</button>
+        <button class="tab-button" data-tab="visual-explainer" onclick="switchTab('visual-explainer')">✨ Visual Explainer</button>
+        <button class="tab-button" data-tab="api-catalog" onclick="switchTab('api-catalog')">🔌 API Catalog</button>
+        <button class="tab-button" data-tab="adr-governance" onclick="switchTab('adr-governance')">📜 ADR Governance</button>
+        <button class="tab-button" data-tab="quant-codex" onclick="switchTab('quant-codex')">📐 Quant Codex</button>
+        <button class="tab-button" data-tab="framework-constitution" onclick="switchTab('framework-constitution')">🏛️ Costituzione</button>
+        <button class="tab-button" data-tab="frontend-state" onclick="switchTab('frontend-state')">⚡ UI Stores</button>
+        <button class="tab-button" data-tab="worker-tasks" onclick="switchTab('worker-tasks')">⚙️ Worker Tasks</button>
+        <button class="tab-button" data-tab="threat-matrix" onclick="switchTab('threat-matrix')">🛡️ Threat Matrix</button>
+        <button class="tab-button" data-tab="data-ingestion" onclick="switchTab('data-ingestion')">📊 Data Ingestion</button>
+        <button class="tab-button" data-tab="runbook-ops" onclick="switchTab('runbook-ops')">🛠️ Ops Runbook</button>
+        <button class="tab-button" data-tab="console" onclick="switchTab('console')">💻 Console</button>
       </div>
       <div class="tabs-right">
         <label style="display: flex; align-items: center; gap: 4px; font-size: 11px; color: var(--text-muted); cursor: pointer; user-select: none; margin-right: 4px;">
@@ -953,7 +953,7 @@
             <span>🌌</span> Visualizzazioni a Grafo &amp; 3D WebGL
           </div>
           <div class="views-hub-grid">
-            <div class="view-hub-card" onclick="switchTab('graph')">
+            <div class="view-hub-card" data-view-id="graph" onclick="switchTab('graph')">
               <div class="hub-card-icon">🔗</div>
               <div class="hub-card-content">
                 <div class="hub-card-title">2D Network Graph</div>
@@ -961,7 +961,7 @@
               </div>
               <span class="hub-card-badge">2D Vis.js</span>
             </div>
-            <div class="view-hub-card" onclick="switchTab('graph_3d')">
+            <div class="view-hub-card" data-view-id="graph_3d" onclick="switchTab('graph_3d')">
               <div class="hub-card-icon">🌐</div>
               <div class="hub-card-content">
                 <div class="hub-card-title">3D WebGL Force Graph</div>
@@ -969,7 +969,7 @@
               </div>
               <span class="hub-card-badge">3D WebGL</span>
             </div>
-            <div class="view-hub-card" onclick="switchTab('canvas')">
+            <div class="view-hub-card" data-view-id="canvas" onclick="switchTab('canvas')">
               <div class="hub-card-icon">🎨</div>
               <div class="hub-card-content">
                 <div class="hub-card-title">Whiteboard Canvas 2D</div>
@@ -977,7 +977,7 @@
               </div>
               <span class="hub-card-badge">Canvas 2D</span>
             </div>
-            <div class="view-hub-card" onclick="switchTab('canvas_3d')">
+            <div class="view-hub-card" data-view-id="canvas_3d" onclick="switchTab('canvas_3d')">
               <div class="hub-card-icon">🧊</div>
               <div class="hub-card-content">
                 <div class="hub-card-title">3D WebGL Canvas</div>
@@ -985,7 +985,7 @@
               </div>
               <span class="hub-card-badge">Canvas 3D</span>
             </div>
-            <div class="view-hub-card" onclick="switchTab('tree')">
+            <div class="view-hub-card" data-view-id="tree" onclick="switchTab('tree')">
               <div class="hub-card-icon">🌳</div>
               <div class="hub-card-content">
                 <div class="hub-card-title">Directory Tree Gerarchico</div>
@@ -993,7 +993,7 @@
               </div>
               <span class="hub-card-badge">Tree 2D</span>
             </div>
-            <div class="view-hub-card" onclick="switchTab('tree_3d')">
+            <div class="view-hub-card" data-view-id="tree_3d" onclick="switchTab('tree_3d')">
               <div class="hub-card-icon">🌲</div>
               <div class="hub-card-content">
                 <div class="hub-card-title">3D DAG Tree</div>
@@ -1001,7 +1001,7 @@
               </div>
               <span class="hub-card-badge">Tree 3D</span>
             </div>
-            <div class="view-hub-card" onclick="switchTab('graph_full')">
+            <div class="view-hub-card" data-view-id="graph_full" onclick="switchTab('graph_full')">
               <div class="hub-card-icon">🗺️</div>
               <div class="hub-card-content">
                 <div class="hub-card-title">Full Organic Network</div>
@@ -1015,7 +1015,7 @@
             <span>🏗️</span> Architettura, Dati &amp; Flussi Operativi
           </div>
           <div class="views-hub-grid">
-            <div class="view-hub-card" onclick="switchTab('floorplan')">
+            <div class="view-hub-card" data-view-id="floorplan" onclick="switchTab('floorplan')">
               <div class="hub-card-icon">🏗️</div>
               <div class="hub-card-content">
                 <div class="hub-card-title">Floorplan SVG Full-Stack</div>
@@ -1023,7 +1023,7 @@
               </div>
               <span class="hub-card-badge">ADR-053</span>
             </div>
-            <div class="view-hub-card" onclick="switchTab('db-lineage')">
+            <div class="view-hub-card" data-view-id="db-lineage" onclick="switchTab('db-lineage')">
               <div class="hub-card-icon">🗄️</div>
               <div class="hub-card-content">
                 <div class="hub-card-title">Database Lineage &amp; Schema</div>
@@ -1031,7 +1031,7 @@
               </div>
               <span class="hub-card-badge">DB Schema</span>
             </div>
-            <div class="view-hub-card" onclick="switchTab('async-topology')">
+            <div class="view-hub-card" data-view-id="async-topology" onclick="switchTab('async-topology')">
               <div class="hub-card-icon">⚡</div>
               <div class="hub-card-content">
                 <div class="hub-card-title">Async &amp; WebSocket Topology</div>
@@ -1039,7 +1039,7 @@
               </div>
               <span class="hub-card-badge">Real-Time</span>
             </div>
-            <div class="view-hub-card" onclick="switchTab('frontend-state')">
+            <div class="view-hub-card" data-view-id="frontend-state" onclick="switchTab('frontend-state')">
               <div class="hub-card-icon">⚡</div>
               <div class="hub-card-content">
                 <div class="hub-card-title">Frontend State &amp; Pinia</div>
@@ -1047,7 +1047,7 @@
               </div>
               <span class="hub-card-badge">Pinia Stores</span>
             </div>
-            <div class="view-hub-card" onclick="switchTab('worker-tasks')">
+            <div class="view-hub-card" data-view-id="worker-tasks" onclick="switchTab('worker-tasks')">
               <div class="hub-card-icon">⚙️</div>
               <div class="hub-card-content">
                 <div class="hub-card-title">Celery Worker Tasks</div>
@@ -1055,7 +1055,7 @@
               </div>
               <span class="hub-card-badge">Celery / Beat</span>
             </div>
-            <div class="view-hub-card" onclick="switchTab('data-ingestion')">
+            <div class="view-hub-card" data-view-id="data-ingestion" onclick="switchTab('data-ingestion')">
               <div class="hub-card-icon">📊</div>
               <div class="hub-card-content">
                 <div class="hub-card-title">Data Ingestion Pipeline</div>
@@ -1069,7 +1069,7 @@
             <span>📜</span> Governance, API &amp; Documentazione Tecnica
           </div>
           <div class="views-hub-grid">
-            <div class="view-hub-card" onclick="switchTab('api-catalog')">
+            <div class="view-hub-card" data-view-id="api-catalog" onclick="switchTab('api-catalog')">
               <div class="hub-card-icon">🔌</div>
               <div class="hub-card-content">
                 <div class="hub-card-title">API Catalog (Scalar Offline)</div>
@@ -1077,7 +1077,7 @@
               </div>
               <span class="hub-card-badge">Scalar API</span>
             </div>
-            <div class="view-hub-card" onclick="switchTab('quant-codex')">
+            <div class="view-hub-card" data-view-id="quant-codex" onclick="switchTab('quant-codex')">
               <div class="hub-card-icon">📐</div>
               <div class="hub-card-content">
                 <div class="hub-card-title">Quant Codex &amp; Utilities</div>
@@ -1085,7 +1085,7 @@
               </div>
               <span class="hub-card-badge">LaTeX / Math</span>
             </div>
-            <div class="view-hub-card" onclick="switchTab('adr-governance')">
+            <div class="view-hub-card" data-view-id="adr-governance" onclick="switchTab('adr-governance')">
               <div class="hub-card-icon">📜</div>
               <div class="hub-card-content">
                 <div class="hub-card-title">ADR Architecture Governance</div>
@@ -1093,7 +1093,7 @@
               </div>
               <span class="hub-card-badge">53 ADR</span>
             </div>
-            <div class="view-hub-card" onclick="switchTab('framework-constitution')">
+            <div class="view-hub-card" data-view-id="framework-constitution" onclick="switchTab('framework-constitution')">
               <div class="hub-card-icon">🏛️</div>
               <div class="hub-card-content">
                 <div class="hub-card-title">Costituzione &amp; 9 Pilastri</div>
@@ -1101,7 +1101,7 @@
               </div>
               <span class="hub-card-badge">9 Pilastri</span>
             </div>
-            <div class="view-hub-card" onclick="switchTab('threat-matrix')">
+            <div class="view-hub-card" data-view-id="threat-matrix" onclick="switchTab('threat-matrix')">
               <div class="hub-card-icon">🛡️</div>
               <div class="hub-card-content">
                 <div class="hub-card-title">Threat Matrix &amp; Sicurezza</div>
@@ -1109,7 +1109,7 @@
               </div>
               <span class="hub-card-badge">Security</span>
             </div>
-            <div class="view-hub-card" onclick="switchTab('runbook-ops')">
+            <div class="view-hub-card" data-view-id="runbook-ops" onclick="switchTab('runbook-ops')">
               <div class="hub-card-icon">🛠️</div>
               <div class="hub-card-content">
                 <div class="hub-card-title">Ops Incident Runbook</div>
@@ -1117,7 +1117,7 @@
               </div>
               <span class="hub-card-badge">Runbook</span>
             </div>
-            <div class="view-hub-card" onclick="switchTab('visual-explainer')">
+            <div class="view-hub-card" data-view-id="visual-explainer" onclick="switchTab('visual-explainer')">
               <div class="hub-card-icon">✨</div>
               <div class="hub-card-content">
                 <div class="hub-card-title">Visual Explainers Interattivi</div>
@@ -1125,7 +1125,7 @@
               </div>
               <span class="hub-card-badge">9 Explainers</span>
             </div>
-            <div class="view-hub-card" onclick="switchTab('console')">
+            <div class="view-hub-card" data-view-id="console" onclick="switchTab('console')">
               <div class="hub-card-icon">💻</div>
               <div class="hub-card-content">
                 <div class="hub-card-title">Terminal Console</div>
@@ -1331,6 +1331,7 @@
 
   <script src="data/config.js"></script>
   <script src="data/graph_meta.js"></script>
+  <script src="data/views_manifest.js"></script>
   <script>
     function esc(str) {
       if (str === null || str === undefined) return "";
@@ -2739,6 +2740,64 @@
       hookHotspots();
     }
 
+    async function applyAdaptiveViews() {
+      let manifest = window.VIEWS_MANIFEST;
+      if (!manifest) {
+        try {
+          const res = await fetch('data/views-manifest.json');
+          if (res.ok) {
+            manifest = await res.json();
+          }
+        } catch(e) {}
+      }
+
+      if (!manifest || !manifest.available_views) return;
+
+      const available = new Set(manifest.available_views);
+      available.add('home');
+      available.add('reader');
+      available.add('console');
+
+      // Top bar tabs
+      document.querySelectorAll('.tabs-left .tab-button[data-tab]').forEach(btn => {
+        const tabId = btn.getAttribute('data-tab');
+        if (tabId && tabId !== 'home' && tabId !== 'reader' && tabId !== 'console') {
+          btn.style.display = available.has(tabId) ? '' : 'none';
+        }
+      });
+
+      // Explorer Hub cards
+      document.querySelectorAll('.view-hub-card[data-view-id]').forEach(card => {
+        const viewId = card.getAttribute('data-view-id');
+        if (viewId && viewId !== 'home' && viewId !== 'reader') {
+          card.style.display = available.has(viewId) ? '' : 'none';
+        }
+      });
+
+      // Mobile dropdown options
+      const select = document.getElementById('view-select');
+      if (select) {
+        let visibleCount = 0;
+        select.querySelectorAll('option[value]').forEach(opt => {
+          const val = opt.getAttribute('value');
+          if (val) {
+            if (!available.has(val) && val !== 'console') {
+              opt.style.display = 'none';
+              opt.disabled = true;
+            } else {
+              opt.style.display = '';
+              opt.disabled = false;
+              visibleCount++;
+            }
+          }
+        });
+        const headerOpt = select.querySelector('option[disabled][selected]');
+        if (headerOpt) {
+          headerOpt.textContent = `⚡ Viste (${visibleCount}) ▾`;
+        }
+      }
+    }
+
     window.addEventListener('message', (e) => {
       if (e.data && e.data.action === 'switchTab' && e.data.tab) {
         switchTab(e.data.tab);
@@ -2749,9 +2808,11 @@
     window.addEventListener('DOMContentLoaded', () => {
       handleHashNavigation();
       setupFloorplanHotspots();
+      applyAdaptiveViews();
     });
     setTimeout(handleHashNavigation, 200);
     setTimeout(setupFloorplanHotspots, 600);
+    setTimeout(applyAdaptiveViews, 300);
   </script>
 
 </body>

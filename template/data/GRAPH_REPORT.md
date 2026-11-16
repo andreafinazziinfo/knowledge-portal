@@ -1,6 +1,7 @@
-# Codebase Architecture Report
+# Polyglot Codebase Architecture Report
 
-- Scanned Root: `sample_project`
-- Total Files: 4
-- Total AST Nodes: 13
-- Total Edges: 9
+- Scanned Root: `knowledge-portal`
+- Total Source Files: 31
+- Total Architecture Nodes: 77
+- Total Edges: 0
+- Total DB Tables: 0

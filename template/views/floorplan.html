@@ -1,182 +1,330 @@
 <!DOCTYPE html>
 <html lang="it">
 <head>
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Architecture Full-Stack Floorplan</title>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Knowledge Portal Architecture — Knowledge Portal Floorplan</title>
 <style>
+  :root {
+    --bg: #070a12;
+    --panel: #0b101d;
+    --border: rgba(255,255,255,0.09);
+    --cyan: #38bdf8;
+    --emerald: #10b981;
+    --text: #f1f5f9;
+    --muted: #94a3b8;
+  }
   * { box-sizing: border-box; margin: 0; padding: 0; }
   body {
-    background: #050811;
-    color: #f1f5f9;
-    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
-    display: flex;
-    flex-direction: column;
-    height: 100vh;
-    overflow: hidden;
+    background: var(--bg); color: var(--text);
+    font-family: system-ui, -apple-system, sans-serif;
+    min-height: 100vh; overflow: hidden; display: flex; flex-direction: column;
   }
   header {
-    padding: 12px 20px;
-    background: #0b101d;
-    border-bottom: 1px solid #1e293b;
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    flex-shrink: 0;
+    background: rgba(7, 10, 18, 0.94); backdrop-filter: blur(12px);
+    border-bottom: 1px solid var(--border); padding: 12px 20px;
+    display: flex; justify-content: space-between; align-items: center; z-index: 10;
   }
-  header h1 {
-    font-size: 15px;
-    font-weight: 700;
-    color: #38bdf8;
-    display: flex;
-    align-items: center;
-    gap: 8px;
+  .title-wrap h1 { font-size: 15px; font-weight: 700; color: #fff; }
+  .title-wrap p { font-size: 11px; color: var(--muted); margin-top: 2px; }
+  .controls { display: flex; gap: 8px; align-items: center; }
+  .btn {
+    background: var(--panel); border: 1px solid var(--border); color: var(--text);
+    padding: 6px 12px; border-radius: 6px; font-size: 11px; cursor: pointer; transition: all 0.2s;
   }
-  .badge {
-    background: rgba(56, 189, 248, 0.15);
-    border: 1px solid rgba(56, 189, 248, 0.3);
-    color: #38bdf8;
-    font-size: 11px;
-    padding: 2px 8px;
-    border-radius: 12px;
+  .btn:hover { border-color: var(--cyan); color: #fff; }
+  #viewport {
+    flex: 1; position: relative; overflow: auto; background: #05070f;
+    display: flex; justify-content: center; padding: 20px;
   }
-  #main {
-    flex: 1;
-    display: flex;
-    overflow: hidden;
-    position: relative;
-  }
-  #svg-container {
-    flex: 1;
-    display: flex;
-    justify-content: center;
-    align-items: center;
-    padding: 20px;
-    overflow: auto;
-  }
-  svg {
-    max-width: 100%;
-    max-height: 100%;
-    filter: drop-shadow(0 10px 25px rgba(0,0,0,0.5));
-  }
-  .box {
-    transition: all 0.2s ease;
-    cursor: pointer;
-  }
-  .box:hover {
-    filter: brightness(1.2);
-  }
+  .svc-box:hover { stroke: var(--cyan) !important; stroke-width: 1.5 !important; }
   #sidebar {
-    width: 320px;
-    background: #090e1a;
-    border-left: 1px solid #1e293b;
-    padding: 20px;
-    display: flex;
-    flex-direction: column;
-    gap: 16px;
-    overflow-y: auto;
-    flex-shrink: 0;
+    position: fixed; right: 0; top: 57px; bottom: 0; width: 320px;
+    background: var(--panel); border-left: 1px solid var(--border);
+    padding: 20px; transform: translateX(100%); transition: transform 0.25s ease-out;
+    z-index: 20; box-shadow: -4px 0 20px rgba(0,0,0,0.5);
   }
-  #sidebar h2 {
-    font-size: 13px;
-    text-transform: uppercase;
-    letter-spacing: 0.08em;
-    color: #38bdf8;
-  }
-  .card {
-    background: #0f172a;
-    border: 1px solid #1e293b;
-    border-radius: 8px;
-    padding: 14px;
-    font-size: 13px;
-    line-height: 1.5;
-    color: #94a3b8;
-  }
-  .card strong { color: #f8fafc; }
-  @media (max-width: 768px) {
-    #sidebar { display: none; }
-  }
+  #sidebar.open { transform: translateX(0); }
+  .side-close { float: right; background: none; border: none; color: var(--muted); font-size: 18px; cursor: pointer; }
+  .side-title { font-size: 16px; font-weight: 700; margin-bottom: 12px; color: #fff; }
+  .side-meta { font-size: 12px; line-height: 1.6; color: var(--muted); }
 </style>
+<script src="live-reload.js"></script>
 </head>
 <body>
 <header>
-  <h1><span>🏗️</span> Architecture Full-Stack Floorplan</h1>
-  <span class="badge">Universal SVG Blueprint</span>
-</header>
-<div id="main">
-  <div id="svg-container">
-    <svg viewBox="0 0 900 550" width="900" height="550" xmlns="http://www.w3.org/2000/svg">
-      <defs>
-        <linearGradient id="gradClient" x1="0" y1="0" x2="1" y2="1">
-          <stop offset="0%" stop-color="#1e293b"/>
-          <stop offset="100%" stop-color="#0f172a"/>
-        </linearGradient>
-        <linearGradient id="gradApi" x1="0" y1="0" x2="1" y2="1">
-          <stop offset="0%" stop-color="#0c4a6e"/>
-          <stop offset="100%" stop-color="#0369a1"/>
-        </linearGradient>
-        <linearGradient id="gradCore" x1="0" y1="0" x2="1" y2="1">
-          <stop offset="0%" stop-color="#4c1d95"/>
-          <stop offset="100%" stop-color="#6d28d9"/>
-        </linearGradient>
-        <linearGradient id="gradDb" x1="0" y1="0" x2="1" y2="1">
-          <stop offset="0%" stop-color="#064e3b"/>
-          <stop offset="100%" stop-color="#047857"/>
-        </linearGradient>
-      </defs>
-
-      <!-- Client Tier -->
-      <g class="box" onclick="showDetails('Clients & UI Shell', 'Vue 3, TypeScript, React o CLI frontend. Responsabile per la presentazione dati, interattività e navigazione visuale.')">
-        <rect x="50" y="40" width="800" height="90" rx="10" fill="url(#gradClient)" stroke="#334155" stroke-width="2"/>
-        <text x="70" y="70" fill="#38bdf8" font-size="14" font-weight="700">LAYER 1: PRESENTATION &amp; CLIENTS</text>
-        <text x="70" y="100" fill="#94a3b8" font-size="12">Web App (Vue 3 / React) · Mobile Responsive Shell · CLI Terminal Tools · API Consumers</text>
-      </g>
-
-      <!-- Connection 1 -> 2 -->
-      <line x1="450" y1="130" x2="450" y2="170" stroke="#38bdf8" stroke-width="3" stroke-dasharray="5,5"/>
-
-      <!-- API Gateway Tier -->
-      <g class="box" onclick="showDetails('API Gateway &amp; Event Bus', 'FastAPI, Express o Reverse Proxy Nginx. Gestisce routing REST, streaming SSE/WebSocket e sicurezza.')">
-        <rect x="50" y="170" width="800" height="90" rx="10" fill="url(#gradApi)" stroke="#0284c7" stroke-width="2"/>
-        <text x="70" y="200" fill="#e0f2fe" font-size="14" font-weight="700">LAYER 2: API GATEWAY &amp; REAL-TIME BUS</text>
-        <text x="70" y="230" fill="#bae6fd" font-size="12">REST Endpoints · WebSocket Real-Time Bridge · SSE Live Streams · Auth &amp; Rate-Limiting</text>
-      </g>
-
-      <!-- Connection 2 -> 3 -->
-      <line x1="450" y1="260" x2="450" y2="300" stroke="#a78bfa" stroke-width="3" stroke-dasharray="5,5"/>
-
-      <!-- Core Logic Tier -->
-      <g class="box" onclick="showDetails('Core Services &amp; Workers', 'Logica applicativa core, elaborazione dati, code asincrone Celery/Redis e worker in background.')">
-        <rect x="50" y="300" width="800" height="90" rx="10" fill="url(#gradCore)" stroke="#8b5cf6" stroke-width="2"/>
-        <text x="70" y="330" fill="#ede9fe" font-size="14" font-weight="700">LAYER 3: DOMAIN LOGIC &amp; ASYNC WORKERS</text>
-        <text x="70" y="360" fill="#ddd6fe" font-size="12">Business Services · Calculation Engines · Background Tasks · Data Pipelines</text>
-      </g>
-
-      <!-- Connection 3 -> 4 -->
-      <line x1="450" y1="390" x2="450" y2="430" stroke="#34d399" stroke-width="3" stroke-dasharray="5,5"/>
-
-      <!-- Database & Storage Tier -->
-      <g class="box" onclick="showDetails('Persistence &amp; Storage', 'TimescaleDB, PostgreSQL, Redis cache e storage filesystem. Persistenza affidabile e caching ad alta velocità.')">
-        <rect x="50" y="430" width="800" height="90" rx="10" fill="url(#gradDb)" stroke="#10b981" stroke-width="2"/>
-        <text x="70" y="460" fill="#d1fae5" font-size="14" font-weight="700">LAYER 4: PERSISTENCE &amp; STORAGE</text>
-        <text x="70" y="490" fill="#a7f3d0" font-size="12">Relational &amp; Time-Series DB (Postgres/Timescale) · Redis In-Memory Cache · Blob Storage</text>
-      </g>
-    </svg>
+  <div class="title-wrap">
+    <h1>🏗️ Knowledge Portal Architecture</h1>
+    <p>Universal AST Knowledge Engine & Interactive Documentation Topology · Declarative Vector Floorplan</p>
   </div>
-  <div id="sidebar">
-    <h2>Dettagli Layer</h2>
-    <div class="card" id="details-card">
-      <strong>Tocca o clicca un blocco</strong> dell'architettura per ispezionarne il ruolo, le tecnologie e i flussi di comunicazione.
-    </div>
+  <div class="controls">
+    <button class="btn" onclick="zoom(1.15)">🔍 Zoom In</button>
+    <button class="btn" onclick="zoom(0.85)">🔍 Zoom Out</button>
+    <button class="btn" onclick="resetZoom()">↺ Reset</button>
+  </div>
+</header>
+
+<div id="viewport">
+  <div id="svg-wrap" style="transform-origin: top center; transition: transform 0.15s ease-out; width: 100%; max-width: 1200px;">
+    <svg viewBox="0 0 1200 750" width="100%" height="100%" xmlns="http://www.w3.org/2000/svg" id="arch-svg">
+
+      <defs>
+        <filter id="glow" x="-20%" y="-20%" width="140%" height="140%">
+          <feGaussianBlur stdDeviation="3" result="blur" />
+          <feComposite in="SourceGraphic" in2="blur" operator="over" />
+        </filter>
+        <marker id="arrow" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="6" markerHeight="6" orient="auto">
+          <path d="M 0 1 L 10 5 L 0 9 z" fill="#38bdf8" />
+        </marker>
+        <pattern id="grid" width="40" height="40" patternUnits="userSpaceOnUse">
+          <path d="M 40 0 L 0 0 0 40" fill="none" stroke="rgba(255,255,255,0.03)" stroke-width="1" />
+        </pattern>
+      </defs>
+      <rect width="100%" height="100%" fill="url(#grid)" />
+    
+
+        <g id="layer-client" class="layer-container">
+          <rect x="60" y="40" width="1080" height="160" rx="12"
+                fill="#0b101d" stroke="#38bdf8" stroke-opacity="0.35" stroke-width="1.5" />
+          <rect x="60" y="40" width="1080" height="32" rx="12"
+                fill="#38bdf8" fill-opacity="0.1" />
+          <text x="78" y="61" fill="#38bdf8" font-family="monospace" font-size="12" font-weight="700">
+            LAYER 1: PRESENTATION & WEB SHELL
+          </text>
+        
+
+                <g id="svc-dashboard" class="service-node" cursor="pointer"
+                   onclick="selectService('dashboard', 'Dashboard Shell', 'Adaptive SPA shell with dynamic view detection', '#38bdf8')">
+                  <rect x="80" y="86" width="245" height="95" rx="8"
+                        fill="#101524" stroke="rgba(255,255,255,0.08)" stroke-width="1" class="svc-box" />
+                  <circle cx="100" cy="110" r="5" fill="#38bdf8" />
+                  <text x="114" y="114" fill="#f1f5f9" font-family="monospace" font-size="12" font-weight="600">
+                    Dashboard Shell
+                  </text>
+                  <text x="94" y="141" fill="#94a3b8" font-family="sans-serif" font-size="11">
+                    Adaptive SPA shell with dynamic view...
+                  </text>
+                  <text x="94" y="164" fill="#38bdf8" font-family="monospace" font-size="10" opacity="0.8">
+                    id: dashboard
+                  </text>
+                </g>
+                
+
+                <g id="svc-graph-2d" class="service-node" cursor="pointer"
+                   onclick="selectService('graph-2d', 'Vis.js 2D Network', 'Physics-based organic AST network graph', '#38bdf8')">
+                  <rect x="345" y="86" width="245" height="95" rx="8"
+                        fill="#101524" stroke="rgba(255,255,255,0.08)" stroke-width="1" class="svc-box" />
+                  <circle cx="365" cy="110" r="5" fill="#38bdf8" />
+                  <text x="379" y="114" fill="#f1f5f9" font-family="monospace" font-size="12" font-weight="600">
+                    Vis.js 2D Network
+                  </text>
+                  <text x="359" y="141" fill="#94a3b8" font-family="sans-serif" font-size="11">
+                    Physics-based organic AST network gr...
+                  </text>
+                  <text x="359" y="164" fill="#38bdf8" font-family="monospace" font-size="10" opacity="0.8">
+                    id: graph-2d
+                  </text>
+                </g>
+                
+
+                <g id="svc-graph-3d" class="service-node" cursor="pointer"
+                   onclick="selectService('graph-3d', 'Three.js WebGL', '3D force-directed layout and volumetric viewer', '#38bdf8')">
+                  <rect x="610" y="86" width="245" height="95" rx="8"
+                        fill="#101524" stroke="rgba(255,255,255,0.08)" stroke-width="1" class="svc-box" />
+                  <circle cx="630" cy="110" r="5" fill="#38bdf8" />
+                  <text x="644" y="114" fill="#f1f5f9" font-family="monospace" font-size="12" font-weight="600">
+                    Three.js WebGL
+                  </text>
+                  <text x="624" y="141" fill="#94a3b8" font-family="sans-serif" font-size="11">
+                    3D force-directed layout and volumet...
+                  </text>
+                  <text x="624" y="164" fill="#38bdf8" font-family="monospace" font-size="10" opacity="0.8">
+                    id: graph-3d
+                  </text>
+                </g>
+                
+
+                <g id="svc-db-lineage" class="service-node" cursor="pointer"
+                   onclick="selectService('db-lineage', 'DB Lineage Explorer', 'Interactive SQL catalog and FK dependency map', '#38bdf8')">
+                  <rect x="875" y="86" width="245" height="95" rx="8"
+                        fill="#101524" stroke="rgba(255,255,255,0.08)" stroke-width="1" class="svc-box" />
+                  <circle cx="895" cy="110" r="5" fill="#38bdf8" />
+                  <text x="909" y="114" fill="#f1f5f9" font-family="monospace" font-size="12" font-weight="600">
+                    DB Lineage Explorer
+                  </text>
+                  <text x="889" y="141" fill="#94a3b8" font-family="sans-serif" font-size="11">
+                    Interactive SQL catalog and FK depen...
+                  </text>
+                  <text x="889" y="164" fill="#38bdf8" font-family="monospace" font-size="10" opacity="0.8">
+                    id: db-lineage
+                  </text>
+                </g>
+                
+</g>
+
+        <g id="layer-engine" class="layer-container">
+          <rect x="60" y="250" width="1080" height="160" rx="12"
+                fill="#0b101d" stroke="#8b5cf6" stroke-opacity="0.35" stroke-width="1.5" />
+          <rect x="60" y="250" width="1080" height="32" rx="12"
+                fill="#8b5cf6" fill-opacity="0.1" />
+          <text x="78" y="271" fill="#8b5cf6" font-family="monospace" font-size="12" font-weight="700">
+            LAYER 2: CORE ANALYSIS & AST ENGINE
+          </text>
+        
+
+                <g id="svc-polyglot" class="service-node" cursor="pointer"
+                   onclick="selectService('polyglot', 'Polyglot AST Scanner', '10-language native parser (Py, TS, Go, Rust, C++, SQL...)', '#8b5cf6')">
+                  <rect x="80" y="296" width="260" height="95" rx="8"
+                        fill="#101524" stroke="rgba(255,255,255,0.08)" stroke-width="1" class="svc-box" />
+                  <circle cx="100" cy="320" r="5" fill="#8b5cf6" />
+                  <text x="114" y="324" fill="#f1f5f9" font-family="monospace" font-size="12" font-weight="600">
+                    Polyglot AST Scanner
+                  </text>
+                  <text x="94" y="351" fill="#94a3b8" font-family="sans-serif" font-size="11">
+                    10-language native parser (Py, TS, G...
+                  </text>
+                  <text x="94" y="374" fill="#8b5cf6" font-family="monospace" font-size="10" opacity="0.8">
+                    id: polyglot
+                  </text>
+                </g>
+                
+
+                <g id="svc-search-indexer" class="service-node" cursor="pointer"
+                   onclick="selectService('search-indexer', 'Omni-Search Indexer', 'Deep document and symbol token search indexer', '#8b5cf6')">
+                  <rect x="360" y="296" width="260" height="95" rx="8"
+                        fill="#101524" stroke="rgba(255,255,255,0.08)" stroke-width="1" class="svc-box" />
+                  <circle cx="380" cy="320" r="5" fill="#8b5cf6" />
+                  <text x="394" y="324" fill="#f1f5f9" font-family="monospace" font-size="12" font-weight="600">
+                    Omni-Search Indexer
+                  </text>
+                  <text x="374" y="351" fill="#94a3b8" font-family="sans-serif" font-size="11">
+                    Deep document and symbol token searc...
+                  </text>
+                  <text x="374" y="374" fill="#8b5cf6" font-family="monospace" font-size="10" opacity="0.8">
+                    id: search-indexer
+                  </text>
+                </g>
+                
+
+                <g id="svc-floorplan-gen" class="service-node" cursor="pointer"
+                   onclick="selectService('floorplan-gen', 'Floorplan Generator', 'Zero-dependency declarative SVG vector compiler', '#8b5cf6')">
+                  <rect x="640" y="296" width="260" height="95" rx="8"
+                        fill="#101524" stroke="rgba(255,255,255,0.08)" stroke-width="1" class="svc-box" />
+                  <circle cx="660" cy="320" r="5" fill="#8b5cf6" />
+                  <text x="674" y="324" fill="#f1f5f9" font-family="monospace" font-size="12" font-weight="600">
+                    Floorplan Generator
+                  </text>
+                  <text x="654" y="351" fill="#94a3b8" font-family="sans-serif" font-size="11">
+                    Zero-dependency declarative SVG vect...
+                  </text>
+                  <text x="654" y="374" fill="#8b5cf6" font-family="monospace" font-size="10" opacity="0.8">
+                    id: floorplan-gen
+                  </text>
+                </g>
+                
+</g>
+
+        <g id="layer-distribution" class="layer-container">
+          <rect x="60" y="460" width="1080" height="160" rx="12"
+                fill="#0b101d" stroke="#10b981" stroke-opacity="0.35" stroke-width="1.5" />
+          <rect x="60" y="460" width="1080" height="32" rx="12"
+                fill="#10b981" fill-opacity="0.1" />
+          <text x="78" y="481" fill="#10b981" font-family="monospace" font-size="12" font-weight="700">
+            LAYER 3: DELIVERY & SERVING MODES
+          </text>
+        
+
+                <g id="svc-server" class="service-node" cursor="pointer"
+                   onclick="selectService('server', 'HTTP Dev Server', 'Python stdlib HTTP server with SSE live-reload', '#10b981')">
+                  <rect x="80" y="506" width="260" height="95" rx="8"
+                        fill="#101524" stroke="rgba(255,255,255,0.08)" stroke-width="1" class="svc-box" />
+                  <circle cx="100" cy="530" r="5" fill="#10b981" />
+                  <text x="114" y="534" fill="#f1f5f9" font-family="monospace" font-size="12" font-weight="600">
+                    HTTP Dev Server
+                  </text>
+                  <text x="94" y="561" fill="#94a3b8" font-family="sans-serif" font-size="11">
+                    Python stdlib HTTP server with SSE l...
+                  </text>
+                  <text x="94" y="584" fill="#10b981" font-family="monospace" font-size="10" opacity="0.8">
+                    id: server
+                  </text>
+                </g>
+                
+
+                <g id="svc-exporter" class="service-node" cursor="pointer"
+                   onclick="selectService('exporter', 'Static Exporter', 'Zero-server offline bundle generator for GitHub Pages', '#10b981')">
+                  <rect x="360" y="506" width="260" height="95" rx="8"
+                        fill="#101524" stroke="rgba(255,255,255,0.08)" stroke-width="1" class="svc-box" />
+                  <circle cx="380" cy="530" r="5" fill="#10b981" />
+                  <text x="394" y="534" fill="#f1f5f9" font-family="monospace" font-size="12" font-weight="600">
+                    Static Exporter
+                  </text>
+                  <text x="374" y="561" fill="#94a3b8" font-family="sans-serif" font-size="11">
+                    Zero-server offline bundle generator...
+                  </text>
+                  <text x="374" y="584" fill="#10b981" font-family="monospace" font-size="10" opacity="0.8">
+                    id: exporter
+                  </text>
+                </g>
+                
+
+                <g id="svc-docker" class="service-node" cursor="pointer"
+                   onclick="selectService('docker', 'GHCR Container', 'Alpine-based multi-arch secure container image', '#10b981')">
+                  <rect x="640" y="506" width="260" height="95" rx="8"
+                        fill="#101524" stroke="rgba(255,255,255,0.08)" stroke-width="1" class="svc-box" />
+                  <circle cx="660" cy="530" r="5" fill="#10b981" />
+                  <text x="674" y="534" fill="#f1f5f9" font-family="monospace" font-size="12" font-weight="600">
+                    GHCR Container
+                  </text>
+                  <text x="654" y="561" fill="#94a3b8" font-family="sans-serif" font-size="11">
+                    Alpine-based multi-arch secure conta...
+                  </text>
+                  <text x="654" y="584" fill="#10b981" font-family="monospace" font-size="10" opacity="0.8">
+                    id: docker
+                  </text>
+                </g>
+                
+</g>
+
+            <path d="M 600.0 200 C 600.0 225.0, 600.0 225.0, 600.0 250" fill="none" stroke="rgba(56, 189, 248, 0.4)" stroke-width="2"
+                  stroke-dasharray="4,4" marker-end="url(#arrow)" class="conn-line" />
+            
+
+            <path d="M 600.0 410 C 600.0 435.0, 600.0 435.0, 600.0 460" fill="none" stroke="rgba(56, 189, 248, 0.4)" stroke-width="2"
+                  stroke-dasharray="4,4" marker-end="url(#arrow)" class="conn-line" />
+            
+</svg>
   </div>
 </div>
+
+<div id="sidebar">
+  <button class="side-close" onclick="closeSidebar()">&times;</button>
+  <div class="side-title" id="side-name">Service Details</div>
+  <div class="side-meta">
+    <p style="margin-bottom:8px"><b>Identificativo:</b> <code id="side-id" style="color:var(--cyan)">-</code></p>
+    <p style="margin-bottom:8px"><b>Descrizione:</b> <span id="side-desc">-</span></p>
+  </div>
+</div>
+
 <script>
-  function showDetails(title, desc) {
-    const card = document.getElementById('details-card');
-    if (card) {
-      card.innerHTML = `<strong style="color:#38bdf8; font-size:14px; display:block; margin-bottom:6px;">${title}</strong>${desc}`;
-    }
-  }
+let currentScale = 1.0;
+function zoom(factor) {
+  currentScale *= factor;
+  document.getElementById('svg-wrap').style.transform = `scale(${currentScale})`;
+}
+function resetZoom() {
+  currentScale = 1.0;
+  document.getElementById('svg-wrap').style.transform = 'scale(1)';
+}
+function selectService(id, name, desc, color) {
+  document.getElementById('side-id').textContent = id;
+  document.getElementById('side-name').textContent = name;
+  document.getElementById('side-desc').textContent = desc || 'Nessuna descrizione specificata.';
+  document.getElementById('sidebar').classList.add('open');
+}
+function closeSidebar() {
+  document.getElementById('sidebar').classList.remove('open');
+}
 </script>
 </body>
 </html>

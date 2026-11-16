@@ -35,6 +35,9 @@ jobs:
           docker run -d --name test-portal -p 8000:8000 test-image:latest
           sleep 4
           curl -f http://localhost:8000/dashboard.html || exit 1
+          curl -f http://localhost:8000/views/floorplan.html || exit 1
+          curl -f http://localhost:8000/views/db-lineage.html || exit 1
+          curl -f http://localhost:8000/data/views-manifest.json || exit 1
           docker stop test-portal
       - name: Build & Push Multi-Arch Image to GHCR
         uses: docker/build-push-action@v5

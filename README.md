@@ -185,13 +185,15 @@ Open **`http://localhost:8000/dashboard.html`** in your browser.
 The `knowledge-portal` CLI provides modular subcommands:
 
 ```text
-usage: knowledge-portal [-h] {scan,serve,audit} ...
+usage: knowledge-portal [-h] {scan,export,floorplan,serve,audit} ...
 
 Knowledge Portal — Universal Interactive Software Architecture & AST Knowledge Engine
 
 positional arguments:
-  {scan,serve,audit}  Available commands
+  {scan,export,floorplan,serve,audit}  Available commands
     scan              Scan codebase AST and generate graph data
+    export            Export static zero-server bundle ready for GitHub Pages or offline use
+    floorplan         Generate interactive vector floorplan from architecture.yaml
     serve             Start the Knowledge Portal HTTP server with SSE live-reload
     audit             Run Zero-Proprietary Sanitization Audit
 
@@ -201,10 +203,23 @@ options:
 
 ### `knowledge-portal scan`
 ```bash
-knowledge-portal scan [path] [--output OUTPUT_DIR]
+knowledge-portal scan [path] [--output OUTPUT_DIR] [--classic]
 ```
 - `path`: Target codebase directory to analyze (default: current directory).
-- `--output`, `-o`: Directory where `graph.json`, `graph_viz.js`, `config.js`, and `GRAPH_REPORT.md` are saved.
+- `--output`, `-o`: Directory where `graph.json`, `graph_viz.js`, `db-schema.json`, `views-manifest.json`, and reports are saved.
+- `--classic`: Use classic Python-only AST scanner instead of the polyglot 10-language scanner.
+
+### `knowledge-portal floorplan`
+```bash
+knowledge-portal floorplan [architecture.yaml] [--output OUTPUT_FILE]
+```
+Compiles a declarative architecture YAML file into an interactive vector SVG floorplan.
+
+### `knowledge-portal export`
+```bash
+knowledge-portal export [path] [--output OUTPUT_DIR] [--name PROJECT_NAME]
+```
+Generates a static, zero-server standalone distribution ready for GitHub Pages or offline hosting (`dist/index.html`).
 
 ### `knowledge-portal serve`
 ```bash

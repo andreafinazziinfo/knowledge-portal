@@ -26,6 +26,7 @@ class PolyglotScanner:
         self.target_dir = target_dir.resolve()
         self.nodes: List[Dict[str, Any]] = []
         self.edges: List[Dict[str, Any]] = []
+        self.db_tables: Dict[str, Dict[str, Any]] = {}
         self.file_count = 0
         self.word_count = 0
 
@@ -317,35 +318,164 @@ class PolyglotScanner:
                 })
 
     def parse_sql(self, content: str, rel_path: str):
-        table_pattern = re.compile(r"CREATE\s+TABLE\s+(?:IF\s+NOT\s+EXISTS\s+)?([A-Za-z0-9_.\"']+)", re.IGNORECASE)
-        fk_pattern = re.compile(r"FOREIGN\s+KEY\s*\([^)]+\)\s*REFERENCES\s+([A-Za-z0-9_.\"']+)", re.IGNORECASE)
+        # Strip comments
+        clean = re.sub(r"--.*", "", content)
+        clean = re.sub(r"/\*.*?\*/", "", clean, flags=re.DOTALL)
 
-        current_table = None
-        for line in content.splitlines():
-            m_tbl = table_pattern.search(line)
-            if m_tbl:
-                raw_tbl = m_tbl.group(1).strip("\"'").split(".")[-1]
-                t_id = f"sql_tbl_{sanitize_id(rel_path)}_{raw_tbl}"
-                current_table = t_id
-                self.nodes.append({
-                    "id": t_id,
-                    "label": f"🗄️ {raw_tbl}",
-                    "type": "table",
-                    "lang": "sql",
-                    "path": rel_path,
-                    "line": 1,
-                    "doc": "SQL Table"
-                })
-                continue
+        table_block_pattern = re.compile(
+            r"CREATE\s+TABLE\s+(?:IF\s+NOT\s+EXISTS\s+)?([A-Za-z0-9_.\"']+)\s*\((.*?)\)(?:\s*;|\s*$)",
+            re.IGNORECASE | re.DOTALL
+        )
 
-            m_fk = fk_pattern.search(line)
-            if m_fk and current_table:
-                ref_tbl = m_fk.group(1).strip("\"'").split(".")[-1]
-                self.edges.append({
-                    "source": current_table,
-                    "target": ref_tbl,
-                    "type": "foreign_key"
-                })
+        matches = list(table_block_pattern.finditer(clean))
+        if not matches:
+            # Fallback line-by-line if parenthesis not closed with semicolon
+            table_pattern = re.compile(r"CREATE\s+TABLE\s+(?:IF\s+NOT\s+EXISTS\s+)?([A-Za-z0-9_.\"']+)", re.IGNORECASE)
+            fk_pattern = re.compile(r"FOREIGN\s+KEY\s*\([^)]+\)\s*REFERENCES\s+([A-Za-z0-9_.\"']+)", re.IGNORECASE)
+            current_table = None
+            current_raw = None
+            for line in content.splitlines():
+                m_tbl = table_pattern.search(line)
+                if m_tbl:
+                    current_raw = m_tbl.group(1).strip("\"'").split(".")[-1]
+                    t_id = f"sql_tbl_{sanitize_id(rel_path)}_{current_raw}"
+                    current_table = t_id
+                    self.nodes.append({
+                        "id": t_id,
+                        "label": f"🗄️ {current_raw}",
+                        "type": "table",
+                        "lang": "sql",
+                        "path": rel_path,
+                        "line": 1,
+                        "doc": "SQL Table"
+                    })
+                    if current_raw not in self.db_tables:
+                        self.db_tables[current_raw] = {
+                            "name": current_raw,
+                            "schema": "public",
+                            "is_view": False,
+                            "is_hypertable": False,
+                            "is_cagg": False,
+                            "columns": [],
+                            "foreign_keys": [],
+                            "readers": [],
+                            "writers": [],
+                            "ddl_sources": [{"file": rel_path, "kind": "CREATE_TABLE"}]
+                        }
+                    continue
+
+                m_fk = fk_pattern.search(line)
+                if m_fk and current_table and current_raw:
+                    ref_tbl = m_fk.group(1).strip("\"'").split(".")[-1]
+                    self.edges.append({
+                        "source": current_table,
+                        "target": ref_tbl,
+                        "type": "foreign_key"
+                    })
+                    self.db_tables[current_raw]["foreign_keys"].append({
+                        "name": f"fk_{current_raw}_{ref_tbl}",
+                        "source_table": current_raw,
+                        "target_table": ref_tbl
+                    })
+            return
+
+        for m in matches:
+            raw_tbl = m.group(1).strip("\"'").split(".")[-1]
+            body = m.group(2)
+            t_id = f"sql_tbl_{sanitize_id(rel_path)}_{raw_tbl}"
+
+            self.nodes.append({
+                "id": t_id,
+                "label": f"🗄️ {raw_tbl}",
+                "type": "table",
+                "lang": "sql",
+                "path": rel_path,
+                "line": 1,
+                "doc": "SQL Table"
+            })
+
+            columns: List[Dict[str, Any]] = []
+            fks: List[Dict[str, Any]] = []
+            pk_cols = set()
+
+            lines = [stmt.strip() for stmt in body.splitlines() if stmt.strip()]
+            for item in lines:
+                item = item.rstrip(",")
+                fk_m = re.search(r"FOREIGN\s+KEY\s*\(([^\)]+)\)\s*REFERENCES\s+([A-Za-z0-9_.\"']+)\s*(?:\(([^\)]+)\))?", item, re.IGNORECASE)
+                if fk_m:
+                    fk_col = fk_m.group(1).strip()
+                    ref_tbl = fk_m.group(2).strip("\"'").split(".")[-1]
+                    fks.append({
+                        "name": f"fk_{raw_tbl}_{ref_tbl}",
+                        "source_table": raw_tbl,
+                        "target_table": ref_tbl,
+                        "column": fk_col
+                    })
+                    self.edges.append({
+                        "source": t_id,
+                        "target": ref_tbl,
+                        "type": "foreign_key"
+                    })
+                    continue
+
+                pk_m = re.search(r"PRIMARY\s+KEY\s*\(([^\)]+)\)", item, re.IGNORECASE)
+                if pk_m:
+                    for c in pk_m.group(1).split(","):
+                        pk_cols.add(c.strip().strip("\"'"))
+                    continue
+
+                parts = item.split()
+                if parts and parts[0].upper() not in ["CONSTRAINT", "CHECK", "UNIQUE", "INDEX"]:
+                    cname = parts[0].strip("\"'")
+                    ctype = parts[1] if len(parts) > 1 else "TEXT"
+                    is_pk = "PRIMARY KEY" in item.upper()
+                    if is_pk:
+                        pk_cols.add(cname)
+                    nullable = "NOT NULL" not in item.upper() and not is_pk
+
+                    inline_ref = re.search(r"REFERENCES\s+([A-Za-z0-9_.\"']+)", item, re.IGNORECASE)
+                    if inline_ref:
+                        ref_tbl = inline_ref.group(1).strip("\"'").split(".")[-1]
+                        fks.append({
+                            "name": f"fk_{raw_tbl}_{ref_tbl}",
+                            "source_table": raw_tbl,
+                            "target_table": ref_tbl,
+                            "column": cname
+                        })
+                        self.edges.append({
+                            "source": t_id,
+                            "target": ref_tbl,
+                            "type": "foreign_key"
+                        })
+
+                    columns.append({
+                        "name": cname,
+                        "type": ctype.upper(),
+                        "pk": is_pk,
+                        "nullable": nullable
+                    })
+
+            for col in columns:
+                if col["name"] in pk_cols:
+                    col["pk"] = True
+                    col["nullable"] = False
+
+            if raw_tbl not in self.db_tables:
+                self.db_tables[raw_tbl] = {
+                    "name": raw_tbl,
+                    "schema": "public",
+                    "is_view": False,
+                    "is_hypertable": False,
+                    "is_cagg": False,
+                    "columns": columns,
+                    "foreign_keys": fks,
+                    "readers": [],
+                    "writers": [],
+                    "ddl_sources": [{"file": rel_path, "kind": "CREATE_TABLE"}]
+                }
+            else:
+                self.db_tables[raw_tbl]["columns"].extend(columns)
+                self.db_tables[raw_tbl]["foreign_keys"].extend(fks)
 
     def scan(self, max_files: int = 15000) -> Tuple[List[Dict[str, Any]], List[Dict[str, Any]]]:
         supported_exts = {
@@ -437,8 +567,59 @@ def scan_polyglot_codebase(target_dir: Path, output_dir: Path) -> Dict[str, Any]
     with open(config_js, "w", encoding="utf-8") as f:
         f.write("window.GRAPH_CONFIG = { title: 'Knowledge Portal', node_limit: 15000 };\n")
 
+    # Write db-schema.json and db_schema.js
+    total_fks = sum(len(t.get("foreign_keys", [])) for t in scanner.db_tables.values())
+    db_schema_data = {
+        "schema_version": "1.0.0",
+        "summary": {
+            "total_tables": len(scanner.db_tables),
+            "relationships_count": total_fks
+        },
+        "tables": list(scanner.db_tables.values())
+    }
+
+    db_json_path = output_dir / "db-schema.json"
+    db_js_path = output_dir / "db_schema.js"
+
+    with open(db_json_path, "w", encoding="utf-8") as f:
+        json.dump(db_schema_data, f, indent=2)
+
+    with open(db_js_path, "w", encoding="utf-8") as f:
+        f.write("window.DB_SCHEMA = " + json.dumps(db_schema_data) + ";\n")
+
+    # Detect active views for Adaptive Dashboard
+    views_dir = output_dir.parent / "views" if output_dir.name == "data" else output_dir / "views"
+    pkg_views_dir = Path(__file__).resolve().parent.parent.parent / "template" / "views"
+
+    def has_view(view_name: str) -> bool:
+        return (views_dir / f"{view_name}.html").exists() or (pkg_views_dir / f"{view_name}.html").exists()
+
+    available_views = ["home", "reader"]
+    if len(nodes) > 0:
+        available_views.extend(["graph", "canvas", "tree", "graph_3d"])
+    if len(scanner.db_tables) > 0 or has_view("db-lineage"):
+        available_views.append("db-lineage")
+    if has_view("floorplan"):
+        available_views.append("floorplan")
+    if has_view("api-catalog"):
+        available_views.append("api-catalog")
+
+    views_manifest = {
+        "version": "1.0.0",
+        "available_views": available_views
+    }
+
+    manifest_json_path = output_dir / "views-manifest.json"
+    manifest_js_path = output_dir / "views_manifest.js"
+
+    with open(manifest_json_path, "w", encoding="utf-8") as f:
+        json.dump(views_manifest, f, indent=2)
+
+    with open(manifest_js_path, "w", encoding="utf-8") as f:
+        f.write("window.VIEWS_MANIFEST = " + json.dumps(views_manifest) + ";\n")
+
     report_md = output_dir / "GRAPH_REPORT.md"
-    report_content = f"# Polyglot Codebase Architecture Report\n\n- Scanned Root: `{target_dir.resolve().name}`\n- Total Source Files: {scanner.file_count}\n- Total Architecture Nodes: {len(nodes)}\n- Total Edges: {len(edges)}\n"
+    report_content = f"# Polyglot Codebase Architecture Report\n\n- Scanned Root: `{target_dir.resolve().name}`\n- Total Source Files: {scanner.file_count}\n- Total Architecture Nodes: {len(nodes)}\n- Total Edges: {len(edges)}\n- Total DB Tables: {len(scanner.db_tables)}\n"
     report_md.write_text(report_content, encoding="utf-8")
 
     return {
@@ -446,5 +627,6 @@ def scan_polyglot_codebase(target_dir: Path, output_dir: Path) -> Dict[str, Any]
         "total_words": scanner.word_count,
         "total_nodes": len(nodes),
         "total_edges": len(edges),
+        "total_tables": len(scanner.db_tables),
         "communities": min(len(COMMUNITY_COLORS), len(nodes)) if nodes else 0
     }

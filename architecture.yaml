@@ -1,0 +1,55 @@
+# Knowledge Portal Architecture Descriptor (Declarative Blueprint)
+title: "Knowledge Portal Architecture"
+description: "Universal AST Knowledge Engine & Interactive Documentation Topology"
+
+layers:
+  - id: "client"
+    name: "Layer 1: Presentation & Web Shell"
+    color: "#38bdf8"
+    services:
+      - id: "dashboard"
+        name: "Dashboard Shell"
+        desc: "Adaptive SPA shell with dynamic view detection"
+      - id: "graph-2d"
+        name: "Vis.js 2D Network"
+        desc: "Physics-based organic AST network graph"
+      - id: "graph-3d"
+        name: "Three.js WebGL"
+        desc: "3D force-directed layout and volumetric viewer"
+      - id: "db-lineage"
+        name: "DB Lineage Explorer"
+        desc: "Interactive SQL catalog and FK dependency map"
+
+  - id: "engine"
+    name: "Layer 2: Core Analysis & AST Engine"
+    color: "#8b5cf6"
+    services:
+      - id: "polyglot"
+        name: "Polyglot AST Scanner"
+        desc: "10-language native parser (Py, TS, Go, Rust, C++, SQL...)"
+      - id: "search-indexer"
+        name: "Omni-Search Indexer"
+        desc: "Deep document and symbol token search indexer"
+      - id: "floorplan-gen"
+        name: "Floorplan Generator"
+        desc: "Zero-dependency declarative SVG vector compiler"
+
+  - id: "distribution"
+    name: "Layer 3: Delivery & Serving Modes"
+    color: "#10b981"
+    services:
+      - id: "server"
+        name: "HTTP Dev Server"
+        desc: "Python stdlib HTTP server with SSE live-reload"
+      - id: "exporter"
+        name: "Static Exporter"
+        desc: "Zero-server offline bundle generator for GitHub Pages"
+      - id: "docker"
+        name: "GHCR Container"
+        desc: "Alpine-based multi-arch secure container image"
+
+connections:
+  - from: "client"
+    to: "engine"
+  - from: "engine"
+    to: "distribution"

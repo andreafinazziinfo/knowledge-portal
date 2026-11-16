@@ -1,0 +1,1 @@
+window.DB_SCHEMA = {"schema_version": "1.0.0", "summary": {"total_tables": 0, "relationships_count": 0}, "tables": []};

@@ -7,8 +7,10 @@ ready for GitHub Pages, Netlify, or local offline browsing (file://).
 import shutil
 from pathlib import Path
 from typing import Any, Dict, Optional
+from knowledge_portal.server import get_template_dir
 from knowledge_portal.scanner.polyglot import scan_polyglot_codebase
 from knowledge_portal.indexer.search_index import generate_search_index
+from knowledge_portal.generators.floorplan import generate_floorplan_from_yaml
 
 def export_static_portal(source_dir: Path, output_dir: Path, project_name: Optional[str] = None) -> Dict[str, Any]:
     source_dir = source_dir.resolve()
@@ -17,8 +19,7 @@ def export_static_portal(source_dir: Path, output_dir: Path, project_name: Optio
     if not project_name:
         project_name = source_dir.name
 
-    pkg_root = Path(__file__).resolve().parent.parent
-    template_dir = pkg_root.parent / "template"
+    template_dir = get_template_dir()
 
     if output_dir.exists():
         shutil.rmtree(output_dir)
@@ -46,7 +47,14 @@ def export_static_portal(source_dir: Path, output_dir: Path, project_name: Optio
     omni_file = omni_dir / "omni-search-index.json"
     indexed_count = generate_search_index(source_dir, omni_file)
 
-    # 4. Create index.html as primary entrypoint (copy of dashboard.html)
+    # 4. Compile architecture.yaml if present in project root
+    for candidate in [source_dir / "architecture.yaml", source_dir / "architecture.yml", source_dir / "architecture.json"]:
+        if candidate.exists():
+            print(f"🏗️ Compiling project floorplan: {candidate.name}")
+            generate_floorplan_from_yaml(candidate, output_dir / "views" / "floorplan.html")
+            break
+
+    # 5. Create index.html as primary entrypoint (copy of dashboard.html)
     dashboard_file = output_dir / "dashboard.html"
     index_file = output_dir / "index.html"
     if dashboard_file.exists():
