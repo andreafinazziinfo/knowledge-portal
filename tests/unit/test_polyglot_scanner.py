@@ -1,12 +1,14 @@
 """
 Unit tests for Polyglot Architecture AST Scanner
-Tests Python, TypeScript, Vue 3, Go, Rust, C/C++, Java/Kotlin, C#, and SQL parsing.
+Tests Python, TypeScript, Vue 3, Go, Rust, C/C++, Java/Kotlin, C#, SQL parsing,
+and AI process flow generation.
 """
 
-import unittest
+import json
 from pathlib import Path
 import tempfile
-from knowledge_portal.scanner.polyglot import PolyglotScanner
+import unittest
+from knowledge_portal.scanner.polyglot import PolyglotScanner, scan_polyglot_codebase
 
 class TestPolyglotScanner(unittest.TestCase):
     def setUp(self):
@@ -34,6 +36,61 @@ class DataService:
         self.assertIn("DataService", labels)
         self.assertIn("fetch_records()", labels)
         self.assertIn("stream_ticks()", labels)
+
+    def test_parse_python_process_flows(self):
+        api_file = self.root / "routes.py"
+        api_file.write_text("""
+@app.get("/api/v1/orders")
+def get_orders():
+    \"\"\"Retrieve order history.\"\"\"
+    validate_session()
+    query = "SELECT * FROM orders WHERE status = 'filled'"
+    return []
+
+def main():
+    start_server()
+""", encoding="utf-8")
+
+        sql_file = self.root / "tables.sql"
+        sql_file.write_text("CREATE TABLE orders (id INT PRIMARY KEY);", encoding="utf-8")
+
+        scanner = PolyglotScanner(self.root)
+        nodes, edges = scanner.scan()
+
+        flows = scanner.process_flows
+        self.assertGreaterEqual(len(flows), 1)
+
+        api_flows = [f for f in flows if f.get("category") == "api_route"]
+        self.assertEqual(len(api_flows), 1)
+        self.assertEqual(api_flows[0]["method"], "GET")
+        self.assertEqual(api_flows[0]["route"], "/api/v1/orders")
+        self.assertIn("validate_session", api_flows[0]["call_chain"])
+        self.assertIn("orders", api_flows[0]["tables_accessed"])
+
+    def test_scan_polyglot_codebase_process_flows_files(self):
+        app_file = self.root / "app.py"
+        app_file.write_text("""
+@router.post("/auth/login")
+def login(creds):
+    check_credentials(creds)
+    return {"token": "xyz"}
+""", encoding="utf-8")
+
+        out_dir = self.root / "out_data"
+        stats = scan_polyglot_codebase(self.root, out_dir)
+
+        self.assertGreaterEqual(stats["total_flows"], 1)
+
+        pf_json = out_dir / "process-flows.json"
+        pf_js = out_dir / "process_flows.js"
+        self.assertTrue(pf_json.exists())
+        self.assertTrue(pf_js.exists())
+
+        data = json.loads(pf_json.read_text(encoding="utf-8"))
+        self.assertEqual(data["version"], "1.0.0")
+        self.assertGreaterEqual(len(data["flows"]), 1)
+        self.assertEqual(data["flows"][0]["method"], "POST")
+        self.assertEqual(data["flows"][0]["route"], "/auth/login")
 
     def test_parse_typescript_and_pinia(self):
         ts_file = self.root / "userStore.ts"

@@ -110,6 +110,7 @@
     <button class="pill active" data-f="all">Tutte</button>
     <button class="pill" data-f="fks">🔗 Con Foreign Keys</button>
     <button class="pill" data-f="roots">🌱 Radici (Senza Dipendenze FK)</button>
+    <button class="pill" onclick="exportSchemaJson()" title="Scarica schema in JSON">📥 Esporta JSON</button>
   </div>
 </div>
 
@@ -286,6 +287,10 @@ function render() {
           <div class="sec-title">Foreign Keys in Uscita</div>
           <div class="fk-list">${fkListHtml}</div>
         </div>` : ''}
+        <div style="display:flex; gap:6px; margin-top:4px; padding-top:8px; border-top:1px solid rgba(255,255,255,0.06);">
+          <button class="pill" style="font-size:10.5px; padding:3px 9px; margin:0;" onclick="showDdlPreview('${esc(t.name)}')">📄 DDL SQL</button>
+          <button class="pill" style="font-size:10.5px; padding:3px 9px; margin:0;" onclick="generateJoinQuery('${esc(t.name)}')">🔍 Query JOIN</button>
+        </div>
       </div>
     `;
   }).join('');
@@ -297,6 +302,68 @@ function filterTargetTable(target) {
   render();
 }
 window.filterTargetTable = filterTargetTable;
+
+// ── SQL DDL & Query Generation Engine ──
+function showDdlPreview(tableName) {
+  const t = (DATA.tables || []).find(x => x.name === tableName);
+  if (!t) return;
+  let ddl = `CREATE TABLE ${t.name} (\n`;
+  const colDefs = (t.columns || []).map(c => {
+    return `  ${c.name} ${c.type}${c.pk ? ' PRIMARY KEY' : ''}${!c.nullable && !c.pk ? ' NOT NULL' : ''}`;
+  });
+  (t.foreign_keys || []).forEach(fk => {
+    colDefs.push(`  CONSTRAINT ${fk.name || 'fk_' + t.name + '_' + fk.target_table} FOREIGN KEY (${fk.column || 'id'}) REFERENCES ${fk.target_table}`);
+  });
+  ddl += colDefs.join(',\n') + '\n);';
+  document.getElementById('sql-modal-title').textContent = `📄 DDL SQL: ${t.name}`;
+  document.getElementById('sql-modal-code').textContent = ddl;
+  document.getElementById('sql-modal').style.display = 'flex';
+}
+window.showDdlPreview = showDdlPreview;
+
+function generateJoinQuery(tableName) {
+  const t = (DATA.tables || []).find(x => x.name === tableName);
+  if (!t) return;
+  let sql = `SELECT\n  t.*`;
+  let joins = `FROM ${t.name} t`;
+  (t.foreign_keys || []).forEach((fk, idx) => {
+    const alias = `ref${idx + 1}`;
+    sql += `,\n  ${alias}.*`;
+    joins += `\nLEFT JOIN ${fk.target_table} ${alias} ON t.${fk.column || 'id'} = ${alias}.id`;
+  });
+  sql += `\n${joins}\nLIMIT 100;`;
+  document.getElementById('sql-modal-title').textContent = `🔍 Query JOIN Automatica: ${t.name}`;
+  document.getElementById('sql-modal-code').textContent = sql;
+  document.getElementById('sql-modal').style.display = 'flex';
+}
+window.generateJoinQuery = generateJoinQuery;
+
+function copySqlCode() {
+  const code = document.getElementById('sql-modal-code').textContent;
+  navigator.clipboard.writeText(code);
+  const btn = document.getElementById('btn-copy-sql');
+  if (btn) {
+    btn.textContent = '✓ Copiato!';
+    setTimeout(() => { btn.textContent = '📋 Copia SQL'; }, 2000);
+  }
+}
+window.copySqlCode = copySqlCode;
+
+function closeSqlModal() {
+  document.getElementById('sql-modal').style.display = 'none';
+}
+window.closeSqlModal = closeSqlModal;
+
+function exportSchemaJson() {
+  const blob = new Blob([JSON.stringify(DATA, null, 2)], { type: 'application/json' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = 'db-schema.json';
+  a.click();
+  URL.revokeObjectURL(url);
+}
+window.exportSchemaJson = exportSchemaJson;
 
 function initRelationalGraph() {
   const container = document.getElementById('vis-network');
@@ -369,5 +436,21 @@ function initRelationalGraph() {
 
 document.addEventListener('DOMContentLoaded', init);
 </script>
+
+<!-- SQL DDL & Query Preview Modal -->
+<div id="sql-modal" style="display:none; position:fixed; inset:0; background:rgba(2,4,10,0.88); backdrop-filter:blur(10px); z-index:100; align-items:center; justify-content:center;">
+  <div style="background:#0b101d; border:1px solid var(--border); border-radius:12px; padding:22px; max-width:680px; width:92%; max-height:85vh; display:flex; flex-direction:column; box-shadow:0 12px 40px rgba(0,0,0,0.7);">
+    <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:14px;">
+      <h3 id="sql-modal-title" style="font-size:14px; color:#fff; font-family:monospace; font-weight:700;">📄 SQL Preview</h3>
+      <button onclick="closeSqlModal()" style="background:none; border:none; color:var(--muted); font-size:20px; cursor:pointer; line-height:1;">&times;</button>
+    </div>
+    <pre id="sql-modal-code" style="flex:1; background:#020617; padding:14px; border-radius:8px; font-family:ui-monospace, monospace; font-size:12px; color:#38bdf8; overflow:auto; border:1px solid var(--border); line-height:1.45;"></pre>
+    <div style="display:flex; justify-content:flex-end; gap:8px; margin-top:14px;">
+      <button id="btn-copy-sql" class="pill" onclick="copySqlCode()" style="background:rgba(34,211,238,0.15); border-color:var(--cyan); color:#fff; font-weight:600;">📋 Copia SQL</button>
+      <button class="pill" onclick="closeSqlModal()">✕ Chiudi</button>
+    </div>
+  </div>
+</div>
+
 </body>
 </html>

@@ -23,7 +23,6 @@ def parse_yaml_zero_dep(text: str) -> Dict[str, Any]:
     except Exception:
         pass
 
-    # Standard library fallback parser for simple YAML structures
     result: Dict[str, Any] = {"layers": [], "connections": []}
     lines = text.splitlines()
 
@@ -76,13 +75,15 @@ def parse_yaml_zero_dep(text: str) -> Dict[str, Any]:
                 current_layer["color"] = stripped.split(":", 1)[1].strip().strip("\"'")
             elif indent == 6 and stripped.startswith("- id:"):
                 s_id = stripped.split(":", 1)[1].strip().strip("\"'")
-                current_service = {"id": s_id, "name": s_id, "desc": ""}
+                current_service = {"id": s_id, "name": s_id, "desc": "", "status": "active"}
                 current_layer["services"].append(current_service)
             elif current_service is not None:
                 if indent >= 8 and stripped.startswith("name:"):
                     current_service["name"] = stripped.split(":", 1)[1].strip().strip("\"'")
                 elif indent >= 8 and stripped.startswith("desc:"):
                     current_service["desc"] = stripped.split(":", 1)[1].strip().strip("\"'")
+                elif indent >= 8 and stripped.startswith("status:"):
+                    current_service["status"] = stripped.split(":", 1)[1].strip().strip("\"'")
 
     return result
 
@@ -98,8 +99,8 @@ def get_default_architecture() -> Dict[str, Any]:
                 "name": "Layer 1: Frontend & Presentation",
                 "color": "#38bdf8",
                 "services": [
-                    {"id": "web-app", "name": "Web Application", "desc": "Interactive single-page app and client portal"},
-                    {"id": "admin-portal", "name": "Admin Console", "desc": "Back-office management interface"}
+                    {"id": "web-app", "name": "Web Application", "desc": "Interactive single-page app and client portal", "status": "active"},
+                    {"id": "admin-portal", "name": "Admin Console", "desc": "Back-office management interface", "status": "active"}
                 ]
             },
             {
@@ -107,7 +108,7 @@ def get_default_architecture() -> Dict[str, Any]:
                 "name": "Layer 2: Gateway & Security",
                 "color": "#0284c7",
                 "services": [
-                    {"id": "api-gateway", "name": "API Gateway", "desc": "Reverse proxy, rate limiting and auth routing"}
+                    {"id": "api-gateway", "name": "API Gateway", "desc": "Reverse proxy, rate limiting and auth routing", "status": "active"}
                 ]
             },
             {
@@ -115,8 +116,8 @@ def get_default_architecture() -> Dict[str, Any]:
                 "name": "Layer 3: Core Application Services",
                 "color": "#8b5cf6",
                 "services": [
-                    {"id": "core-engine", "name": "Core Service Engine", "desc": "Business logic and async tasks"},
-                    {"id": "auth-service", "name": "Auth Service", "desc": "Identity provider and token validator"}
+                    {"id": "core-engine", "name": "Core Service Engine", "desc": "Business logic and async tasks", "status": "active"},
+                    {"id": "auth-service", "name": "Auth Service", "desc": "Identity provider and token validator", "status": "active"}
                 ]
             },
             {
@@ -124,8 +125,8 @@ def get_default_architecture() -> Dict[str, Any]:
                 "name": "Layer 4: Storage & Persistence",
                 "color": "#10b981",
                 "services": [
-                    {"id": "db-primary", "name": "Primary Database", "desc": "Relational transactional database"},
-                    {"id": "cache-store", "name": "Memory Cache", "desc": "Key-value cache and fast buffer"}
+                    {"id": "db-primary", "name": "Primary Database", "desc": "Relational transactional database", "status": "active"},
+                    {"id": "cache-store", "name": "Memory Cache", "desc": "Key-value cache and fast buffer", "status": "active"}
                 ]
             }
         ],
@@ -135,6 +136,14 @@ def get_default_architecture() -> Dict[str, Any]:
             {"from": "application", "to": "persistence"}
         ]
     }
+
+
+STATUS_COLORS = {
+    "active": "#10b981",
+    "dev": "#f59e0b",
+    "frozen": "#a855f7",
+    "deprecated": "#f43f5e",
+}
 
 
 def compile_floorplan_svg(arch: Dict[str, Any]) -> Tuple[str, Dict[str, Any]]:
@@ -165,7 +174,6 @@ def compile_floorplan_svg(arch: Dict[str, Any]) -> Tuple[str, Dict[str, Any]]:
         'xmlns="http://www.w3.org/2000/svg" id="arch-svg">'
     ]
 
-    # Definitions (Gradients & Filters)
     svg_parts.append("""
       <defs>
         <filter id="glow" x="-20%" y="-20%" width="140%" height="140%">
@@ -192,7 +200,7 @@ def compile_floorplan_svg(arch: Dict[str, Any]) -> Tuple[str, Dict[str, Any]]:
         layer_coords[l_id] = (layer_x, y, layer_width, layer_height)
 
         svg_parts.append(f"""
-        <g id="layer-{l_id}" class="layer-container">
+        <g id="layer-{l_id}" class="layer-container" data-layer-id="{l_id}">
           <rect x="{layer_x}" y="{y}" width="{layer_width}" height="{layer_height}" rx="12"
                 fill="#0b101d" stroke="{color}" stroke-opacity="0.35" stroke-width="1.5" />
           <rect x="{layer_x}" y="{y}" width="{layer_width}" height="32" rx="12"
@@ -216,25 +224,41 @@ def compile_floorplan_svg(arch: Dict[str, Any]) -> Tuple[str, Dict[str, Any]]:
                 s_id = s.get("id", f"{l_id}_s{j}")
                 s_name = s.get("name", s_id)
                 s_desc = s.get("desc", "")
+                s_status = str(s.get("status", "active")).lower()
+                status_color = STATUS_COLORS.get(s_status, "#10b981")
                 sx = start_x + j * (card_width + card_gap)
                 sy = y + 46
 
                 service_coords[s_id] = (sx, sy, card_width, card_height)
 
-                safe_desc = (s_desc[:36] + "...") if len(s_desc) > 36 else s_desc
+                safe_desc = (s_desc[:34] + "...") if len(s_desc) > 34 else s_desc
+                badge_w = 44
+                badge_h = 13
+                badge_x = sx + card_width - badge_w - 6
+                badge_y = sy + 6
+
                 svg_parts.append(f"""
-                <g id="svc-{s_id}" class="service-node" cursor="pointer"
-                   onclick="selectService('{s_id}', '{s_name}', '{s_desc}', '{color}')">
+                <g id="svc-{s_id}" class="service-node" data-id="{s_id}" data-name="{s_name.lower()}"
+                   data-desc="{s_desc.lower()}" data-status="{s_status}" data-layer="{l_id}" cursor="pointer"
+                   onclick="selectService('{s_id}', '{s_name}', '{s_desc}', '{color}', '{s_status}')">
                   <rect x="{sx}" y="{sy}" width="{card_width}" height="{card_height}" rx="8"
                         fill="#101524" stroke="rgba(255,255,255,0.08)" stroke-width="1" class="svc-box" />
-                  <circle cx="{sx + 20}" cy="{sy + 24}" r="5" fill="{color}" />
-                  <text x="{sx + 34}" y="{sy + 28}" fill="#f1f5f9" font-family="monospace" font-size="12" font-weight="600">
+                  <circle cx="{sx + 18}" cy="{sy + 20}" r="4.5" fill="{color}" />
+                  <text x="{sx + 28}" y="{sy + 24}" fill="#f1f5f9" font-family="monospace" font-size="11.5" font-weight="600">
                     {s_name}
                   </text>
-                  <text x="{sx + 14}" y="{sy + 55}" fill="#94a3b8" font-family="sans-serif" font-size="11">
+                  <g class="status-badge">
+                    <rect x="{badge_x}" y="{badge_y}" width="{badge_w}" height="{badge_h}" rx="3"
+                          fill="{status_color}" fill-opacity="0.18" stroke="{status_color}" stroke-width="0.8" />
+                    <text x="{badge_x + badge_w / 2}" y="{badge_y + 9.5}" fill="{status_color}"
+                          font-family="monospace" font-size="7.5" font-weight="700" text-anchor="middle">
+                      {s_status.upper()}
+                    </text>
+                  </g>
+                  <text x="{sx + 14}" y="{sy + 52}" fill="#94a3b8" font-family="sans-serif" font-size="10.5">
                     {safe_desc}
                   </text>
-                  <text x="{sx + 14}" y="{sy + 78}" fill="{color}" font-family="monospace" font-size="10" opacity="0.8">
+                  <text x="{sx + 14}" y="{sy + 76}" fill="{color}" font-family="monospace" font-size="9.5" opacity="0.8">
                     id: {s_id}
                   </text>
                 </g>
@@ -260,7 +284,7 @@ def compile_floorplan_svg(arch: Dict[str, Any]) -> Tuple[str, Dict[str, Any]]:
             path_d = f"M {x1} {y1} C {x1} {y1 + dy}, {x2} {y2 - dy}, {x2} {y2}"
             svg_parts.append(f"""
             <path d="{path_d}" fill="none" stroke="rgba(56, 189, 248, 0.4)" stroke-width="2"
-                  stroke-dasharray="4,4" marker-end="url(#arrow)" class="conn-line" />
+                  stroke-dasharray="4,4" marker-end="url(#arrow)" class="conn-line" id="conn-{src}-{dst}" />
             """)
 
     svg_parts.append("</svg>")
@@ -272,6 +296,18 @@ def generate_floorplan_html(arch: Dict[str, Any]) -> str:
     svg_content, safe_arch = compile_floorplan_svg(arch)
     title = safe_arch.get("title", "Declarative Architecture Floorplan")
     desc = safe_arch.get("description", "System layers and topology generated by Knowledge Portal")
+
+    layers = safe_arch.get("layers", [])
+    layer_pills_html = []
+    for layer in layers:
+        lid = layer.get("id", "")
+        lname = layer.get("name", lid)
+        lcol = layer.get("color", "#38bdf8")
+        layer_pills_html.append(
+            f'<button class="layer-pill active" data-layer="{lid}" onclick="toggleLayer(\'{lid}\', this)" '
+            f'style="border-left: 3px solid {lcol};">{lname}</button>'
+        )
+    layer_pills_str = "\n".join(layer_pills_html)
 
     html = f"""<!DOCTYPE html>
 <html lang="it">
@@ -297,15 +333,29 @@ def generate_floorplan_html(arch: Dict[str, Any]) -> str:
   }}
   header {{
     background: rgba(7, 10, 18, 0.94); backdrop-filter: blur(12px);
-    border-bottom: 1px solid var(--border); padding: 12px 20px;
+    border-bottom: 1px solid var(--border); padding: 10px 18px;
     display: flex; justify-content: space-between; align-items: center; z-index: 10;
+    gap: 12px; flex-wrap: wrap;
   }}
-  .title-wrap h1 {{ font-size: 15px; font-weight: 700; color: #fff; }}
-  .title-wrap p {{ font-size: 11px; color: var(--muted); margin-top: 2px; }}
-  .controls {{ display: flex; gap: 8px; align-items: center; }}
+  .title-wrap h1 {{ font-size: 14px; font-weight: 700; color: #fff; }}
+  .title-wrap p {{ font-size: 10.5px; color: var(--muted); margin-top: 1px; }}
+  .search-wrap input {{
+    background: #0f172a; border: 1px solid var(--border); color: #fff;
+    padding: 5px 12px; border-radius: 6px; font-size: 11px; width: 190px;
+    outline: none; transition: all 0.2s;
+  }}
+  .search-wrap input:focus {{ border-color: var(--cyan); box-shadow: 0 0 10px rgba(56,189,248,0.25); }}
+  .layer-pills-bar {{ display: flex; gap: 6px; align-items: center; flex-wrap: wrap; }}
+  .layer-pill {{
+    background: var(--panel); border: 1px solid var(--border); color: var(--muted);
+    padding: 4px 8px; border-radius: 4px; font-size: 10px; cursor: pointer; transition: all 0.2s;
+    font-weight: 500;
+  }}
+  .layer-pill.active {{ color: #fff; background: rgba(255,255,255,0.06); }}
+  .controls {{ display: flex; gap: 6px; align-items: center; }}
   .btn {{
     background: var(--panel); border: 1px solid var(--border); color: var(--text);
-    padding: 6px 12px; border-radius: 6px; font-size: 11px; cursor: pointer; transition: all 0.2s;
+    padding: 5px 10px; border-radius: 6px; font-size: 11px; cursor: pointer; transition: all 0.2s;
   }}
   .btn:hover {{ border-color: var(--cyan); color: #fff; }}
   #viewport {{
@@ -313,16 +363,21 @@ def generate_floorplan_html(arch: Dict[str, Any]) -> str:
     display: flex; justify-content: center; padding: 20px;
   }}
   .svc-box:hover {{ stroke: var(--cyan) !important; stroke-width: 1.5 !important; }}
+  .service-node {{ transition: opacity 0.2s ease-out; }}
   #sidebar {{
-    position: fixed; right: 0; top: 57px; bottom: 0; width: 320px;
+    position: fixed; right: 0; top: 52px; bottom: 0; width: 320px;
     background: var(--panel); border-left: 1px solid var(--border);
-    padding: 20px; transform: translateX(100%); transition: transform 0.25s ease-out;
+    padding: 18px; transform: translateX(100%); transition: transform 0.25s ease-out;
     z-index: 20; box-shadow: -4px 0 20px rgba(0,0,0,0.5);
   }}
   #sidebar.open {{ transform: translateX(0); }}
   .side-close {{ float: right; background: none; border: none; color: var(--muted); font-size: 18px; cursor: pointer; }}
-  .side-title {{ font-size: 16px; font-weight: 700; margin-bottom: 12px; color: #fff; }}
-  .side-meta {{ font-size: 12px; line-height: 1.6; color: var(--muted); }}
+  .side-title {{ font-size: 15px; font-weight: 700; color: #fff; }}
+  .side-meta {{ font-size: 12px; line-height: 1.6; color: var(--muted); margin-top: 14px; }}
+  .badge-status {{
+    font-size: 9px; font-family: monospace; font-weight: 700; padding: 2px 6px;
+    border-radius: 3px; border: 1px solid var(--emerald); color: var(--emerald); background: rgba(16,185,129,0.15);
+  }}
 </style>
 <script src="live-reload.js"></script>
 </head>
@@ -331,6 +386,12 @@ def generate_floorplan_html(arch: Dict[str, Any]) -> str:
   <div class="title-wrap">
     <h1>🏗️ {title}</h1>
     <p>{desc} · Declarative Vector Floorplan</p>
+  </div>
+  <div class="search-wrap">
+    <input type="search" id="fp-search" placeholder="🔍 Cerca microservizio..." oninput="filterServices(this.value)" autocomplete="off">
+  </div>
+  <div class="layer-pills-bar">
+    {layer_pills_str}
   </div>
   <div class="controls">
     <button class="btn" onclick="zoom(1.15)">🔍 Zoom In</button>
@@ -347,7 +408,10 @@ def generate_floorplan_html(arch: Dict[str, Any]) -> str:
 
 <div id="sidebar">
   <button class="side-close" onclick="closeSidebar()">&times;</button>
-  <div class="side-title" id="side-name">Service Details</div>
+  <div style="display:flex; align-items:center; gap:8px;">
+    <div class="side-title" id="side-name">Service Details</div>
+    <span id="side-status" class="badge-status">ACTIVE</span>
+  </div>
   <div class="side-meta">
     <p style="margin-bottom:8px"><b>Identificativo:</b> <code id="side-id" style="color:var(--cyan)">-</code></p>
     <p style="margin-bottom:8px"><b>Descrizione:</b> <span id="side-desc">-</span></p>
@@ -356,6 +420,13 @@ def generate_floorplan_html(arch: Dict[str, Any]) -> str:
 
 <script>
 let currentScale = 1.0;
+const STATUS_COLORS = {{
+  active: '#10b981',
+  dev: '#f59e0b',
+  frozen: '#a855f7',
+  deprecated: '#f43f5e'
+}};
+
 function zoom(factor) {{
   currentScale *= factor;
   document.getElementById('svg-wrap').style.transform = `scale(${{currentScale}})`;
@@ -364,14 +435,56 @@ function resetZoom() {{
   currentScale = 1.0;
   document.getElementById('svg-wrap').style.transform = 'scale(1)';
 }}
-function selectService(id, name, desc, color) {{
+function selectService(id, name, desc, color, status) {{
   document.getElementById('side-id').textContent = id;
   document.getElementById('side-name').textContent = name;
   document.getElementById('side-desc').textContent = desc || 'Nessuna descrizione specificata.';
+  const stElem = document.getElementById('side-status');
+  if (stElem) {{
+    const st = (status || 'active').toLowerCase();
+    stElem.textContent = st.toUpperCase();
+    const c = STATUS_COLORS[st] || '#10b981';
+    stElem.style.borderColor = c;
+    stElem.style.color = c;
+    stElem.style.background = c + '22';
+  }}
   document.getElementById('sidebar').classList.add('open');
 }}
 function closeSidebar() {{
   document.getElementById('sidebar').classList.remove('open');
+}}
+function filterServices(q) {{
+  const query = (q || '').trim().toLowerCase();
+  const nodes = document.querySelectorAll('.service-node');
+  nodes.forEach(node => {{
+    if (!query) {{
+      node.style.opacity = '1';
+      node.style.filter = 'none';
+      return;
+    }}
+    const name = node.getAttribute('data-name') || '';
+    const id = node.getAttribute('data-id') || '';
+    const desc = node.getAttribute('data-desc') || '';
+    if (name.includes(query) || id.includes(query) || desc.includes(query)) {{
+      node.style.opacity = '1';
+      node.style.filter = 'drop-shadow(0 0 6px #38bdf8)';
+    }} else {{
+      node.style.opacity = '0.2';
+      node.style.filter = 'none';
+    }}
+  }});
+}}
+function toggleLayer(layerId, btn) {{
+  const layerElem = document.getElementById('layer-' + layerId);
+  if (!layerElem) return;
+  const isHidden = layerElem.style.display === 'none';
+  if (isHidden) {{
+    layerElem.style.display = '';
+    btn.classList.add('active');
+  }} else {{
+    layerElem.style.display = 'none';
+    btn.classList.remove('active');
+  }}
 }}
 </script>
 </body>

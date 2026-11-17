@@ -23,6 +23,7 @@ class TestFloorplanGenerator(unittest.TestCase):
               - id: "web-ui"
                 name: "React Web"
                 desc: "Customer UI"
+                status: "active"
           - id: "backend"
             name: "Layer 2: Backend"
             color: "#10b981"
@@ -30,6 +31,7 @@ class TestFloorplanGenerator(unittest.TestCase):
               - id: "api-srv"
                 name: "FastAPI"
                 desc: "REST API"
+                status: "dev"
         connections:
           - from: "frontend"
             to: "backend"
@@ -40,6 +42,8 @@ class TestFloorplanGenerator(unittest.TestCase):
         self.assertEqual(res["layers"][0]["id"], "frontend")
         self.assertEqual(len(res["layers"][0]["services"]), 1)
         self.assertEqual(res["layers"][0]["services"][0]["id"], "web-ui")
+        self.assertEqual(res["layers"][0]["services"][0].get("status"), "active")
+        self.assertEqual(res["layers"][1]["services"][0].get("status"), "dev")
         self.assertEqual(len(res.get("connections", [])), 1)
         self.assertEqual(res["connections"][0]["from"], "frontend")
         self.assertEqual(res["connections"][0]["to"], "backend")
@@ -58,6 +62,7 @@ class TestFloorplanGenerator(unittest.TestCase):
                   - id: "kong"
                     name: "Kong Proxy"
                     desc: "Routing"
+                    status: "active"
               - id: "data"
                 name: "Database"
                 color: "#10b981"
@@ -65,6 +70,7 @@ class TestFloorplanGenerator(unittest.TestCase):
                   - id: "postgres"
                     name: "PostgreSQL"
                     desc: "Storage"
+                    status: "frozen"
             connections:
               - from: "gateway"
                 to: "data"
@@ -79,6 +85,11 @@ class TestFloorplanGenerator(unittest.TestCase):
             self.assertIn('id="layer-gateway"', content)
             self.assertIn('id="svc-kong"', content)
             self.assertIn('id="svc-postgres"', content)
+            self.assertIn('data-status="active"', content)
+            self.assertIn('data-status="frozen"', content)
+            self.assertIn('id="fp-search"', content)
+            self.assertIn('class="layer-pill', content)
+            self.assertIn("status-badge", content)
             self.assertIn("<svg", content)
             self.assertIn("</svg>", content)
 

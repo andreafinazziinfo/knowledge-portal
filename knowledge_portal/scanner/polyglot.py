@@ -6,10 +6,10 @@ and maps inter-file dependency edges into unified graph structures (graph.json a
 """
 
 import ast
-import os
-import re
 import json
+import os
 from pathlib import Path
+import re
 from typing import Any, Dict, List, Tuple
 
 COMMUNITY_COLORS = [
@@ -18,8 +18,10 @@ COMMUNITY_COLORS = [
     "#4ade80", "#22d3ee", "#f43f5e", "#c084fc", "#60a5fa"
 ]
 
+
 def sanitize_id(s: str) -> str:
     return re.sub(r"[^a-zA-Z0-9_]", "_", s)
+
 
 class PolyglotScanner:
     def __init__(self, target_dir: Path):
@@ -27,6 +29,7 @@ class PolyglotScanner:
         self.nodes: List[Dict[str, Any]] = []
         self.edges: List[Dict[str, Any]] = []
         self.db_tables: Dict[str, Dict[str, Any]] = {}
+        self.process_flows: List[Dict[str, Any]] = []
         self.file_count = 0
         self.word_count = 0
 
@@ -50,15 +53,94 @@ class PolyglotScanner:
                 })
             elif isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef)):
                 f_id = f"py_fn_{sanitize_id(rel_path)}_{node.name}"
+                doc = ast.get_docstring(node) or ""
+                lineno = getattr(node, "lineno", 1)
                 self.nodes.append({
                     "id": f_id,
                     "label": f"{node.name}()",
                     "type": "function",
                     "lang": "python",
                     "path": rel_path,
-                    "line": getattr(node, "lineno", 1),
-                    "doc": ast.get_docstring(node) or ""
+                    "line": lineno,
+                    "doc": doc
                 })
+
+                # Check for route decorators or entrypoints
+                route_path = None
+                http_method = None
+                is_endpoint = False
+
+                for dec in getattr(node, "decorator_list", []):
+                    if isinstance(dec, ast.Call):
+                        if isinstance(dec.func, ast.Attribute):
+                            attr_name = dec.func.attr.lower()
+                            if attr_name in ["get", "post", "put", "delete", "patch"]:
+                                is_endpoint = True
+                                http_method = attr_name.upper()
+                                if dec.args and isinstance(dec.args[0], ast.Constant) and isinstance(dec.args[0].value, str):
+                                    route_path = dec.args[0].value
+                            elif attr_name in ["route", "endpoint"]:
+                                is_endpoint = True
+                                http_method = "ANY"
+                                if dec.args and isinstance(dec.args[0], ast.Constant) and isinstance(dec.args[0].value, str):
+                                    route_path = dec.args[0].value
+                        elif isinstance(dec.func, ast.Name):
+                            dec_name = dec.func.id.lower()
+                            if "route" in dec_name or "endpoint" in dec_name:
+                                is_endpoint = True
+                                http_method = "ANY"
+                                if dec.args and isinstance(dec.args[0], ast.Constant) and isinstance(dec.args[0].value, str):
+                                    route_path = dec.args[0].value
+
+                # Analyze internal calls and SQL table access within function
+                called_funcs = set()
+                tables_accessed = set()
+
+                for sub in ast.walk(node):
+                    if isinstance(sub, ast.Call):
+                        if isinstance(sub.func, ast.Name):
+                            called_funcs.add(sub.func.id)
+                        elif isinstance(sub.func, ast.Attribute):
+                            called_funcs.add(sub.func.attr)
+                    elif isinstance(sub, ast.Constant) and isinstance(sub.value, str):
+                        val_lower = sub.value.lower()
+                        if any(k in val_lower for k in ["select ", "insert into", "update ", "from ", "delete from"]):
+                            for tbl in self.db_tables.keys():
+                                if re.search(rf"\b{re.escape(tbl)}\b", val_lower):
+                                    tables_accessed.add(tbl)
+
+                if is_endpoint:
+                    self.process_flows.append({
+                        "id": f"flow_{sanitize_id(rel_path)}_{node.name}",
+                        "name": f"{http_method} {route_path or '/' + node.name}",
+                        "category": "api_route",
+                        "route": route_path or f"/{node.name}",
+                        "method": http_method,
+                        "entrypoint": {
+                            "file": rel_path,
+                            "function": node.name,
+                            "line": lineno
+                        },
+                        "call_chain": sorted(list(called_funcs))[:10],
+                        "tables_accessed": sorted(list(tables_accessed)),
+                        "description": doc or f"API Route handler {node.name}"
+                    })
+                elif node.name in ["main", "cli", "run", "serve", "scan", "export"] or any("command" in getattr(d, "id", getattr(d, "attr", "")).lower() for d in getattr(node, "decorator_list", [])):
+                    self.process_flows.append({
+                        "id": f"flow_{sanitize_id(rel_path)}_{node.name}",
+                        "name": f"Flow: {node.name}()",
+                        "category": "cli_command",
+                        "route": None,
+                        "method": None,
+                        "entrypoint": {
+                            "file": rel_path,
+                            "function": node.name,
+                            "line": lineno
+                        },
+                        "call_chain": sorted(list(called_funcs))[:10],
+                        "tables_accessed": sorted(list(tables_accessed)),
+                        "description": doc or f"Command/Entrypoint {node.name}()"
+                    })
 
     def parse_typescript_javascript(self, content: str, rel_path: str):
         lines = content.splitlines()
@@ -67,6 +149,7 @@ class PolyglotScanner:
         func_pattern = re.compile(r"^\s*(?:export\s+)?(?:async\s+)?function\s+([A-Za-z0-9_]+)\s*\(")
         const_fn_pattern = re.compile(r"^\s*export\s+const\s+([A-Za-z0-9_]+)\s*=\s*(?:async\s*)?\(")
         import_pattern = re.compile(r"import\s+.*?from\s+['\"]([^'\"]+)['\"]")
+        route_pattern = re.compile(r"(?:app|router)\.(get|post|put|delete|patch)\s*\(\s*['\"]([^'\"]+)['\"]")
 
         for idx, line in enumerate(lines, start=1):
             m_cls = cls_pattern.search(line)
@@ -111,6 +194,26 @@ class PolyglotScanner:
                     "path": rel_path,
                     "line": idx,
                     "doc": "TypeScript Function"
+                })
+
+            m_rt = route_pattern.search(line)
+            if m_rt:
+                m_method = m_rt.group(1).upper()
+                m_path = m_rt.group(2)
+                self.process_flows.append({
+                    "id": f"flow_ts_{sanitize_id(rel_path)}_{idx}",
+                    "name": f"{m_method} {m_path}",
+                    "category": "api_route",
+                    "route": m_path,
+                    "method": m_method,
+                    "entrypoint": {
+                        "file": rel_path,
+                        "function": f"route_{m_method.lower()}",
+                        "line": idx
+                    },
+                    "call_chain": [],
+                    "tables_accessed": [],
+                    "description": f"Express/TypeScript Route {m_method} {m_path}"
                 })
 
             m_imp = import_pattern.search(line)
@@ -458,24 +561,19 @@ class PolyglotScanner:
             for col in columns:
                 if col["name"] in pk_cols:
                     col["pk"] = True
-                    col["nullable"] = False
 
-            if raw_tbl not in self.db_tables:
-                self.db_tables[raw_tbl] = {
-                    "name": raw_tbl,
-                    "schema": "public",
-                    "is_view": False,
-                    "is_hypertable": False,
-                    "is_cagg": False,
-                    "columns": columns,
-                    "foreign_keys": fks,
-                    "readers": [],
-                    "writers": [],
-                    "ddl_sources": [{"file": rel_path, "kind": "CREATE_TABLE"}]
-                }
-            else:
-                self.db_tables[raw_tbl]["columns"].extend(columns)
-                self.db_tables[raw_tbl]["foreign_keys"].extend(fks)
+            self.db_tables[raw_tbl] = {
+                "name": raw_tbl,
+                "schema": "public",
+                "is_view": False,
+                "is_hypertable": False,
+                "is_cagg": False,
+                "columns": columns,
+                "foreign_keys": fks,
+                "readers": [],
+                "writers": [],
+                "ddl_sources": [{"file": rel_path, "kind": "CREATE_TABLE"}]
+            }
 
     def scan(self, max_files: int = 15000) -> Tuple[List[Dict[str, Any]], List[Dict[str, Any]]]:
         supported_exts = {
@@ -483,17 +581,23 @@ class PolyglotScanner:
             ".cpp", ".c", ".h", ".hpp", ".cc", ".cxx",
             ".java", ".kt", ".cs", ".sql"
         }
-        for root, _, files in os.walk(self.target_dir):
-            if any(p in root for p in [".git", "node_modules", "dist", "build", "target", "vendor", "__pycache__", ".venv", "venv", "bin", "obj"]):
-                continue
-            for file in files:
+
+        ignore_dirs = {
+            ".git", "node_modules", "dist", "build", ".venv", "venv",
+            "__pycache__", ".idea", ".vscode", "target", "vendor", "bin", "obj"
+        }
+
+        for root, dirs, files in os.walk(self.target_dir):
+            dirs[:] = [d for d in dirs if d not in ignore_dirs and not d.startswith(".")]
+
+            for fname in files:
                 if self.file_count >= max_files:
                     break
-                ext = Path(file).suffix.lower()
+                ext = os.path.splitext(fname)[1].lower()
                 if ext not in supported_exts:
                     continue
 
-                fpath = Path(root) / file
+                fpath = Path(root) / fname
                 rel = str(fpath.relative_to(self.target_dir)).replace("\\", "/")
                 self.file_count += 1
 
@@ -524,7 +628,31 @@ class PolyglotScanner:
                 except Exception as e:
                     print(f"[Polyglot Scanner] Warning: could not parse {rel}: {e}")
 
+        # Fallback synthesis: if no process flows were explicitly found,
+        # extract top functions/classes as primary process flows
+        if not self.process_flows and self.nodes:
+            top_fns = [n for n in self.nodes if n.get("type") in ["function", "method"]][:8]
+            if not top_fns:
+                top_fns = self.nodes[:8]
+            for n in top_fns:
+                self.process_flows.append({
+                    "id": f"flow_auto_{n['id']}",
+                    "name": f"Flow: {n['label']}",
+                    "category": "service_flow",
+                    "route": None,
+                    "method": None,
+                    "entrypoint": {
+                        "file": n.get("path", ""),
+                        "function": n.get("label", "").replace("()", ""),
+                        "line": n.get("line", 1)
+                    },
+                    "call_chain": [],
+                    "tables_accessed": list(self.db_tables.keys())[:3],
+                    "description": n.get("doc", "") or f"Core flow {n['label']}"
+                })
+
         return self.nodes, self.edges
+
 
 def scan_polyglot_codebase(target_dir: Path, output_dir: Path) -> Dict[str, Any]:
     scanner = PolyglotScanner(target_dir)
@@ -587,6 +715,25 @@ def scan_polyglot_codebase(target_dir: Path, output_dir: Path) -> Dict[str, Any]
     with open(db_js_path, "w", encoding="utf-8") as f:
         f.write("window.DB_SCHEMA = " + json.dumps(db_schema_data) + ";\n")
 
+    # Write process-flows.json and process_flows.js
+    flows_data = {
+        "version": "1.0.0",
+        "summary": {
+            "total_flows": len(scanner.process_flows),
+            "categories": sorted(list(set(f["category"] for f in scanner.process_flows)))
+        },
+        "flows": scanner.process_flows
+    }
+
+    flows_json_path = output_dir / "process-flows.json"
+    flows_js_path = output_dir / "process_flows.js"
+
+    with open(flows_json_path, "w", encoding="utf-8") as f:
+        json.dump(flows_data, f, indent=2)
+
+    with open(flows_js_path, "w", encoding="utf-8") as f:
+        f.write("window.PROCESS_FLOWS = " + json.dumps(flows_data) + ";\n")
+
     # Detect active views for Adaptive Dashboard
     views_dir = output_dir.parent / "views" if output_dir.name == "data" else output_dir / "views"
     pkg_views_dir = Path(__file__).resolve().parent.parent.parent / "template" / "views"
@@ -619,7 +766,7 @@ def scan_polyglot_codebase(target_dir: Path, output_dir: Path) -> Dict[str, Any]
         f.write("window.VIEWS_MANIFEST = " + json.dumps(views_manifest) + ";\n")
 
     report_md = output_dir / "GRAPH_REPORT.md"
-    report_content = f"# Polyglot Codebase Architecture Report\n\n- Scanned Root: `{target_dir.resolve().name}`\n- Total Source Files: {scanner.file_count}\n- Total Architecture Nodes: {len(nodes)}\n- Total Edges: {len(edges)}\n- Total DB Tables: {len(scanner.db_tables)}\n"
+    report_content = f"# Polyglot Codebase Architecture Report\n\n- Scanned Root: `{target_dir.resolve().name}`\n- Total Source Files: {scanner.file_count}\n- Total Architecture Nodes: {len(nodes)}\n- Total Edges: {len(edges)}\n- Total DB Tables: {len(scanner.db_tables)}\n- Total Process Flows: {len(scanner.process_flows)}\n"
     report_md.write_text(report_content, encoding="utf-8")
 
     return {
@@ -628,5 +775,6 @@ def scan_polyglot_codebase(target_dir: Path, output_dir: Path) -> Dict[str, Any]
         "total_nodes": len(nodes),
         "total_edges": len(edges),
         "total_tables": len(scanner.db_tables),
+        "total_flows": len(scanner.process_flows),
         "communities": min(len(COMMUNITY_COLORS), len(nodes)) if nodes else 0
     }

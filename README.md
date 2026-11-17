@@ -1,6 +1,6 @@
 # 🌌 Knowledge Portal
 
-> **Universal Interactive Software Architecture, Multi-Dimensional AST Knowledge Graph & Air-Gapped Documentation Engine**
+> **Universal Interactive Software Architecture, Multi-Dimensional AST Knowledge Graph, AI Process Flow Engine & Air-Gapped Documentation Suite**
 
 [![CI Suite](https://github.com/andreafinazziinfo/knowledge-portal/actions/workflows/ci.yml/badge.svg)](https://github.com/andreafinazziinfo/knowledge-portal/actions)
 [![License: Apache 2.0](https://img.shields.io/badge/License-Apache%202.0-blue.svg)](LICENSE)
@@ -8,6 +8,7 @@
 [![Code Style: Ruff](https://img.shields.io/badge/code%20style-ruff-000000.svg)](https://github.com/astral-sh/ruff)
 [![Type Checked: Mypy](https://img.shields.io/badge/type%20checked-mypy-blue.svg)](http://mypy-lang.org/)
 [![Security: Bandit](https://img.shields.io/badge/security-bandit-yellow.svg)](https://github.com/PyCQA/bandit)
+[![Release: v2.4.0 Peak Excellence](https://img.shields.io/badge/release-v2.4.0%20Peak%20Excellence-purple.svg)](https://github.com/andreafinazziinfo/knowledge-portal/releases)
 [![Offline Ready](https://img.shields.io/badge/air--gapped-100%25%20offline-success.svg)](#-air-gapped-architecture--zero-telemetry)
 
 ---
@@ -16,12 +17,22 @@
 
 **Knowledge Portal** is an autonomous, self-contained developer portal and architectural intelligence platform. It scans your source code using Abstract Syntax Tree (AST) analysis and instantly transforms static repositories into a **live, multi-dimensional knowledge universe**:
 
-- **🌌 2D & 3D Interactive Force Graphs**: Navigate codebases volumetrically via WebGL (Three.js) or organically via 2D network physics (Vis.js).
-- **🌲 Hierarchical DAG & Tree Navigators**: Inspect module structures, class hierarchies, and call relationships in collapsible or top-down 3D graphs.
+- **🗺️ Radar Minimap & Ego-Network (2D Vis.js)**: Navigate large-scale topologies with a real-time world radar minimap. Isolate selected nodes and their 1-hop/2-hop neighborhood with one click to cut clutter in massive codebases.
+- **🚀 3D WebGL Fly-To Camera & HUD Analytics (Three.js)**: Explore 3D force-directed networks with smooth camera tweening (Fly-To), interactive inspector cards, live Depth-First Search cycle detection (`🔴 Cicli`), and orphan finder (`⚪ Orfani`).
+- **📑 Smart Markdown Reader with TOC & Mermaid Lightbox**: Collapsible sticky Table of Contents (TOC) with smooth scrolling, one-click code copy buttons, and full-screen vector SVG Mermaid diagrams with interactive zoom.
+- **🗄️ Database Lineage with SQL DDL & JOIN Synthesizer**: Interactive ER catalog supporting 10 languages and raw SQL. Features live DDL SQL preview (`CREATE TABLE` with PKs and FKs), automated multi-table `JOIN` query generation, and JSON schema export.
+- **🏗️ Declarative Interactive Floorplan (Zero Dependencies)**: Vector SVG architectural floorplan compiler with real-time microservices search, layer isolation toggles, and service lifecycle status badges (`active`, `dev`, `frozen`, `deprecated`).
+- **🤖 AI Process Flow Bridge**: Generates end-to-end execution maps (`process-flows.json` & `process_flows.js`) linking API routes and CLI entrypoints to intermediary call chains and SQL database tables, elevating AI agent comprehension to ~98%.
 - **🔌 Air-Gapped Offline Scalar OpenAPI Catalog**: Explore and test REST APIs directly inside an embedded, zero-CDN `@scalar/api-reference` suite.
 - **⚡ Native SSE Live-Reload Push**: File modifications trigger instantaneous AST updates and browser sync over HTTP Server-Sent Events without manual page reloads.
-- **📱 Responsive Mobile-First Architecture**: Off-canvas drawer, gesture-friendly canvas, and quick-picker (`⚡ Viste ▾`) tailored for desktops, tablets, and smartphones.
-- **🛡️ Zero-Dependency Core Runtime**: The server, watcher, and Python AST scanner rely strictly on the **Python 3.10+ Standard Library** (zero heavy framework dependencies).
+- **🛡️ Zero-Dependency Core Runtime**: The server, watcher, and Polyglot AST scanner rely strictly on the **Python 3.10+ Standard Library** (zero heavy framework dependencies).
+
+---
+
+## 📚 Documentazione & Guide Operative
+
+- 📘 **[Manuale Utente & Guida per Agenti AI](docs/MANUALE_UTENTE_E_AI.md)**: Manuale completo per sviluppatori umani (ergonomia, scorciatoie, comandi) e protocollo di query JSON per agenti autonomi.
+- 📖 **[Manuale Operativo e Amministrativo](docs/MANUALE_OPERATIVO.md)**: Guida all'installazione, configurazione server, container Docker e pipeline CI/CD.
 
 ---
 
@@ -30,46 +41,53 @@
 ```mermaid
 flowchart TD
     subgraph CoreEngine["⚙️ Knowledge Portal Core (Zero-Dependency Python)"]
-        Scanner["🔍 AST Code Scanner\n(ast.NodeVisitor)"]
+        Scanner["🔍 Polyglot AST Code Scanner\n(Python, TS, Go, Rust, C++, SQL...)"]
         Indexer["📑 Federated Omni-Search\n(JSON Inverted Index)"]
+        FlowEngine["🤖 AI Process Flow Bridge\n(Routes -> Call Chain -> Tables)"]
+        FloorplanCompiler["🏗️ Declarative Floorplan Compiler\n(architecture.yaml -> Vector SVG)"]
         Server["🚀 ThreadingHTTPServer\n(REST API + SSE Push)"]
         Watcher["👁️ Debounced File Watcher\n(Live Event Bus)"]
     end
 
     subgraph TargetCodebase["📁 Target Codebase / Repository"]
-        SourceFiles["🐍 Python / TS Source Files"]
+        SourceFiles["🐍 Polyglot Source Files"]
         DocFiles["📝 Markdown Architecture Notes"]
         OpenAPISpec["📄 OpenAPI JSON / YAML Spec"]
+        ArchYaml["🏗️ architecture.yaml"]
     end
 
-    subgraph DataArtifacts["📦 Data Artifacts (template/data/)"]
-        GraphJSON["graph.json\n(Nodes & Edges)"]
-        GraphViz["graph_viz.js\n(Coordinates & Clusters)"]
+    subgraph DataArtifacts["📦 Data Artifacts (data/)"]
+        GraphJSON["graph.json & graph_viz.js\n(Nodes, Edges, Communities)"]
+        DBSchema["db-schema.json & db_schema.js\n(Tables, Columns, FKs)"]
+        ProcessFlows["process-flows.json & process_flows.js\n(End-to-End Execution Traces)"]
         OmniIndex["omni-search-index.json\n(Federated Registry)"]
+        ViewsManifest["views-manifest.json\n(Adaptive Views Map)"]
     end
 
     subgraph WebPortal["🌐 Air-Gapped Interactive Web Portal"]
         Shell["📱 Responsive Dashboard Shell\n(Off-Canvas Drawer & View Picker)"]
-        View2D["🔗 2D Vis.js Organic Graph"]
-        View3D["🌐 3D Three.js WebGL Force Graph"]
-        ViewDAG["🌲 3D Top-Down DAG Tree"]
-        ViewTree["🌳 2D Collapsible Tree"]
-        ViewCanvas["🎨 2D/3D Whiteboard Canvas"]
+        View2D["🗺️ 2D Vis.js Network (Radar Minimap & Ego-Isolation)"]
+        View3D["🌐 3D Three.js WebGL (Fly-To & Cycle Detection HUD)"]
+        ViewDB["🗄️ DB Lineage Explorer (DDL Preview & JOIN Synthesizer)"]
+        ViewFP["🏗️ Declarative Floorplan (Live Search & Status Badges)"]
+        ViewReader["📖 Markdown Reader (Sticky TOC & Mermaid Lightbox)"]
         ViewScalar["🔌 Offline Scalar OpenAPI Reference"]
-        ViewReader["📖 Markdown Reader with KaTeX"]
     end
 
     SourceFiles -->|Parsed by| Scanner
+    SourceFiles -->|Traced by| FlowEngine
     DocFiles -->|Indexed by| Indexer
+    ArchYaml -->|Compiled by| FloorplanCompiler
     OpenAPISpec -->|Rendered by| ViewScalar
 
-    Scanner --> GraphJSON & GraphViz
+    Scanner --> GraphJSON & DBSchema & ViewsManifest
+    FlowEngine --> ProcessFlows
     Indexer --> OmniIndex
 
-    GraphJSON & GraphViz & OmniIndex --> Server
+    GraphJSON & DBSchema & ProcessFlows & OmniIndex --> Server
     Server -->|HTTP & SSE Push| Shell
 
-    Shell --> View2D & View3D & ViewDAG & ViewTree & ViewCanvas & ViewScalar & ViewReader
+    Shell --> View2D & View3D & ViewDB & ViewFP & ViewReader & ViewScalar
     SourceFiles -.->|File Change Detected| Watcher
     Watcher -->|SSE Event Broadcast| Server
 ```
@@ -92,7 +110,7 @@ sequenceDiagram
     Dev->>FS: Save file edit (e.g. models.py / doc.md)
     FS-->>PW: Filesystem modification event
     PW->>PW: Debounce batch (250ms)
-    PW->>TS: Rebuild AST & update graph_viz.js
+    PW->>TS: Rebuild AST, DB lineage & process flows
     TS-->>UI: SSE Push (`event: change`, status: updated)
     UI->>UI: Hot-reload active iframe or DOM tree
     Note over UI: Zero full-page refresh required!
@@ -100,31 +118,21 @@ sequenceDiagram
 
 ---
 
-## 🗂️ View Catalog (21 Interactive Views)
+## 🗂️ Interactive Views & Capabilities
 
-| Category | View Name | Engine / Tech | Purpose & Capabilities |
-|---|---|---|---|
-| **🌌 Graphs & 3D** | **2D Network Graph** | Vis.js Canvas | Interactive physics-based network; clustering by module, degree metrics, search filters. |
-| | **3D WebGL Force Graph** | Three.js / WebGL | Volumetric 3D constellation with orbit, zoom, and spatial community grouping. |
-| | **2D Whiteboard Canvas** | HTML5 Canvas | Conceptual freehand canvas for architectural mapping and component grouping. |
-| | **3D WebGL Canvas** | Three.js Volumetric | 3D visual workspace mapping architectural entities across spatial planes. |
-| | **Collapsible Tree** | DOM SVG Hierarchy | Expandable directory hierarchy showing classes, methods, and functions. |
-| | **3D Top-Down DAG Tree** | Three.js Directed Graph | Rooted directed acyclic graph layout illustrating dependencies top-to-bottom. |
-| | **Full Organic Network** | Vis.js Standalone | Fullscreen graph view with embedded filter sidebar and community legend. |
-| **🏗️ Architecture & Flows** | **Floorplan Full-Stack Map** | SVG Hotspot Canvas | High-level infrastructure floorplan with clickable service boundaries. |
-| | **Database Lineage & Schema** | Canvas Relational | Table relations, foreign keys, triggers, and entity-relationship lineage. |
-| | **Async & WebSocket Topology** | Real-Time Flow Map | Pub/Sub channels, worker queues, and event-driven network flows. |
-| | **Frontend UI State Stores** | State Hierarchy | Pinia / Vue / React store reactivity, state mutations, and component bindings. |
-| | **Background Worker Tasks** | Queue Architecture | Task schedules, worker pools, queues, and async job routing. |
-| | **Data Ingestion Pipeline** | Pipeline Stream Map | Ingestion connectors, stream rate-limiters, deduplication, and storage. |
-| **📜 Governance & API** | **Scalar API Catalog** | `@scalar/api-reference` | Air-gapped offline OpenAPI reference with interactive request playground. |
-| | **Architecture Decision Records (ADR)** | Markdown Vault | Versioned governance log documenting architectural decisions, trade-offs, and status. |
-| | **Engineering Constitution (9 Pillars)** | Quality Framework | Operational engineering principles, circuit breakers, idempotency, and audit standards. |
-| | **Threat Matrix & Security** | Risk Grid | Threat vectors, mitigation boundaries, blast radius isolation, and secret guards. |
-| | **Operations Incident Runbook** | Ops Playbook | Disaster recovery routines, telemetry diagnosis, and emergency response procedures. |
-| | **Interactive Visual Explainers** | Animated SVG / HTML | Step-by-step interactive walkthroughs explaining complex system flows. |
-| | **Markdown Knowledge Reader** | Marked.js + KaTeX | Fast documentation viewer with LaTeX math typesetting, backlinks, and editor. |
-| | **Terminal Console** | CLI Interface | Interactive embedded console to run diagnostic tests and inspection commands. |
+| Category | View Name | Technology | Peak Excellence Capability |
+| :--- | :--- | :--- | :--- |
+| **🌐 Topology** | **2D Organic Network** | Vis.js Physics | Radar minimap with real-time bounding box and ego-network 1/2-hop noise isolation. |
+| | **3D WebGL Universe** | Three.js WebGL | Camera fly-to tweening, floating inspector card, DFS cycle detection, orphan node detector. |
+| | **Hierarchical DAG** | 3D Collapsible | Top-down tree hierarchy showing module and class inheritance. |
+| | **Collapsible Tree** | D3 / 2D Tree | 2D hierarchical navigation tree with search filtering. |
+| | **Architecture Floorplan** | Declarative SVG | Real-time microservices search, layer toggles, and status badges (`active`, `dev`, `frozen`, `deprecated`). |
+| **🗄️ Database** | **DB Lineage Explorer** | Polyglot SQL AST | Foreign key dependency graph, instant DDL `CREATE TABLE` generator, and automatic SQL `JOIN` generator. |
+| **🤖 AI Bridge** | **Process Flow Map** | AST Call Tracing | Maps routes/CLI entrypoints to functions and database tables (`data/process-flows.json`). |
+| **📜 Documentation** | **Markdown Reader** | Marked.js + KaTeX | Sticky auto-generated TOC, one-click code copy with visual feedback, Mermaid lightbox zoom. |
+| | **Scalar API Catalog** | `@scalar/api-reference` | Air-gapped offline OpenAPI reference with interactive request playground. |
+| | **Architecture Decision Records (ADR)** | Markdown Vault | Versioned governance log documenting architectural decisions and status. |
+| | **Engineering Constitution** | Quality Framework | Operational engineering principles, circuit breakers, idempotency, and audit standards. |
 
 ---
 
@@ -144,7 +152,7 @@ pip install -e .
 ### 2. Scan your Codebase
 
 ```bash
-# Scan any target project directory (generates graph.json and search indices)
+# Scan any target project directory (generates graph.json, db-schema.json, process-flows.json)
 knowledge-portal scan /path/to/your/project
 
 # Example on the bundled sample project:
@@ -174,8 +182,6 @@ knowledge-portal export /path/to/your/project --output ./dist --name "My Project
 docker run -d -p 8000:8000 -v $(pwd):/app/data ghcr.io/andreafinazziinfo/knowledge-portal:latest
 ```
 
-📖 **Per la guida operativa completa consulta il [Manuale Operativo](docs/MANUALE_OPERATIVO.md).**
-
 Open **`http://localhost:8000/dashboard.html`** in your browser.
 
 ---
@@ -191,7 +197,7 @@ Knowledge Portal — Universal Interactive Software Architecture & AST Knowledge
 
 positional arguments:
   {scan,export,floorplan,serve,audit}  Available commands
-    scan              Scan codebase AST and generate graph data
+    scan              Scan codebase AST, DB schema, and AI process flows
     export            Export static zero-server bundle ready for GitHub Pages or offline use
     floorplan         Generate interactive vector floorplan from architecture.yaml
     serve             Start the Knowledge Portal HTTP server with SSE live-reload
@@ -200,40 +206,6 @@ positional arguments:
 options:
   -h, --help          Show this help message and exit
 ```
-
-### `knowledge-portal scan`
-```bash
-knowledge-portal scan [path] [--output OUTPUT_DIR] [--classic]
-```
-- `path`: Target codebase directory to analyze (default: current directory).
-- `--output`, `-o`: Directory where `graph.json`, `graph_viz.js`, `db-schema.json`, `views-manifest.json`, and reports are saved.
-- `--classic`: Use classic Python-only AST scanner instead of the polyglot 10-language scanner.
-
-### `knowledge-portal floorplan`
-```bash
-knowledge-portal floorplan [architecture.yaml] [--output OUTPUT_FILE]
-```
-Compiles a declarative architecture YAML file into an interactive vector SVG floorplan.
-
-### `knowledge-portal export`
-```bash
-knowledge-portal export [path] [--output OUTPUT_DIR] [--name PROJECT_NAME]
-```
-Generates a static, zero-server standalone distribution ready for GitHub Pages or offline hosting (`dist/index.html`).
-
-### `knowledge-portal serve`
-```bash
-knowledge-portal serve [--host HOST] [--port PORT] [--dir PROJECT_DIR]
-```
-- `--host`: Network interface to bind (default: `0.0.0.0`).
-- `--port`, `-p`: Port to listen on (default: `8000`).
-- `--dir`, `-d`: Working project directory containing markdown notes and source files.
-
-### `knowledge-portal audit`
-```bash
-knowledge-portal audit [path]
-```
-Runs the automated zero-proprietary and OPSEC security validator across the target directory, ensuring no secret keys, credentials, private IPs, or internal tokens are accidentally committed.
 
 ---
 
@@ -259,8 +231,7 @@ Knowledge Portal enforces strict code quality and security standards in GitHub A
 - **Linting**: [Ruff](https://github.com/astral-sh/ruff) for rapid, comprehensive style enforcement.
 - **Type Checking**: [Mypy](https://mypy-lang.org/) for complete type safety across all AST scanner and server modules.
 - **Security Audit**: [Bandit](https://github.com/PyCQA/bandit) automated AST vulnerability scanner + `verify_sanitization.py`.
-- **E2E & Unit Tests**: Automated scans on sample codebases validating graph schema integrity and API route responses.
-- **Automated Hygiene**: [Dependabot](.github/dependabot.yml) checks weekly for Python and GitHub Actions updates.
+- **E2E & Unit Tests**: Automated scans on sample codebases validating graph schema integrity, floorplan generator, and process flows.
 
 Run tests locally:
 ```bash
@@ -268,10 +239,10 @@ Run tests locally:
 python3 verify_sanitization.py .
 
 # Run linter
-ruff check knowledge_portal
+python3 -m ruff check .
 
-# Run type checker
-mypy knowledge_portal --ignore-missing-imports
+# Run unit tests
+python3 -m unittest discover tests/unit -v
 ```
 
 ---

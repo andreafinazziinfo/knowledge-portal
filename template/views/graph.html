@@ -65,11 +65,55 @@
     color: #fbbf24 !important;
   }
 
+  /* Radar Minimap */
+  #minimap-wrap {
+    position: absolute;
+    bottom: 16px;
+    right: 316px;
+    z-index: 100;
+    background: rgba(11, 16, 29, 0.9);
+    backdrop-filter: blur(8px);
+    border: 1px solid rgba(255, 255, 255, 0.12);
+    border-radius: 8px;
+    padding: 6px;
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    box-shadow: 0 4px 20px rgba(0,0,0,0.6);
+  }
+  #minimap-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    font-size: 10px;
+    font-weight: 600;
+    color: #94a3b8;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    padding: 0 2px;
+  }
+  #minimap {
+    background: #05070f;
+    border-radius: 4px;
+    cursor: crosshair;
+    display: block;
+  }
+  @media (max-width: 768px) {
+    #minimap-wrap { right: 12px; bottom: 12px; }
+  }
+
 </style>
   <script src="live-reload.js"></script>
 </head>
 <body>
 <div id="graph"></div>
+<div id="minimap-wrap">
+  <div id="minimap-header">
+    <span>🧭 Radar Topologico</span>
+    <span id="minimap-scale">1.0x</span>
+  </div>
+  <canvas id="minimap" width="160" height="110"></canvas>
+</div>
 <div id="sidebar">
     <div id="search-wrap">
     <input id="search" type="text" placeholder="🔍 Search nodes..." autocomplete="off" oninput="filterGraphNodes(this.value)">
@@ -124,11 +168,13 @@
     if (btnO) btnO.classList.remove('active-orphan');
     if (btnR) btnR.style.display = 'none';
 
+    egoNodeId = null;
     if (visNodesDataSet && allNodesData.length > 0) {
       visNodesDataSet.update(allNodesData.map(n => ({
         id: n.id,
         color: n.color,
         opacity: 1.0,
+        hidden: false,
         font: { color: '#f1f5f9' },
         borderWidth: 1
       })));
@@ -361,13 +407,166 @@
       if (p.nodes.length) {
         const n = allNodesData.find(x => x.id === p.nodes[0]);
         if (n) {
+          const isEgoActive = (egoNodeId === n.id);
           document.getElementById('info-content').innerHTML = `
-            <strong style="color:#f8fafc;">${n.label}</strong>
-            <div style="font-size:11px; color:#64748b; margin-top:4px;">${n.path}</div>
-            <button onclick="window.parent.loadFile('${n.path.replace(/'/g, "\\'")}')" style="margin-top:8px; padding:5px 10px; background:#0284c7; color:#fff; border:none; border-radius:4px; cursor:pointer; font-size:12px;">📖 Open Note</button>
+            <strong style="color:#f8fafc; font-size:13px;">${n.label}</strong>
+            <div style="font-size:11px; color:#64748b; margin-top:4px; font-family:monospace; word-break:break-all;">${n.path}</div>
+            <div style="display:flex; gap:6px; margin-top:10px; flex-wrap:wrap;">
+              <button onclick="openNodeInReader('${n.path.replace(/'/g, "\\'")}')" style="flex:1; padding:6px 10px; background:#0284c7; color:#fff; border:none; border-radius:6px; cursor:pointer; font-size:11px; font-weight:600;">
+                📖 Apri nel Reader
+              </button>
+              <button onclick="toggleEgoNetwork('${n.id.replace(/'/g, "\\'")}')" style="flex:1; padding:6px 10px; background:${isEgoActive ? '#ef4444' : '#1e293b'}; color:#fff; border:1px solid ${isEgoActive ? '#ef4444' : '#334155'}; border-radius:6px; cursor:pointer; font-size:11px; font-weight:600;">
+                ${isEgoActive ? '↺ Mostra Tutti' : '🎯 Isola Vicini'}
+              </button>
+            </div>
           `;
         }
       }
+    });
+
+    network.on('afterDrawing', () => {
+      drawMinimap();
+    });
+
+    setupMinimapInteraction();
+  }
+
+  // ── Ego-Network Isolation ──
+  let egoNodeId = null;
+
+  function toggleEgoNetwork(nodeId) {
+    if (!network || !visNodesDataSet) return;
+
+    if (egoNodeId === nodeId) {
+      // Restore all
+      egoNodeId = null;
+      const updates = allNodesData.map(n => ({ id: n.id, hidden: false, opacity: 1.0 }));
+      visNodesDataSet.update(updates);
+      document.getElementById('btn-reset-analytics').style.display = 'none';
+      network.fit({ animation: { duration: 400 } });
+      return;
+    }
+
+    egoNodeId = nodeId;
+    const connected = new Set(network.getConnectedNodes(nodeId));
+    connected.add(nodeId);
+
+    const updates = allNodesData.map(n => ({
+      id: n.id,
+      hidden: !connected.has(n.id)
+    }));
+    visNodesDataSet.update(updates);
+    document.getElementById('btn-reset-analytics').style.display = 'inline-flex';
+    network.fit({ nodes: Array.from(connected), animation: { duration: 500 } });
+
+    // Update button text in inspector
+    const n = allNodesData.find(x => x.id === nodeId);
+    if (n) {
+      network.selectNodes([nodeId]);
+    }
+  }
+
+  function openNodeInReader(path) {
+    if (!path) return;
+    if (window.parent && typeof window.parent.loadFile === 'function') {
+      window.parent.loadFile(path);
+    } else {
+      window.parent.postMessage({ action: 'openFile', path: path }, '*');
+    }
+  }
+
+  // ── Radar Minimap Engine ──
+  let minimapBounds = null;
+
+  function computeMinimapBounds() {
+    if (!allNodesData.length) return { minX: -500, maxX: 500, minY: -500, maxY: 500 };
+    let minX = Infinity, maxX = -Infinity, minY = Infinity, maxY = -Infinity;
+    allNodesData.forEach(n => {
+      if (typeof n.x === 'number' && typeof n.y === 'number') {
+        if (n.x < minX) minX = n.x;
+        if (n.x > maxX) maxX = n.x;
+        if (n.y < minY) minY = n.y;
+        if (n.y > maxY) maxY = n.y;
+      }
+    });
+    const pad = 80;
+    return { minX: minX - pad, maxX: maxX + pad, minY: minY - pad, maxY: maxY + pad };
+  }
+
+  function drawMinimap() {
+    const canvas = document.getElementById('minimap');
+    if (!canvas || !network) return;
+    const ctx = canvas.getContext('2d');
+    const w = canvas.width;
+    const h = canvas.height;
+
+    ctx.clearRect(0, 0, w, h);
+
+    if (!minimapBounds) {
+      minimapBounds = computeMinimapBounds();
+    }
+    const b = minimapBounds;
+    const spanX = (b.maxX - b.minX) || 1;
+    const spanY = (b.maxY - b.minY) || 1;
+
+    // Draw all nodes as small dots
+    allNodesData.forEach(n => {
+      if (typeof n.x === 'number' && typeof n.y === 'number') {
+        const mx = ((n.x - b.minX) / spanX) * w;
+        const my = ((n.y - b.minY) / spanY) * h;
+        ctx.fillStyle = n.color || '#38bdf8';
+        ctx.fillRect(mx, my, 1.8, 1.8);
+      }
+    });
+
+    // Draw current camera viewport rectangle
+    try {
+      const scale = network.getScale();
+      const pos = network.getViewPosition();
+      document.getElementById('minimap-scale').textContent = `${scale.toFixed(1)}x`;
+
+      const viewW = network.canvas.frame.canvas.clientWidth;
+      const viewH = network.canvas.frame.canvas.clientHeight;
+
+      const halfWorldW = (viewW / 2) / scale;
+      const halfWorldH = (viewH / 2) / scale;
+
+      const camMinX = pos.x - halfWorldW;
+      const camMaxX = pos.x + halfWorldW;
+      const camMinY = pos.y - halfWorldH;
+      const camMaxY = pos.y + halfWorldH;
+
+      const rX = Math.max(0, ((camMinX - b.minX) / spanX) * w);
+      const rY = Math.max(0, ((camMinY - b.minY) / spanY) * h);
+      const rW = Math.min(w - rX, ((camMaxX - camMinX) / spanX) * w);
+      const rH = Math.min(h - rY, ((camMaxY - camMinY) / spanY) * h);
+
+      ctx.strokeStyle = '#22d3ee';
+      ctx.lineWidth = 1.5;
+      ctx.fillStyle = 'rgba(34, 211, 238, 0.15)';
+      ctx.fillRect(rX, rY, rW, rH);
+      ctx.strokeRect(rX, rY, rW, rH);
+    } catch (e) {}
+  }
+
+  function setupMinimapInteraction() {
+    const canvas = document.getElementById('minimap');
+    if (!canvas) return;
+
+    canvas.addEventListener('click', e => {
+      if (!minimapBounds || !network) return;
+      const rect = canvas.getBoundingClientRect();
+      const clickX = e.clientX - rect.left;
+      const clickY = e.clientY - rect.top;
+
+      const b = minimapBounds;
+      const worldX = b.minX + (clickX / canvas.width) * (b.maxX - b.minX);
+      const worldY = b.minY + (clickY / canvas.height) * (b.maxY - b.minY);
+
+      network.moveTo({
+        position: { x: worldX, y: worldY },
+        animation: { duration: 350, easingFunction: 'easeInOutQuad' }
+      });
     });
   }
 
