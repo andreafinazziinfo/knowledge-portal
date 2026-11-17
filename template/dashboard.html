@@ -2786,25 +2786,24 @@
       { id: 'visual-explainer', title: '✨ Visual Explainer Hub', desc: 'Hub centrale dei 9 spiegatori interattivi sequenziali', icon: '✨', tags: 'visual explainer suite hub' },
       { id: 'api-catalog', title: '🌐 API Catalog (193 Endpoint)', desc: 'Catalogo completo 35 router FastAPI OpenAPI con schemi request/response', icon: '🌐', tags: 'api rest fastapi openapi router' },
       { id: 'adr-governance', title: '⚖️ ADR Governance (74 ADR)', desc: 'Matrice delle decisioni architetturali ufficiali e trade-off', icon: '⚖️', tags: 'adr decisioni governance architettura' },
-      { id: 'quant-codex', title: '📐 Quant Codex', desc: 'Formulario matematico con KaTeX (Hurst, FLD, cross_validation, PBO, DSR, HRP, CVD)', icon: '📐', tags: 'quant matematica formule hurst cross_validation katex' },
+      { id: 'quant-codex', title: '📐 Quant Codex', desc: 'Mathematical formula codex with KaTeX (LaTeX equations, algorithm specs)', icon: '📐', tags: 'math formula equations katex algorithm' },
       { id: 'runbook-ops', title: '🛠️ Ops Runbook', desc: 'Manuale operativo container, backup 3-2-1 e procedure di emergenza', icon: '🛠️', tags: 'ops docker backup disaster recovery flat cancel' },
       { id: 'framework-constitution', title: '🏛️ Framework & Quality Constitution', desc: 'I 9 Pilastri di Ingegneria, i 4 Tier AI Agent e il Technical Debt Ledger', icon: '🏛️', tags: 'framework pilastri debito tier dod' },
       { id: 'frontend-state', title: '⚡ UI Reactive State (17 Stores)', desc: 'Mappa degli store Pinia, associazione con le 19 viste Vue e WebSocket', icon: '⚡', tags: 'pinia vue stores frontend state reattivo' },
       { id: 'worker-tasks', title: '⚙️ Workers & Celery Matrix', desc: 'I 13 moduli worker distribuito, code Celery, triggers e deduplica Redis', icon: '⚙️', tags: 'celery workers tasks redis code cron' },
       { id: 'threat-matrix', title: '🛡️ Threat Model & Security Gates', desc: 'THREAT-001 a 004, Confine IP §8 e verifiche CI meccaniche', icon: '🛡️', tags: 'security threat sandbox ip gates csp' },
-      { id: 'data-ingestion', title: '🔌 Market Ingestion Connectors', desc: 'I 18 connettori: Binance, External Stream, cTrader, CFTC COT, FRED e RAG', icon: '🔌', tags: 'ingestion market provider External Stream ctrader feeds' },
+      { id: 'data-ingestion', title: '🔌 Market Ingestion Connectors', desc: 'External data connectors: REST APIs, WebSockets, message brokers and data feeds', icon: '🔌', tags: 'ingestion connectors stream feeds webhooks' },
       { id: 'console', title: 'System Console', desc: 'Terminale di comando e log diagnostici del wiki server', icon: '💻', tags: 'console log cli terminal' },
 
-      // I 9 Visual Explainers (Deep Dive)
-      { id: 'visual-explainer', targetUrl: 'views/explainers/visual_explainer_time_series_confluence_20261109.html', title: '📊 01 Hurst & FLD Confluence', desc: 'Intersezione Hurst, proiezione FLD a meta ciclo, verifica non-repainting', icon: '✨', tags: 'time_series ciclo non repainting confluenza quant' },
-      { id: 'visual-explainer', targetUrl: 'views/explainers/visual_explainer_Knowledge Portal_architecture_connections_20261110.html', title: '🏛️ 02 Architettura & Connessioni', desc: 'Topologia end-to-end FastAPI, Redis, TimescaleDB, Nautilus Trader', icon: '🏛️', tags: 'architettura connessioni topologia redis timescale nautilus' },
-      { id: 'visual-explainer', targetUrl: 'views/explainers/visual_explainer_Knowledge Portal_realtime_data_pipeline_20261110.html', title: '⚡ 03 Pipeline Dati Realtime', desc: 'Ciclo vitale tick: ingestion External Stream/Binance -> Redis -> klinecharts 60fps', icon: '⚡', tags: 'realtime pipeline tick klinecharts External Stream provider 60fps' },
-      { id: 'visual-explainer', targetUrl: 'views/explainers/visual_explainer_ai_copilot_triad_20261110.html', title: '🤖 04 AI Copilot Triade Zero-Leak', desc: 'useUiContext client, FastPath deterministic router, RAG context, SSE stream', icon: '🤖', tags: 'copilot ai llm useuicontext fastpath rag sse' },
-      { id: 'visual-explainer', targetUrl: 'views/explainers/visual_explainer_live_trading_safety_guards_20261110.html', title: '🛡️ 05 Live Safety Guards', desc: 'Demone Nautilus isolato, 3-level Breakers, Flat & Cancel on Disconnect', icon: '🛡️', tags: 'safety guards circuit breaker flat cancel nautilus live trading' },
-      { id: 'visual-explainer', targetUrl: 'views/explainers/visual_explainer_god_mode_cross_validation_validation_20261110.html', title: '🧪 06 God Mode & cross_validation Validation', desc: 'Optuna HPO, Purged K-Fold con embargo, PBO, DSR, allocazione HRP', icon: '🧪', tags: 'god mode cross_validation optuna pbo dsr hrp purged kfold' },
-      { id: 'visual-explainer', targetUrl: 'views/explainers/visual_explainer_event_stream_footprint_20261110.html', title: '📈 07 Orderflow Footprint & CVD', desc: 'L2 orderbook depth, delta volume aggregato per tick, POC/VAH/VAL sessione', icon: '📈', tags: 'orderflow footprint cvd poc vah val l2 volume' },
-      { id: 'visual-explainer', targetUrl: 'views/explainers/visual_explainer_dataops_anti_ban_ingestion_20261110.html', title: '🛑 08 DataOps Anti-Ban Ingestion', desc: 'Combined WebSocket, upsert idempotente, gap scan, throttle anti-418/429', icon: '🛑', tags: 'dataops anti ban throttle 418 429 gap scan upsert' },
-      { id: 'visual-explainer', targetUrl: 'views/explainers/visual_explainer_frontend_goldenlayout_multiplexing_20261110.html', title: '🎛️ 09 Frontend GoldenLayout', desc: 'GoldenLayout v2 multi-chart, Pinia bus reattivo, Canvas rendering', icon: '🎛️', tags: 'goldenlayout frontend pinia bus canvas multi chart' }
+      // Architecture Visual Deep Dives (Generic Reference Examples)
+      { id: 'visual-explainer', targetUrl: 'views/explainers/visual_explainer_architecture_topology.html', title: '🏛️ 01 System Topology & Inter-Service Connections', desc: 'End-to-end topology: API gateway, message broker, database, worker engine', icon: '🏛️', tags: 'architecture topology connections gateway database' },
+      { id: 'visual-explainer', targetUrl: 'views/explainers/visual_explainer_realtime_data_pipeline.html', title: '⚡ 02 Real-Time Event Pipeline & Stream Processing', desc: 'Event lifecycle: ingestion -> stream broker -> state cache -> UI WebSocket', icon: '⚡', tags: 'realtime pipeline events stream websocket' },
+      { id: 'visual-explainer', targetUrl: 'views/explainers/visual_explainer_ai_copilot_pipeline.html', title: '🤖 03 AI Copilot Context & RAG Pipeline', desc: 'Deterministic router, context builder, RAG grounding, and streaming inference', icon: '🤖', tags: 'copilot ai llm router rag sse stream' },
+      { id: 'visual-explainer', targetUrl: 'views/explainers/visual_explainer_resilience_circuit_breaker.html', title: '🛡️ 04 Resilience & Circuit Breakers', desc: 'Fault isolation, circuit breakers, fallback handlers, and graceful degradation', icon: '🛡️', tags: 'safety resilience circuit breaker fault tolerance' },
+      { id: 'visual-explainer', targetUrl: 'views/explainers/visual_explainer_model_validation_pipeline.html', title: '🧪 05 Model Cross-Validation & Optimization', desc: 'Hyperparameter optimization, purged k-fold cross-validation, and metrics tracking', icon: '🧪', tags: 'validation optimization cross validation metrics' },
+      { id: 'visual-explainer', targetUrl: 'views/explainers/visual_explainer_event_stream_analytics.html', title: '📈 06 High-Throughput Event Analytics', desc: 'Stream aggregation, sliding window analytics, and real-time metric counters', icon: '📈', tags: 'analytics event stream sliding window metrics' },
+      { id: 'visual-explainer', targetUrl: 'views/explainers/visual_explainer_dataops_rate_limiting.html', title: '🛑 07 DataOps Ingestion & Rate Limiting', desc: 'Multiplexed stream connectors, idempotent upsert, gap backfill, and adaptive rate limiting', icon: '🛑', tags: 'dataops rate limit backfill ingestion' },
+      { id: 'visual-explainer', targetUrl: 'views/explainers/visual_explainer_frontend_multiplexing.html', title: '🎛️ 08 Frontend Multiplexing & Reactive Store', desc: 'Multi-pane layout manager, reactive state store, and canvas rendering engine', icon: '🎛️', tags: 'frontend state layout canvas store' }
     ];
 
     function openOmniSearch() {
@@ -2905,7 +2904,7 @@
             { match: ['redis', 'websocket', 'pubsub', 'realtime'], tab: 'async-topology' },
             { match: ['timescaledb', 'postgres', 'database', 'sql', 'lineage'], tab: 'db-lineage' },
             { match: ['celery', 'worker', 'task', 'beat', 'flower'], tab: 'worker-tasks' },
-            { match: ['quant', 'metrics', 'formula', 'hurst', 'cycle', 'codex'], tab: 'quant-codex' },
+            { match: ['math', 'metrics', 'formula', 'algorithm', 'codex'], tab: 'quant-codex' },
             { match: ['fastapi', 'endpoint', 'rest', 'api catalog', 'swagger'], tab: 'api-catalog' },
             { match: ['pinia', 'frontend', 'store', 'vue'], tab: 'frontend-state' },
             { match: ['threat', 'security', 'vault', 'p4 gate'], tab: 'threat-matrix' },
