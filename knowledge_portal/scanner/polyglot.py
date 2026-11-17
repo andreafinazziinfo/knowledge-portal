@@ -105,6 +105,10 @@ class PolyglotScanner:
                     elif isinstance(sub, ast.Constant) and isinstance(sub.value, str):
                         val_lower = sub.value.lower()
                         if any(k in val_lower for k in ["select ", "insert into", "update ", "from ", "delete from"]):
+                            tbl_matches = re.findall(r"(?:from|into|update|join)\s+([a-zA-Z0-9_]+)", val_lower)
+                            for t in tbl_matches:
+                                if t not in ["where", "set", "select", "values"]:
+                                    tables_accessed.add(t)
                             for tbl in self.db_tables.keys():
                                 if re.search(rf"\b{re.escape(tbl)}\b", val_lower):
                                     tables_accessed.add(tbl)
@@ -589,6 +593,7 @@ class PolyglotScanner:
 
         for root, dirs, files in os.walk(self.target_dir):
             dirs[:] = [d for d in dirs if d not in ignore_dirs and not d.startswith(".")]
+            files.sort(key=lambda f: (0 if f.endswith(".sql") else 1, f))
 
             for fname in files:
                 if self.file_count >= max_files:
