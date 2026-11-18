@@ -27,3 +27,8 @@ env/
 # OS files
 .DS_Store
 Thumbs.db
+
+!template/vendor/perspective/
+!template/vendor/perspective/**
+!template/vendor/perspective/**/dist/
+!template/vendor/perspective/**/dist/**
