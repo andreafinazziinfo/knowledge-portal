@@ -1,0 +1,1 @@
+window.STACK_ECOSYSTEM = {"schema_version": "1.0.0", "project": "sample_project", "summary": {"total_dependencies": 0, "python_dependencies": 0, "node_dependencies": 0, "docker_services": 0, "tools_and_ci": 0, "repositories": 0}, "dependencies": [], "docker_services": [], "tools": [], "repositories": []};

@@ -1,0 +1,340 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Tech Stack, Dependencies &amp; Ecosystem</title>
+  <script src="live-reload.js"></script>
+  <script src="data/stack_ecosystem.js" onerror="void(0)"></script>
+  <style>
+    :root {
+      --bg: #000000;
+      --surface: #0a0e0c;
+      --card: #101513;
+      --border: #1f2924;
+      --text: #f3f4f6;
+      --muted: #9ca3af;
+      --accent: #10b981;
+      --accent-dim: rgba(16, 185, 129, 0.14);
+      --blue: #3b82f6;
+      --amber: #f59e0b;
+      --purple: #a855f7;
+    }
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      font-family: ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      padding: 24px;
+      line-height: 1.5;
+    }
+    .header {
+      display: flex;
+      flex-wrap: wrap;
+      justify-content: space-between;
+      align-items: flex-end;
+      gap: 16px;
+      border-bottom: 1px solid var(--border);
+      padding-bottom: 18px;
+      margin-bottom: 22px;
+    }
+    .header h1 { font-size: 1.5rem; font-weight: 700; letter-spacing: -0.02em; }
+    .header p { color: var(--muted); font-size: 0.9rem; margin-top: 4px; }
+    .kpi-row {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+      gap: 12px;
+      margin-bottom: 24px;
+    }
+    .kpi {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      padding: 14px 16px;
+    }
+    .kpi .val { font-size: 1.6rem; font-weight: 700; color: var(--accent); font-family: ui-monospace, monospace; }
+    .kpi .lbl { font-size: 0.78rem; color: var(--muted); text-transform: uppercase; letter-spacing: 0.05em; }
+    .section {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 18px;
+      margin-bottom: 22px;
+    }
+    .section-head {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 14px;
+      flex-wrap: wrap;
+      gap: 10px;
+    }
+    .section-head h2 { font-size: 1.1rem; font-weight: 600; }
+    .btn {
+      background: var(--card);
+      color: var(--text);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 6px 12px;
+      font-size: 0.82rem;
+      cursor: pointer;
+      text-decoration: none;
+    }
+    .btn:hover { border-color: var(--accent); color: var(--accent); }
+    .diagram-box {
+      width: 100%;
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      overflow: hidden;
+      background: #050807;
+    }
+    .diagram-frame {
+      width: 100%;
+      height: 640px;
+      border: none;
+      display: block;
+    }
+    .diagram-placeholder {
+      padding: 36px;
+      text-align: center;
+      color: var(--muted);
+      font-size: 0.9rem;
+    }
+    .controls {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 10px;
+      margin-bottom: 14px;
+      align-items: center;
+    }
+    .search {
+      flex: 1;
+      min-width: 220px;
+      background: var(--card);
+      border: 1px solid var(--border);
+      color: var(--text);
+      padding: 8px 12px;
+      border-radius: 8px;
+      font-size: 0.9rem;
+    }
+    .search:focus { outline: none; border-color: var(--accent); }
+    .chip {
+      background: var(--card);
+      border: 1px solid var(--border);
+      color: var(--muted);
+      padding: 6px 12px;
+      border-radius: 999px;
+      font-size: 0.8rem;
+      cursor: pointer;
+    }
+    .chip.active { background: var(--accent-dim); border-color: var(--accent); color: var(--accent); font-weight: 600; }
+    table { width: 100%; border-collapse: collapse; font-size: 0.86rem; }
+    th, td { text-align: left; padding: 10px 12px; border-bottom: 1px solid var(--border); }
+    th { color: var(--muted); font-weight: 600; font-size: 0.76rem; text-transform: uppercase; letter-spacing: 0.04em; }
+    tr:hover td { background: rgba(255,255,255,0.02); }
+    .badge {
+      display: inline-block;
+      padding: 2px 8px;
+      border-radius: 6px;
+      font-size: 0.74rem;
+      font-family: ui-monospace, monospace;
+      border: 1px solid var(--border);
+      background: var(--card);
+    }
+    .badge.py { color: #38bdf8; border-color: rgba(56,189,248,0.3); }
+    .badge.js { color: #facc15; border-color: rgba(250,204,21,0.3); }
+    .badge.docker { color: #60a5fa; border-color: rgba(96,165,250,0.3); }
+    .badge.tool { color: #a855f7; border-color: rgba(168,85,247,0.3); }
+    .badge.repo { color: #10b981; border-color: rgba(16,185,129,0.3); }
+    .mono { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 0.82rem; color: #d1d5db; }
+  </style>
+</head>
+<body>
+  <div class="header">
+    <div>
+      <h1>🧩 Tech Stack, Dependencies &amp; Ecosystem</h1>
+      <p id="subtitle">Unified inventory of libraries, containers, dev tools, CI/CD workflows, and connected repositories.</p>
+    </div>
+    <div style="display:flex; gap:8px;">
+      <a class="btn" id="openDiagramBtn" href="stack-diagram.html" target="_blank" style="display:none;">↗ Open Diagram Fullscreen</a>
+    </div>
+  </div>
+
+  <div class="kpi-row">
+    <div class="kpi"><div class="val" id="kpi-total">0</div><div class="lbl">Total Dependencies</div></div>
+    <div class="kpi"><div class="val" id="kpi-py">0</div><div class="lbl">Python / PyPI</div></div>
+    <div class="kpi"><div class="val" id="kpi-node">0</div><div class="lbl">Node.js / npm</div></div>
+    <div class="kpi"><div class="val" id="kpi-docker">0</div><div class="lbl">Docker Services</div></div>
+    <div class="kpi"><div class="val" id="kpi-tools">0</div><div class="lbl">Tools &amp; CI/CD</div></div>
+    <div class="kpi"><div class="val" id="kpi-repos">0</div><div class="lbl">Repositories</div></div>
+  </div>
+
+  <div class="section">
+    <div class="section-head">
+      <h2>🏗️ Visual Architecture &amp; Vendor Stack Diagram</h2>
+      <span class="mono" id="diagram-status">Checking stack-diagram.html...</span>
+    </div>
+    <div class="diagram-box" id="diagram-container">
+      <div class="diagram-placeholder" id="diagram-fallback">
+        No pre-rendered <code>views/stack-diagram.html</code> found yet. Run the <code>stack-diagram</code> generator to embed official vendor logos offline.
+      </div>
+    </div>
+  </div>
+
+  <div class="section">
+    <div class="section-head">
+      <h2>📦 Live Ecosystem Matrix</h2>
+    </div>
+    <div class="controls">
+      <input class="search" id="searchInput" type="text" placeholder="Filter by package, image, tool, version, or source file..." oninput="renderTable()" />
+      <button class="chip active" onclick="setFilter('all', this)">All</button>
+      <button class="chip" onclick="setFilter('python', this)">Python</button>
+      <button class="chip" onclick="setFilter('node', this)">Frontend / npm</button>
+      <button class="chip" onclick="setFilter('docker', this)">Docker &amp; Infra</button>
+      <button class="chip" onclick="setFilter('tools', this)">Tools &amp; CI</button>
+      <button class="chip" onclick="setFilter('repos', this)">Repositories</button>
+    </div>
+    <div style="overflow-x:auto;">
+      <table>
+        <thead>
+          <tr>
+            <th>Component / Name</th>
+            <th>Category</th>
+            <th>Version / Image / URL</th>
+            <th>Scope</th>
+            <th>Manifest Source</th>
+          </tr>
+        </thead>
+        <tbody id="tableBody"></tbody>
+      </table>
+    </div>
+  </div>
+
+  <script>
+    let allRows = [];
+    let activeFilter = 'all';
+
+    function setFilter(cat, el) {
+      activeFilter = cat;
+      document.querySelectorAll('.chip').forEach(c => c.classList.remove('active'));
+      if (el) el.classList.add('active');
+      renderTable();
+    }
+
+    function escapeHtml(s) {
+      return String(s ?? '').replace(/[&<>"']/g, m => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m]));
+    }
+
+    function renderTable() {
+      const q = document.getElementById('searchInput').value.trim().toLowerCase();
+      const tbody = document.getElementById('tableBody');
+      const filtered = allRows.filter(r => {
+        if (activeFilter !== 'all' && r.group !== activeFilter) return false;
+        if (!q) return true;
+        return (r.name + ' ' + r.category + ' ' + r.detail + ' ' + r.scope + ' ' + r.source).toLowerCase().includes(q);
+      });
+      if (!filtered.length) {
+        tbody.innerHTML = '<tr><td colspan="5" style="text-align:center;color:var(--muted);padding:24px;">No matching items found.</td></tr>';
+        return;
+      }
+      tbody.innerHTML = filtered.slice(0, 400).map(r => `
+        <tr>
+          <td><strong>${escapeHtml(r.name)}</strong></td>
+          <td><span class="badge ${r.badgeClass}">${escapeHtml(r.category)}</span></td>
+          <td class="mono">${escapeHtml(r.detail)}</td>
+          <td>${escapeHtml(r.scope)}</td>
+          <td class="mono" style="color:var(--muted);">${escapeHtml(r.source)}</td>
+        </tr>
+      `).join('');
+    }
+
+    function hydrate(data) {
+      if (!data) return;
+      const s = data.summary || {};
+      document.getElementById('kpi-total').textContent = s.total_dependencies ?? 0;
+      document.getElementById('kpi-py').textContent = s.python_dependencies ?? 0;
+      document.getElementById('kpi-node').textContent = s.node_dependencies ?? 0;
+      document.getElementById('kpi-docker').textContent = s.docker_services ?? 0;
+      document.getElementById('kpi-tools').textContent = s.tools_and_ci ?? 0;
+      document.getElementById('kpi-repos').textContent = s.repositories ?? 0;
+      if (data.project) {
+        document.getElementById('subtitle').textContent = `Project: ${data.project} — Unified inventory of libraries, containers, dev tools, CI/CD workflows, and connected repositories.`;
+      }
+
+      allRows = [];
+      (data.dependencies || []).forEach(d => {
+        const isPy = (d.ecosystem || '').includes('Python');
+        allRows.push({
+          group: isPy ? 'python' : 'node',
+          badgeClass: isPy ? 'py' : 'js',
+          name: d.name,
+          category: d.ecosystem,
+          detail: d.version || '*',
+          scope: d.scope || 'runtime',
+          source: d.source || ''
+        });
+      });
+      (data.docker_services || []).forEach(svc => {
+        allRows.push({
+          group: 'docker',
+          badgeClass: 'docker',
+          name: svc.name,
+          category: 'Docker Service',
+          detail: svc.image || 'custom-build',
+          scope: 'container',
+          source: svc.source || ''
+        });
+      });
+      (data.tools || []).forEach(t => {
+        allRows.push({
+          group: 'tools',
+          badgeClass: 'tool',
+          name: t.name,
+          category: t.category || 'Tooling',
+          detail: 'configured',
+          scope: 'dev/ci',
+          source: t.source || ''
+        });
+      });
+      (data.repositories || []).forEach(repo => {
+        allRows.push({
+          group: 'repos',
+          badgeClass: 'repo',
+          name: repo.name,
+          category: repo.type || 'git-remote',
+          detail: repo.url || '',
+          scope: 'vcs',
+          source: '.git'
+        });
+      });
+      renderTable();
+    }
+
+    async function checkDiagram() {
+      try {
+        const res = await fetch('stack-diagram.html', { method: 'HEAD' });
+        if (res.ok) {
+          document.getElementById('diagram-status').textContent = 'Self-contained SVG/HTML (Offline)';
+          document.getElementById('openDiagramBtn').style.display = 'inline-block';
+          document.getElementById('diagram-container').innerHTML =
+            '<iframe class="diagram-frame" src="stack-diagram.html" title="Stack Architecture Diagram"></iframe>';
+          return;
+        }
+      } catch (e) {}
+      document.getElementById('diagram-status').textContent = 'Not generated';
+    }
+
+    (async function init() {
+      if (window.STACK_ECOSYSTEM) {
+        hydrate(window.STACK_ECOSYSTEM);
+      } else {
+        try {
+          const r = await fetch('data/stack-ecosystem.json');
+          if (r.ok) hydrate(await r.json());
+        } catch (e) {}
+      }
+      checkDiagram();
+    })();
+  </script>
+</body>
+</html>

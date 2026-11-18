@@ -554,7 +554,7 @@
     }
 
     /* Graph / Canvas / Tree / Floorplan / Visual Explainer Panes */
-    #pane-graph, #pane-canvas, #pane-tree, #pane-floorplan, #pane-db-lineage, #pane-async-topology, #pane-visual-explainer, #pane-api-catalog, #pane-adr-governance, #pane-quant-codex, #pane-runbook-ops { background-color: #000000; }
+    #pane-graph, #pane-canvas, #pane-tree, #pane-floorplan, #pane-stack-ecosystem, #pane-db-lineage, #pane-async-topology, #pane-visual-explainer, #pane-api-catalog, #pane-adr-governance, #pane-quant-codex, #pane-runbook-ops { background-color: #000000; }
 
     /* ── Keyboard Shortcut Modal ── */
     #shortcuts-modal {
@@ -964,6 +964,7 @@
         </optgroup>
         <optgroup label="🏗️ Architettura &amp; Flussi">
           <option value="floorplan">🏗️ Floorplan SVG (ADR-053)</option>
+          <option value="stack-ecosystem">🧩 Tech Stack &amp; Deps</option>
           <option value="db-lineage">🗄️ Database Lineage</option>
           <option value="async-topology">⚡ Async &amp; WebSocket</option>
           <option value="frontend-state">⚡ UI State &amp; Pinia Stores</option>
@@ -988,6 +989,7 @@
         <button class="tab-button" data-tab="canvas" onclick="switchTab('canvas')">🎨 Canvas</button>
         <button class="tab-button" data-tab="tree" onclick="switchTab('tree')">🌳 Tree</button>
         <button class="tab-button" data-tab="floorplan" onclick="switchTab('floorplan')">🏗️ Floorplan</button>
+        <button class="tab-button" data-tab="stack-ecosystem" onclick="switchTab('stack-ecosystem')">🧩 Stack &amp; Deps</button>
         <button class="tab-button" data-tab="db-lineage" onclick="switchTab('db-lineage')">🗄️ DB Lineage</button>
         <button class="tab-button" data-tab="async-topology" onclick="switchTab('async-topology')">⚡ Async &amp; WS</button>
         <button class="tab-button" data-tab="visual-explainer" onclick="switchTab('visual-explainer')">✨ Visual Explainer</button>
@@ -1110,6 +1112,13 @@
             <span>🏗️</span> Architettura, Dati &amp; Flussi Operativi
           </div>
           <div class="views-hub-grid">
+            <div class="view-hub-card" data-view-id="stack-ecosystem" onclick="switchTab('stack-ecosystem')">
+              <div class="hub-card-icon">🧩</div>
+              <div class="hub-card-content">
+                <div class="hub-card-title">Tech Stack &amp; Ecosystem</div>
+                <div class="hub-card-desc">Diagramma vendor con loghi ufficiali, dipendenze Python/npm, Docker e repo</div>
+              </div>
+            </div>
             <div class="view-hub-card" data-view-id="floorplan" onclick="switchTab('floorplan')">
               <div class="hub-card-icon">🏗️</div>
               <div class="hub-card-content">
@@ -1302,6 +1311,11 @@
     </div>
 
     <!-- Tab 5: Floorplan Interactive Full-Stack & HTTP Map (ADR-053) -->
+    <div class="tab-pane" id="pane-stack-ecosystem">
+      <button class="fullscreen-btn" onclick="toggleFullscreen('pane-stack-ecosystem')" title="Fullscreen">⛶</button>
+      <iframe id="stack-ecosystem-iframe" data-src="views/stack-ecosystem.html" title="Tech Stack, Dependencies & Ecosystem" style="width:100%; height:100%; border:none; background:#000000;"></iframe>
+    </div>
+
     <div class="tab-pane" id="pane-floorplan">
       <button class="fullscreen-btn" onclick="toggleFullscreen('pane-floorplan')" title="Fullscreen">⛶</button>
       <iframe id="floorplan-iframe" data-src="views/floorplan.html" title="Floorplan Full-Stack & HTTP Map" style="width:100%; height:100%; border:none; background:#000000;"></iframe>
@@ -1708,7 +1722,7 @@
     let currentFileName = null;
     let isEditing = false;
     let activeTab = 'home';
-    const TAB_IDS = ['home', 'reader', 'graph', 'canvas', 'tree', 'floorplan', 'db-lineage', 'async-topology', 'visual-explainer', 'api-catalog', 'adr-governance', 'quant-codex', 'runbook-ops', 'framework-constitution', 'frontend-state', 'worker-tasks', 'threat-matrix', 'data-ingestion', 'console'];
+    const TAB_IDS = ['home', 'reader', 'graph', 'canvas', 'tree', 'floorplan', 'stack-ecosystem', 'db-lineage', 'async-topology', 'visual-explainer', 'api-catalog', 'adr-governance', 'quant-codex', 'runbook-ops', 'framework-constitution', 'frontend-state', 'worker-tasks', 'threat-matrix', 'data-ingestion', 'console'];
 
     // ── Load File (Reader) ──
     function loadFile(filePath) {
@@ -2780,6 +2794,7 @@
       { id: 'graph', title: 'Knowledge Graph 2D/3D', desc: 'Grafo delle relazioni di codice, simboli e chiamate', icon: '🕸️', tags: 'ast vis.js three.js grafo' },
       { id: 'canvas', title: 'Obsidian Canvas', desc: 'Lavagna visuale e nodi concettuali', icon: '🎨', tags: 'canvas nodi mappa' },
       { id: 'tree', title: 'Directory Tree 3D', desc: 'Albero gerarchico dei file e moduli del monorepo', icon: '🌳', tags: 'files folder albero' },
+      { id: 'stack-ecosystem', title: 'Tech Stack & Ecosystem', desc: 'Diagramma stack con loghi ufficiali, dipendenze Python/npm, Docker e tool CI', icon: '🧩', tags: 'stack dependencies requirements package docker tools repo' },
       { id: 'floorplan', title: 'Floorplan Macro Cartografia', desc: 'Pianta topologica interattiva delle strategie sample_service', icon: '🗺️', tags: 'macro floorplan svg architettura' },
       { id: 'db-lineage', title: 'TimescaleDB Lineage', desc: 'Tabelle, hypertables, 17 migrazioni Alembic e relazioni dati', icon: '🗄️', tags: 'db sql timescale alembic schema' },
       { id: 'async-topology', title: 'AsyncAPI & WebSocket', desc: 'Mappa dei flussi realtime, bridge Redis Pub/Sub e socket', icon: '⚡', tags: 'websocket socket redis async' },

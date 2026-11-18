@@ -56,6 +56,9 @@ def main():
             from knowledge_portal.scanner.polyglot import scan_polyglot_codebase
             stats = scan_polyglot_codebase(target, out)
 
+        from knowledge_portal.generators.stack_inventory import generate_stack_inventory
+        stack_stats = generate_stack_inventory(target, out)
+
         from knowledge_portal.indexer.search_index import generate_search_index
         omni_file = template_dir / "views" / "data" / "omni-search-index.json"
         indexed_count = generate_search_index(target, omni_file)
