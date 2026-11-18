@@ -9,6 +9,7 @@
     "graph_3d",
     "db-lineage",
     "floorplan",
-    "api-catalog"
+    "api-catalog",
+    "data-explorer"
   ]
 }

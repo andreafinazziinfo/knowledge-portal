@@ -554,7 +554,7 @@
     }
 
     /* Graph / Canvas / Tree / Floorplan / Visual Explainer Panes */
-    #pane-graph, #pane-canvas, #pane-tree, #pane-floorplan, #pane-stack-ecosystem, #pane-db-lineage, #pane-async-topology, #pane-visual-explainer, #pane-api-catalog, #pane-adr-governance, #pane-quant-codex, #pane-runbook-ops { background-color: #000000; }
+    #pane-graph, #pane-canvas, #pane-tree, #pane-floorplan, #pane-stack-ecosystem, #pane-data-explorer, #pane-db-lineage, #pane-async-topology, #pane-visual-explainer, #pane-api-catalog, #pane-adr-governance, #pane-quant-codex, #pane-runbook-ops { background-color: #000000; }
 
     /* ── Keyboard Shortcut Modal ── */
     #shortcuts-modal {
@@ -964,7 +964,8 @@
         </optgroup>
         <optgroup label="🏗️ Architettura &amp; Flussi">
           <option value="floorplan">🏗️ Floorplan SVG (ADR-053)</option>
-          <option value="stack-ecosystem">🧩 Tech Stack &amp; Deps</option>
+          <option value="stack-ecosystem">Tech Stack &amp; Deps</option>
+          <option value="data-explorer">Pivot Data Explorer (WASM)</option>
           <option value="db-lineage">🗄️ Database Lineage</option>
           <option value="async-topology">⚡ Async &amp; WebSocket</option>
           <option value="frontend-state">⚡ UI State &amp; Pinia Stores</option>
@@ -983,26 +984,27 @@
         </optgroup>
       </select>
       <div class="tabs-left">
-        <button class="tab-button active" data-tab="home" onclick="switchTab('home')">🏠 Home</button>
-        <button class="tab-button" data-tab="reader" onclick="switchTab('reader')">📖 Reader</button>
+        <button class="tab-button active" data-tab="home" onclick="switchTab('home')">Home</button>
+        <button class="tab-button" data-tab="reader" onclick="switchTab('reader')">Reader</button>
         <button class="tab-button" data-tab="graph" onclick="switchTab('graph')">🔗 Graph</button>
-        <button class="tab-button" data-tab="canvas" onclick="switchTab('canvas')">🎨 Canvas</button>
-        <button class="tab-button" data-tab="tree" onclick="switchTab('tree')">🌳 Tree</button>
-        <button class="tab-button" data-tab="floorplan" onclick="switchTab('floorplan')">🏗️ Floorplan</button>
-        <button class="tab-button" data-tab="stack-ecosystem" onclick="switchTab('stack-ecosystem')">🧩 Stack &amp; Deps</button>
-        <button class="tab-button" data-tab="db-lineage" onclick="switchTab('db-lineage')">🗄️ DB Lineage</button>
-        <button class="tab-button" data-tab="async-topology" onclick="switchTab('async-topology')">⚡ Async &amp; WS</button>
-        <button class="tab-button" data-tab="visual-explainer" onclick="switchTab('visual-explainer')">✨ Visual Explainer</button>
+        <button class="tab-button" data-tab="canvas" onclick="switchTab('canvas')">Canvas</button>
+        <button class="tab-button" data-tab="tree" onclick="switchTab('tree')">Tree</button>
+        <button class="tab-button" data-tab="floorplan" onclick="switchTab('floorplan')">Floorplan</button>
+        <button class="tab-button" data-tab="stack-ecosystem" onclick="switchTab('stack-ecosystem')">Stack &amp; Deps</button>
+        <button class="tab-button" data-tab="data-explorer" onclick="switchTab('data-explorer')">Pivot Explorer</button>
+        <button class="tab-button" data-tab="db-lineage" onclick="switchTab('db-lineage')">DB Lineage</button>
+        <button class="tab-button" data-tab="async-topology" onclick="switchTab('async-topology')">Async &amp; WS</button>
+        <button class="tab-button" data-tab="visual-explainer" onclick="switchTab('visual-explainer')">Visual Explainers</button>
         <button class="tab-button" data-tab="api-catalog" onclick="switchTab('api-catalog')">🔌 API Catalog</button>
         <button class="tab-button" data-tab="adr-governance" onclick="switchTab('adr-governance')">📜 ADR Governance</button>
-        <button class="tab-button" data-tab="quant-codex" onclick="switchTab('quant-codex')">📐 Quant Codex</button>
+        <button class="tab-button" data-tab="quant-codex" onclick="switchTab('quant-codex')">Quant Codex</button>
         <button class="tab-button" data-tab="framework-constitution" onclick="switchTab('framework-constitution')">🏛️ Costituzione</button>
         <button class="tab-button" data-tab="frontend-state" onclick="switchTab('frontend-state')">⚡ UI Stores</button>
         <button class="tab-button" data-tab="worker-tasks" onclick="switchTab('worker-tasks')">⚙️ Worker Tasks</button>
         <button class="tab-button" data-tab="threat-matrix" onclick="switchTab('threat-matrix')">🛡️ Threat Matrix</button>
         <button class="tab-button" data-tab="data-ingestion" onclick="switchTab('data-ingestion')">📊 Data Ingestion</button>
         <button class="tab-button" data-tab="runbook-ops" onclick="switchTab('runbook-ops')">🛠️ Ops Runbook</button>
-        <button class="tab-button" data-tab="console" onclick="switchTab('console')">💻 Console</button>
+        <button class="tab-button" data-tab="console" onclick="switchTab('console')">Console</button>
       </div>
       <div class="tabs-right">
         <label style="display: flex; align-items: center; gap: 4px; font-size: 11px; color: var(--text-muted); cursor: pointer; user-select: none; margin-right: 4px;">
@@ -1112,6 +1114,13 @@
             <span>🏗️</span> Architettura, Dati &amp; Flussi Operativi
           </div>
           <div class="views-hub-grid">
+            <div class="view-hub-card" data-view-id="data-explorer" onclick="switchTab('data-explorer')">
+              <div class="hub-card-icon">⊞</div>
+              <div class="hub-card-content">
+                <div class="hub-card-title">Pivot Data Explorer</div>
+                <div class="hub-card-desc">Analisi WebAssembly 60fps (Perspective) su nodi AST, flussi API, dipendenze e schema DB</div>
+              </div>
+            </div>
             <div class="view-hub-card" data-view-id="stack-ecosystem" onclick="switchTab('stack-ecosystem')">
               <div class="hub-card-icon">🧩</div>
               <div class="hub-card-content">
@@ -1311,6 +1320,11 @@
     </div>
 
     <!-- Tab 5: Floorplan Interactive Full-Stack & HTTP Map (ADR-053) -->
+    <div class="tab-pane" id="pane-data-explorer">
+      <button class="fullscreen-btn" onclick="toggleFullscreen('pane-data-explorer')" title="Fullscreen">⛶</button>
+      <iframe id="data-explorer-iframe" data-src="views/data-explorer.html" title="Portal Pivot & Data Explorer" style="width:100%; height:100%; border:none; background:#000000;"></iframe>
+    </div>
+
     <div class="tab-pane" id="pane-stack-ecosystem">
       <button class="fullscreen-btn" onclick="toggleFullscreen('pane-stack-ecosystem')" title="Fullscreen">⛶</button>
       <iframe id="stack-ecosystem-iframe" data-src="views/stack-ecosystem.html" title="Tech Stack, Dependencies & Ecosystem" style="width:100%; height:100%; border:none; background:#000000;"></iframe>
@@ -1722,7 +1736,7 @@
     let currentFileName = null;
     let isEditing = false;
     let activeTab = 'home';
-    const TAB_IDS = ['home', 'reader', 'graph', 'canvas', 'tree', 'floorplan', 'stack-ecosystem', 'db-lineage', 'async-topology', 'visual-explainer', 'api-catalog', 'adr-governance', 'quant-codex', 'runbook-ops', 'framework-constitution', 'frontend-state', 'worker-tasks', 'threat-matrix', 'data-ingestion', 'console'];
+    const TAB_IDS = ['home', 'reader', 'graph', 'canvas', 'tree', 'floorplan', 'stack-ecosystem', 'data-explorer', 'db-lineage', 'async-topology', 'visual-explainer', 'api-catalog', 'adr-governance', 'quant-codex', 'runbook-ops', 'framework-constitution', 'frontend-state', 'worker-tasks', 'threat-matrix', 'data-ingestion', 'console'];
 
     // ── Load File (Reader) ──
     function loadFile(filePath) {
@@ -2794,6 +2808,7 @@
       { id: 'graph', title: 'Knowledge Graph 2D/3D', desc: 'Grafo delle relazioni di codice, simboli e chiamate', icon: '🕸️', tags: 'ast vis.js three.js grafo' },
       { id: 'canvas', title: 'Obsidian Canvas', desc: 'Lavagna visuale e nodi concettuali', icon: '🎨', tags: 'canvas nodi mappa' },
       { id: 'tree', title: 'Directory Tree 3D', desc: 'Albero gerarchico dei file e moduli del monorepo', icon: '🌳', tags: 'files folder albero' },
+      { id: 'data-explorer', title: 'Pivot Data Explorer (WASM)', desc: 'Tabelle pivot e grafici WebGL offline (Perspective) su tutti i dataset del portale', icon: '⊞', tags: 'perspective wasm pivot datagrid analytics explorer' },
       { id: 'stack-ecosystem', title: 'Tech Stack & Ecosystem', desc: 'Diagramma stack con loghi ufficiali, dipendenze Python/npm, Docker e tool CI', icon: '🧩', tags: 'stack dependencies requirements package docker tools repo' },
       { id: 'floorplan', title: 'Floorplan Macro Cartografia', desc: 'Pianta topologica interattiva delle strategie sample_service', icon: '🗺️', tags: 'macro floorplan svg architettura' },
       { id: 'db-lineage', title: 'TimescaleDB Lineage', desc: 'Tabelle, hypertables, 17 migrazioni Alembic e relazioni dati', icon: '🗄️', tags: 'db sql timescale alembic schema' },

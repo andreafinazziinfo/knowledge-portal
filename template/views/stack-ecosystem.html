@@ -49,7 +49,7 @@
     .kpi {
       background: var(--surface);
       border: 1px solid var(--border);
-      border-radius: 10px;
+      border-radius: 8px;
       padding: 14px 16px;
     }
     .kpi .val { font-size: 1.6rem; font-weight: 700; color: var(--accent); font-family: ui-monospace, monospace; }
@@ -57,8 +57,8 @@
     .section {
       background: var(--surface);
       border: 1px solid var(--border);
-      border-radius: 12px;
-      padding: 18px;
+      border-radius: 8px;
+      padding: 20px;
       margin-bottom: 22px;
     }
     .section-head {
@@ -84,7 +84,7 @@
     .diagram-box {
       width: 100%;
       border: 1px solid var(--border);
-      border-radius: 10px;
+      border-radius: 8px;
       overflow: hidden;
       background: #050807;
     }
@@ -152,7 +152,7 @@
 <body>
   <div class="header">
     <div>
-      <h1>🧩 Tech Stack, Dependencies &amp; Ecosystem</h1>
+      <h1>Tech Stack, Dependencies &amp; Ecosystem</h1>
       <p id="subtitle">Unified inventory of libraries, containers, dev tools, CI/CD workflows, and connected repositories.</p>
     </div>
     <div style="display:flex; gap:8px;">
@@ -171,7 +171,7 @@
 
   <div class="section">
     <div class="section-head">
-      <h2>🏗️ Visual Architecture &amp; Vendor Stack Diagram</h2>
+      <h2>Visual Architecture &amp; Vendor Stack Diagram</h2>
       <span class="mono" id="diagram-status">Checking stack-diagram.html...</span>
     </div>
     <div class="diagram-box" id="diagram-container">
@@ -183,7 +183,7 @@
 
   <div class="section">
     <div class="section-head">
-      <h2>📦 Live Ecosystem Matrix</h2>
+      <h2>Live Ecosystem Matrix</h2>
     </div>
     <div class="controls">
       <input class="search" id="searchInput" type="text" placeholder="Filter by package, image, tool, version, or source file..." oninput="renderTable()" />

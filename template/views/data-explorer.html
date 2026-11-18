@@ -1,0 +1,200 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Portal Pivot &amp; Data Explorer (Perspective WASM)</title>
+  <script src="live-reload.js"></script>
+  <link rel="stylesheet" href="../vendor/perspective/viewer/dist/css/themes.css" />
+  <link rel="stylesheet" href="../vendor/perspective/viewer/dist/css/pro-dark.css" />
+  <style>
+    :root {
+      --bg: #000000;
+      --surface: #0a0e0c;
+      --card: #101513;
+      --border: #1f2924;
+      --text: #f3f4f6;
+      --muted: #9ca3af;
+      --accent: #10b981;
+      --accent-dim: rgba(16, 185, 129, 0.14);
+    }
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    html, body { height: 100%; background: var(--bg); color: var(--text); font-family: ui-sans-serif, system-ui, -apple-system, Segoe UI, sans-serif; overflow: hidden; }
+    .shell { display: flex; flex-direction: column; height: 100vh; }
+    .toolbar {
+      display: flex;
+      flex-wrap: wrap;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+      padding: 12px 20px;
+      background: var(--surface);
+      border-bottom: 1px solid var(--border);
+    }
+    .title-group h1 { font-size: 16px; font-weight: 600; letter-spacing: -0.01em; }
+    .title-group p { font-size: 12px; color: var(--muted); margin-top: 2px; }
+    .controls { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
+    .ds-btn {
+      background: var(--card);
+      color: var(--muted);
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      padding: 6px 12px;
+      font-size: 12px;
+      font-weight: 500;
+      cursor: pointer;
+    }
+    .ds-btn:hover { color: var(--text); border-color: #2f3e36; }
+    .ds-btn.active { background: var(--accent-dim); border-color: var(--accent); color: var(--accent); font-weight: 600; }
+    .status-pill {
+      font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+      font-size: 11px;
+      color: var(--muted);
+      padding: 4px 10px;
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      background: var(--bg);
+    }
+    .viewer-wrap { flex: 1; position: relative; min-height: 0; }
+    perspective-viewer {
+      position: absolute;
+      inset: 0;
+      --plugin--background: #000000;
+    }
+  </style>
+</head>
+<body>
+  <div class="shell">
+    <div class="toolbar">
+      <div class="title-group">
+        <h1>Portal Pivot &amp; Data Explorer</h1>
+        <p>In-browser WebAssembly pivot tables, multi-column filtering, and WebGL charts (100% offline).</p>
+      </div>
+      <div class="controls">
+        <button class="ds-btn active" data-ds="stack" onclick="window.loadDataset('stack', this)">Stack &amp; Dependencies</button>
+        <button class="ds-btn" data-ds="flows" onclick="window.loadDataset('flows', this)">Process Flows</button>
+        <button class="ds-btn" data-ds="graph" onclick="window.loadDataset('graph', this)">AST Nodes</button>
+        <button class="ds-btn" data-ds="schema" onclick="window.loadDataset('schema', this)">DB Schema</button>
+        <span class="status-pill" id="rowCount">Loading WASM...</span>
+      </div>
+    </div>
+    <div class="viewer-wrap">
+      <perspective-viewer id="viewer" theme="Pro Dark"></perspective-viewer>
+    </div>
+  </div>
+
+  <script type="module">
+    import perspective from "../vendor/perspective/client/dist/cdn/perspective.js";
+    import "../vendor/perspective/viewer/dist/cdn/perspective-viewer.js";
+    import "../vendor/perspective/viewer-datagrid/dist/cdn/perspective-viewer-datagrid.js";
+    import "../vendor/perspective/viewer-d3fc/dist/cdn/perspective-viewer-d3fc.js";
+
+    const statusEl = document.getElementById("rowCount");
+    const viewer = document.getElementById("viewer");
+    let workerInstance = null;
+    let currentTable = null;
+
+    async function fetchJsonSafe(url) {
+      const res = await fetch(url);
+      if (!res.ok) throw new Error(`HTTP ${res.status} for ${url}`);
+      return await res.json();
+    }
+
+    async function getDatasetRows(key) {
+      if (key === "stack") {
+        const d = await fetchJsonSafe("data/stack-ecosystem.json");
+        const rows = [];
+        for (const dep of (d.dependencies || [])) {
+          rows.push({ kind: "Dependency", name: dep.name, category: dep.ecosystem, detail: dep.version, scope: dep.scope, source: dep.source });
+        }
+        for (const svc of (d.docker_services || [])) {
+          rows.push({ kind: "Docker", name: svc.name, category: "Container", detail: svc.image, scope: "infra", source: svc.source });
+        }
+        for (const t of (d.tools || [])) {
+          rows.push({ kind: "Tooling", name: t.name, category: t.category, detail: "configured", scope: "dev/ci", source: t.source });
+        }
+        return { rows, config: { group_by: ["kind", "category"], columns: ["name", "detail", "scope", "source"] } };
+      }
+
+      if (key === "flows") {
+        const raw = await fetchJsonSafe("data/process-flows.json");
+        const flows = Array.isArray(raw) ? raw : (raw.flows || []);
+        const rows = flows.map(f => ({
+          kind: f.kind || f.type || "flow",
+          method: f.method || "-",
+          name: f.name || f.endpoint || f.route || "",
+          file: f.file || f.source || "",
+          db_tables: Array.isArray(f.tables) ? f.tables.join(", ") : (f.tables || ""),
+          calls_count: Array.isArray(f.calls) ? f.calls.length : (f.calls_count || 0)
+        }));
+        return { rows, config: { group_by: ["kind", "method"], columns: ["name", "file", "db_tables", "calls_count"] } };
+      }
+
+      if (key === "graph") {
+        const g = await fetchJsonSafe("data/graph.json");
+        const rows = (g.nodes || []).map(n => ({
+          type: n.type || n.kind || "node",
+          label: n.label || n.name || n.id,
+          file: n.file || n.source_file || "",
+          community: String(n.community ?? "0")
+        }));
+        return { rows, config: { group_by: ["type"], columns: ["label", "file", "community"] } };
+      }
+
+      if (key === "schema") {
+        const s = await fetchJsonSafe("data/db-schema.json");
+        const rows = [];
+        for (const t of (s.tables || [])) {
+          const cols = t.columns || [];
+          if (!cols.length) {
+            rows.push({ table: t.name, schema: t.schema || "public", hypertable: Boolean(t.is_hypertable), column: "-", col_type: "-", pk: false, nullable: true });
+          } else {
+            for (const c of cols) {
+              rows.push({
+                table: t.name,
+                schema: t.schema || "public",
+                hypertable: Boolean(t.is_hypertable),
+                column: c.name,
+                col_type: c.type || "TEXT",
+                pk: Boolean(c.pk),
+                nullable: Boolean(c.nullable)
+              });
+            }
+          }
+        }
+        return { rows, config: { group_by: ["table"], columns: ["column", "col_type", "pk", "nullable", "hypertable"] } };
+      }
+      return { rows: [], config: {} };
+    }
+
+    window.loadDataset = async function(key, btnEl) {
+      document.querySelectorAll(".ds-btn").forEach(b => b.classList.remove("active"));
+      if (btnEl) btnEl.classList.add("active");
+      statusEl.textContent = "Loading...";
+      try {
+        if (!workerInstance) {
+          workerInstance = await perspective.worker();
+        }
+        const { rows, config } = await getDatasetRows(key);
+        if (!rows.length) {
+          statusEl.textContent = "0 rows (empty dataset)";
+          return;
+        }
+        const newTable = await workerInstance.table(rows);
+        await viewer.load(newTable);
+        await viewer.restore({ plugin: "Datagrid", ...config });
+        if (currentTable && currentTable !== newTable) {
+          await currentTable.delete();
+        }
+        currentTable = newTable;
+        statusEl.textContent = `${rows.length.toLocaleString()} rows`;
+      } catch (err) {
+        console.error("[DataExplorer]", err);
+        statusEl.textContent = `Error: ${err.message}`;
+      }
+    };
+
+    window.loadDataset("stack", document.querySelector('.ds-btn[data-ds="stack"]'));
+  </script>
+</body>
+</html>

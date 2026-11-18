@@ -5,6 +5,8 @@ Zero external runtime dependencies (Python standard library only).
 """
 
 import json
+import mimetypes
+mimetypes.add_type("application/wasm", ".wasm")
 import time
 import urllib.parse
 from pathlib import Path
@@ -23,6 +25,7 @@ def get_template_dir() -> Path:
     return candidates[0]
 
 class PortalRequestHandler(SimpleHTTPRequestHandler):
+    extensions_map = {**SimpleHTTPRequestHandler.extensions_map, '.wasm': 'application/wasm'}
     template_dir = get_template_dir()
     project_dir = Path.cwd()
 
