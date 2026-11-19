@@ -552,7 +552,7 @@
     }
 
     /* Graph / Canvas / Tree / Floorplan / Visual Explainer Panes */
-    #pane-graph, #pane-canvas, #pane-tree, #pane-floorplan, #pane-stack-ecosystem, #pane-data-explorer, #pane-db-lineage, #pane-async-topology, #pane-visual-explainer, #pane-api-catalog, #pane-adr-governance, #pane-quant-codex, #pane-runbook-ops { background-color: #0f0f0f; }
+    #pane-graph, #pane-canvas, #pane-tree, #pane-floorplan, #pane-stack-ecosystem, #pane-data-explorer, #pane-db-lineage, #pane-async-topology, #pane-visual-explainer, #pane-api-catalog, #pane-adr-governance, #pane-quant-codex, #pane-runbook-ops, #pane-live-telemetry { background-color: #0f0f0f; }
 
     /* ── Keyboard Shortcut Modal ── */
     #shortcuts-modal {
@@ -1002,6 +1002,7 @@
           <option value="threat-matrix">️ Threat Matrix</option>
           <option value="runbook-ops">️ Ops Incident Runbook</option>
           <option value="visual-explainer">Visual Explainers (9)</option>
+          <option value="live-telemetry">Live Telemetry &amp; Sync</option>
           <option value="console">Dev Terminal Console</option>
         </optgroup>
       </select>
@@ -1026,6 +1027,7 @@
         <button class="tab-button" data-tab="threat-matrix" onclick="switchTab('threat-matrix')">Threat Matrix</button>
         <button class="tab-button" data-tab="data-ingestion" onclick="switchTab('data-ingestion')">Data Ingestion</button>
         <button class="tab-button" data-tab="runbook-ops" onclick="switchTab('runbook-ops')">Ops Runbook</button>
+        <button class="tab-button" data-tab="live-telemetry" onclick="switchTab('live-telemetry')">Live Telemetry</button>
         <button class="tab-button" data-tab="console" onclick="switchTab('console')">Console</button>
       </div>
       <div class="tabs-right">
@@ -1244,6 +1246,14 @@
               </div>
               <span class="hub-card-badge">Security</span>
             </div>
+                        <div class="view-hub-card" data-view-id="live-telemetry" onclick="switchTab('live-telemetry')">
+              <div class="hub-card-icon">📡</div>
+              <div class="hub-card-content">
+                <div class="hub-card-title">Live Telemetry &amp; Auto-Sync</div>
+                <div class="hub-card-desc">CPU/RAM/Disco, stato Watcher 6 domini, progress bar Rebuild e health Backend.</div>
+              </div>
+              <span class="hub-card-badge">Live</span>
+            </div>
             <div class="view-hub-card" data-view-id="runbook-ops" onclick="switchTab('runbook-ops')">
               <div class="hub-card-icon">🛠️</div>
               <div class="hub-card-content">
@@ -1430,6 +1440,12 @@
     </div>
 
     <!-- Tab 8: Dev-Console -->
+    <!-- Tab: Live Telemetry & Auto-Sync -->
+    <div class="tab-pane" id="pane-live-telemetry">
+      <button class="fullscreen-btn" onclick="toggleFullscreen('pane-live-telemetry')" title="Fullscreen">⛶</button>
+      <iframe id="live-telemetry-iframe" data-src="views/live-telemetry.html" title="Live Telemetry &amp; Auto-Sync" style="width:100%; height:100%; border:none; background:#0f0f0f;"></iframe>
+    </div>
+
     <div class="tab-pane" id="pane-console">
       <button class="fullscreen-btn" onclick="toggleFullscreen('pane-console')" title="Fullscreen">⛶</button>
       <div style="display: flex; flex-direction: column; height: 100%; padding: 20px; box-sizing: border-box; background: #0f0f0f;">
@@ -2782,6 +2798,10 @@
       fetch(`${API_BASE}/api/rebuild/status`)
         .then(res => res.json())
         .then(data => {
+          const btn = document.getElementById("rebuild-btn");
+          if (data.rebuilding && btn) {
+            btn.innerText = `🔄 ${data.percent || 0}%`;
+          }
           if (!data.rebuilding) {
             clearInterval(rebuildPollInterval);
             const btn = document.getElementById("rebuild-btn");
@@ -2839,6 +2859,7 @@
       { id: 'api-catalog', title: '🌐 API Catalog (193 Endpoint)', desc: 'Catalogo completo 35 router FastAPI OpenAPI con schemi request/response', icon: '🌐', tags: 'api rest fastapi openapi router' },
       { id: 'adr-governance', title: '⚖️ ADR Governance (74 ADR)', desc: 'Matrice delle decisioni architetturali ufficiali e trade-off', icon: '⚖️', tags: 'adr decisioni governance architettura' },
       { id: 'quant-codex', title: '📐 Quant Codex', desc: 'Mathematical formula codex with KaTeX (LaTeX equations, algorithm specs)', icon: '📐', tags: 'math formula equations katex algorithm' },
+      { id: 'live-telemetry', title: '📡 Live Telemetry & Auto-Sync', desc: 'Telemetria risorse, stato Watcher, progress bar Rebuild e health Backend', icon: '📡', tags: 'live telemetry cpu ram watcher sync rebuild health' },
       { id: 'runbook-ops', title: '🛠️ Ops Runbook', desc: 'Manuale operativo container, backup 3-2-1 e procedure di emergenza', icon: '🛠️', tags: 'ops docker backup disaster recovery flat cancel' },
       { id: 'framework-constitution', title: '🏛️ Framework & Quality Constitution', desc: 'I 9 Pilastri di Ingegneria, i 4 Tier AI Agent e il Technical Debt Ledger', icon: '🏛️', tags: 'framework pilastri debito tier dod' },
       { id: 'frontend-state', title: '⚡ UI Reactive State (17 Stores)', desc: 'Mappa degli store Pinia, associazione con le 19 viste Vue e WebSocket', icon: '⚡', tags: 'pinia vue stores frontend state reattivo' },

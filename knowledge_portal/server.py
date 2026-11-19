@@ -136,6 +136,52 @@ class PortalRequestHandler(SimpleHTTPRequestHandler):
             except Exception:
                 pass
 
+        elif path == "/api/telemetry":
+            import shutil
+            disk_pct, disk_free_gb = 0.0, 0.0
+            try:
+                du = shutil.disk_usage(str(self.project_dir))
+                if du.total > 0:
+                    disk_pct = round(100.0 * du.used / du.total, 1)
+                    disk_free_gb = round(du.free / (1024 ** 3), 1)
+            except Exception:
+                pass
+            mem_total_mb, mem_used_mb, mem_pct = 0, 0, 0.0
+            try:
+                info = {}
+                with open("/proc/meminfo", "r", encoding="utf-8") as f:
+                    for line in f:
+                        k, v = line.split(":", 1)
+                        info[k.strip()] = int(v.strip().split()[0])
+                tk = info.get("MemTotal", 0)
+                ak = info.get("MemAvailable", info.get("MemFree", 0))
+                if tk > 0:
+                    mem_total_mb = round(tk / 1024)
+                    mem_used_mb = round((tk - ak) / 1024)
+                    mem_pct = round(100.0 * (tk - ak) / tk, 1)
+            except Exception:
+                pass
+            self.send_json({
+                "timestamp": time.time(),
+                "mode": "standalone",
+                "host": {
+                    "cpu_pct": 0.0,
+                    "mem_pct": mem_pct,
+                    "mem_used_mb": mem_used_mb,
+                    "mem_total_mb": mem_total_mb,
+                    "disk_pct": disk_pct,
+                    "disk_free_gb": disk_free_gb,
+                    "uptime_sec": 0,
+                },
+                "watcher": {"active": False, "last_sync": 0.0, "domains": {}},
+                "rebuild": {"rebuilding": False, "phase": "idle", "processed": 0, "total": 4, "percent": 0, "message": "Idle"},
+                "scan": {"ast_scan": "Static", "llm_scan": "Static"},
+                "backend": {"reachable": False},
+            })
+
+        elif path == "/api/rebuild/status":
+            self.send_json({"rebuilding": False, "phase": "idle", "processed": 0, "total": 4, "percent": 0, "message": "Idle"})
+
         elif path == "/api/file":
             filepath = query.get("path", [""])[0]
             target = self.project_dir / filepath
