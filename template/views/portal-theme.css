@@ -1,8 +1,8 @@
 /* ==========================================================================
    Knowledge Portal — Floorplan Institutional Design System
-   Exact match to CycleLab Floorplan tokens:
-   Canvas #0f0f0f · Surface #191919 · Raised #232323 · Hairlines 6%-10%
-   Monochrome Active Controls (#ececec on #0f0f0f) · Quiet Semantic Pills
+   Exact match to Institutional Floorplan:
+   Canvas #0f0f0f · Surface #191919 · Raised #232323 · Hairlines 6%-14%
+   White Hover Borders · Monochrome Active Controls (#ececec on #0f0f0f)
    ========================================================================== */
 
 :root {
@@ -18,7 +18,7 @@
   --raise: #232323;
   --border: rgba(255, 255, 255, 0.08);
   --border-color: rgba(255, 255, 255, 0.08);
-  --border-strong: rgba(255, 255, 255, 0.14);
+  --border-strong: rgba(255, 255, 255, 0.16);
   --text: #ececec;
   --text-main: #ececec;
   --text-2: #b4b4b4;
@@ -29,10 +29,6 @@
   --primary: #ececec;
   --accent-dim: rgba(255, 255, 255, 0.08);
   --accent-glow: rgba(255, 255, 255, 0.06);
-  --ok: #6fd7a8;
-  --sev-high: #f28b8b;
-  --sev-medium: #f0c36b;
-  --sev-low: #8b8b8b;
 }
 
 html, body {
@@ -42,39 +38,45 @@ html, body {
   -webkit-font-smoothing: antialiased;
 }
 
-/* Floorplan Subtle Graph-Paper Grid Option on Main Containers */
 body {
   background-image: radial-gradient(rgba(255, 255, 255, 0.03) 1px, transparent 1px);
   background-size: 24px 24px;
 }
 
-/* Unified Surface Cards & Panels (Floorplan style: #191919, 12px radius, 6% hairline) */
-.card, .section, .kpi, .ep-card, .formula-card, .panel, .group-box,
-.stat-card, .metric-card, .box, .adr-card, .explainer-card, .threat-card,
-.worker-card, .store-card, .connector-card, .pillar-card {
-  background-color: #191919 !important;
-  border: 1px solid rgba(255, 255, 255, 0.07) !important;
-  border-radius: 12px !important;
-  box-shadow: 0 1px 0 rgba(255, 255, 255, 0.03) inset !important;
+/* Override any hardcoded navy/slate/blue panel backgrounds across all views */
+.sidebar, #sidebar, .main, .main-panel, .content, .container, .page-wrap,
+#graph, #3d-graph, #3d-tree, .canvas-wrap, .split-pane, .left-pane, .right-pane {
+  background-color: #0f0f0f !important;
 }
 
-.card:hover, .ep-card:hover, .formula-card:hover, .explainer-card:hover,
-.adr-card:hover, .threat-card:hover, .worker-card:hover, .store-card:hover,
-.connector-card:hover, .pillar-card:hover {
-  background-color: #1e1e1e !important;
-  border-color: rgba(255, 255, 255, 0.16) !important;
-  transform: none !important;
-  box-shadow: none !important;
-}
-
-/* Unified Floating HUDs, Toolbars & Headers */
-#hud, #legend, .hud, .legend-panel, .controls-bar, .toolbar, .header-bar, .header {
+#hud, #legend, .hud, .legend-panel, .controls-bar, .toolbar, .header-bar, .header,
+.topbar, .filter-bar, .search-bar, #controls, #inspector, .inspector, .aside {
   background-color: #141414 !important;
   border-color: rgba(255, 255, 255, 0.08) !important;
   box-shadow: none !important;
 }
 
-/* Unified Floorplan Buttons & Filter Chips (Monochrome #191919 -> #232323, Active #ececec on #0f0f0f) */
+/* Unified Floorplan Cards & Panels (White border on hover, never green!) */
+.card, .section, .kpi, .ep-card, .formula-card, .panel, .group-box,
+.stat-card, .metric-card, .box, .adr-card, .explainer-card, .threat-card,
+.worker-card, .store-card, .connector-card, .pillar-card, .canvas-card, .node-card {
+  background-color: #191919 !important;
+  border: 1px solid rgba(255, 255, 255, 0.08) !important;
+  border-radius: 12px !important;
+  box-shadow: 0 1px 0 rgba(255, 255, 255, 0.03) inset !important;
+  transition: background-color 0.15s ease-out, border-color 0.15s ease-out !important;
+}
+
+.card:hover, .ep-card:hover, .formula-card:hover, .explainer-card:hover,
+.adr-card:hover, .threat-card:hover, .worker-card:hover, .store-card:hover,
+.connector-card:hover, .pillar-card:hover, .canvas-card:hover, .node-card:hover {
+  background-color: #1e1e1e !important;
+  border-color: rgba(255, 255, 255, 0.35) !important;
+  transform: none !important;
+  box-shadow: none !important;
+}
+
+/* Unified Floorplan Buttons & Filter Chips (White border hover, monochrome active) */
 button:not(.fullscreen-btn):not(.tab-button),
 .btn, .chip, .filter-btn, .ds-btn, .action-btn, .tab-btn {
   background-color: #191919 !important;
@@ -94,7 +96,7 @@ button:not(.fullscreen-btn):not(.tab-button),
 button:not(.fullscreen-btn):not(.tab-button):hover,
 .btn:hover, .chip:hover, .filter-btn:hover, .ds-btn:hover, .action-btn:hover, .tab-btn:hover {
   background-color: #232323 !important;
-  border-color: rgba(255, 255, 255, 0.20) !important;
+  border-color: rgba(255, 255, 255, 0.35) !important;
   color: #ececec !important;
   transform: none !important;
 }
@@ -106,7 +108,7 @@ button.active, .btn.active, .chip.active, .filter-btn.active, .ds-btn.active, .t
   font-weight: 600 !important;
 }
 
-/* Tame ALL Rainbow Badges & Pills into Floorplan Quiet Chips (zero loud borders, no 2-line wrap) */
+/* Tame ALL Rainbow Badges & Pills into Floorplan Quiet Chips */
 .badge, .pill, .tag, .status-badge, .auth-badge, .method-badge, .crosslink-chip,
 .badge-blue, .badge-green, .badge-yellow, .badge-red, .badge-purple, .badge-cyan {
   background-color: #232323 !important;
@@ -122,23 +124,22 @@ button.active, .btn.active, .chip.active, .filter-btn.active, .ds-btn.active, .t
   box-shadow: none !important;
 }
 
-/* Subtle Floorplan Semantic Text Tints (only text color, calm dark container) */
 .badge-red, .auth-P4, .m-DELETE { color: #f28b8b !important; }
 .badge-yellow, .m-PUT, .m-PATCH { color: #f0c36b !important; }
 .badge-green, .m-GET { color: #6fd7a8 !important; }
 .badge-blue, .badge-cyan, .m-POST { color: #93c5fd !important; }
 .badge-purple { color: #c4b5fd !important; }
 
-/* Code snippets inside cards */
+/* Code snippets */
 code, pre {
   background-color: #141414 !important;
-  border: 1px solid rgba(255, 255, 255, 0.07) !important;
+  border: 1px solid rgba(255, 255, 255, 0.08) !important;
   color: #d4d4d4 !important;
   border-radius: 6px !important;
 }
 
-/* Unified Inputs & Selects */
-input[type="text"], input[type="search"], select, textarea, .search-input, .search {
+/* Unified Inputs & Selects (White border on focus/hover) */
+input[type="text"], input[type="search"], select, textarea, .search-input, .search, optgroup, option {
   background-color: #141414 !important;
   color: #ececec !important;
   border: 1px solid rgba(255, 255, 255, 0.12) !important;
@@ -146,12 +147,13 @@ input[type="text"], input[type="search"], select, textarea, .search-input, .sear
   font-size: 12px !important;
 }
 
+input[type="text"]:hover, input[type="search"]:hover, select:hover,
 input[type="text"]:focus, input[type="search"]:focus, select:focus, textarea:focus, .search-input:focus, .search:focus {
   outline: none !important;
-  border-color: rgba(255, 255, 255, 0.35) !important;
+  border-color: rgba(255, 255, 255, 0.40) !important;
 }
 
-/* Unified Tables */
+/* Tables */
 table { border-collapse: collapse; width: 100%; }
 th {
   background-color: #141414 !important;
@@ -167,4 +169,4 @@ td { border-bottom: 1px solid rgba(255, 255, 255, 0.06) !important; }
 ::-webkit-scrollbar { width: 6px; height: 6px; }
 ::-webkit-scrollbar-track { background: #0f0f0f; }
 ::-webkit-scrollbar-thumb { background: #2b2b2b; border-radius: 3px; }
-::-webkit-scrollbar-thumb:hover { background: #3f3f3f; }
+::-webkit-scrollbar-thumb:hover { background: #4a4a4a; }

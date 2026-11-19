@@ -342,6 +342,17 @@
 
     // Use organic vis.js node formatting. No client-side node cap: server-side
     // build already bounds this (see NODE_CAP in bin/graphify-portal).
+    // Compute fast Radial Community Galaxy Layout (prevents vertical grid barcode from static AST coords)
+    const _commBuckets = {};
+    rawNodes.forEach(n => { const c = n.community || 0; (_commBuckets[c] = _commBuckets[c] || []).push(n); });
+    const _commCenter = {};
+    const _sortedComms = Object.keys(_commBuckets).map(Number).sort((a, b) => _commBuckets[b].length - _commBuckets[a].length);
+    _sortedComms.forEach((c, idx) => {
+      const a = idx * 2.3999632;
+      const dist = idx === 0 ? 0 : 280 + Math.sqrt(idx) * 290;
+      _commCenter[c] = { cx: Math.cos(a) * dist, cy: Math.sin(a) * dist, count: 0, total: _commBuckets[c].length };
+    });
+
     allNodesData = rawNodes.map(n => {
       const cid = n.community || 0;
       const color = n.color || COMMUNITY_COLORS[cid % COMMUNITY_COLORS.length];
@@ -361,7 +372,13 @@
         community: cid,
         path: path,
         deg: deg,
-        ...(hasPos ? { x: n.x, y: n.y, fixed: { x: true, y: true } } : {})
+        ...(() => {
+          const b = _commCenter[cid] || { cx: 0, cy: 0, count: 0, total: 1 };
+          const idxIn = b.count++;
+          const radius = 35 + Math.sqrt(idxIn / Math.max(1, b.total)) * Math.min(260, 60 + Math.sqrt(b.total) * 14);
+          const theta = idxIn * 2.3999632;
+          return { x: Math.round(b.cx + Math.cos(theta) * radius), y: Math.round(b.cy + Math.sin(theta) * radius) };
+        })()
       };
     });
 
@@ -403,7 +420,7 @@
       network.setOptions({ physics: { enabled: false } });
     });
 
-    document.getElementById('stats').textContent = `${allNodesData.length} organic nodes • ${hasPrecomputedLayout ? 'Precalculated layout (networkx)' : 'Stabilized static layout'} • 2D Network`;
+    document.getElementById('stats').textContent = `${allNodesData.length} organic nodes • ${hasPrecomputedLayout ? 'Radial Community Galaxy' : 'Stabilized static layout'} • 2D Network`;
 
     network.on('selectNode', p => {
       if (p.nodes.length) {

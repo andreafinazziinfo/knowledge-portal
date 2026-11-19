@@ -20,7 +20,7 @@
       --text-muted: #8b8b8b;
       --accent-color: #ececec;
       --accent-glow: rgba(56, 189, 248, 0.15);
-      --success-color: #10b981;
+      --success-color: #ececec;
       --warning-color: #f59e0b;
       --danger-color: #ef4444;
       --purple-accent: #a78bfa;
@@ -910,6 +910,27 @@
     .mermaid-wrapper {
       cursor: zoom-in;
     }
+  
+    /* Floorplan Unified Dropdown & White Hover Overrides */
+    select, #mobile-view-picker, #view-select {
+      background-color: #191919 !important;
+      color: #ececec !important;
+      border: 1px solid rgba(255, 255, 255, 0.14) !important;
+      border-radius: 8px !important;
+    }
+    select:hover, select:focus, #mobile-view-picker:hover, #mobile-view-picker:focus {
+      border-color: rgba(255, 255, 255, 0.45) !important;
+      outline: none !important;
+    }
+    select optgroup, select option {
+      background-color: #141414 !important;
+      color: #ececec !important;
+    }
+    .view-hub-card:hover, .stat-card:hover, .action-btn:hover, .tab-button:hover, .search-item:hover {
+      border-color: rgba(255, 255, 255, 0.40) !important;
+    }
+    .view-hub-card { border-radius: 12px !important; }
+    
   </style>
 
     <script src="assets/marked.min.js"></script>
@@ -951,35 +972,35 @@
         <span>Menu</span>
       </button>
       <select id="mobile-view-picker" onchange="if(this.value){switchTab(this.value); this.value='';}" title="Seleziona Vista Rapida">
-        <option value="" disabled selected>⚡ Viste (21) ▾</option>
-        <optgroup label="🌌 Grafi &amp; 3D">
-          <option value="graph">🔗 2D Network Graph</option>
-          <option value="graph_3d">🌐 3D WebGL Graph</option>
-          <option value="canvas">🎨 2D Whiteboard Canvas</option>
-          <option value="canvas_3d">🧊 3D WebGL Canvas</option>
-          <option value="tree">🌳 2D Directory Tree</option>
-          <option value="tree_3d">🌲 3D Top-Down DAG Tree</option>
-          <option value="graph_full">🗺️ Full Organic Network</option>
+        <option value="" disabled selected>Viste (21) ▾</option>
+        <optgroup label="Grafi &amp; 3D">
+          <option value="graph">2D Network Graph</option>
+          <option value="graph_3d">3D WebGL Graph</option>
+          <option value="canvas">2D Whiteboard Canvas</option>
+          <option value="canvas_3d">3D WebGL Canvas</option>
+          <option value="tree">2D Directory Tree</option>
+          <option value="tree_3d">3D Top-Down DAG Tree</option>
+          <option value="graph_full">️ Full Organic Network</option>
         </optgroup>
-        <optgroup label="🏗️ Architettura &amp; Flussi">
-          <option value="floorplan">🏗️ Floorplan SVG (ADR-053)</option>
+        <optgroup label="️ Architettura &amp; Flussi">
+          <option value="floorplan">️ Floorplan SVG (ADR-053)</option>
           <option value="stack-ecosystem">Tech Stack &amp; Deps</option>
           <option value="data-explorer">Pivot Data Explorer (WASM)</option>
-          <option value="db-lineage">🗄️ Database Lineage</option>
-          <option value="async-topology">⚡ Async &amp; WebSocket</option>
-          <option value="frontend-state">⚡ UI State &amp; Pinia Stores</option>
-          <option value="worker-tasks">⚙️ Celery Worker Tasks</option>
-          <option value="data-ingestion">📊 Data Ingestion Pipeline</option>
+          <option value="db-lineage">️ Database Lineage</option>
+          <option value="async-topology">Async &amp; WebSocket</option>
+          <option value="frontend-state">UI State &amp; Pinia Stores</option>
+          <option value="worker-tasks">️ Celery Worker Tasks</option>
+          <option value="data-ingestion">Data Ingestion Pipeline</option>
         </optgroup>
-        <optgroup label="📜 Governance, API &amp; Codex">
-          <option value="api-catalog">🔌 API Catalog (Scalar)</option>
-          <option value="quant-codex">📐 Quant Codex &amp; Formule</option>
-          <option value="adr-governance">📜 ADR Governance</option>
-          <option value="framework-constitution">🏛️ Costituzione (9 Pilastri)</option>
-          <option value="threat-matrix">🛡️ Threat Matrix</option>
-          <option value="runbook-ops">🛠️ Ops Incident Runbook</option>
-          <option value="visual-explainer">✨ Visual Explainers (9)</option>
-          <option value="console">💻 Dev Terminal Console</option>
+        <optgroup label="Governance, API &amp; Codex">
+          <option value="api-catalog">API Catalog (Scalar)</option>
+          <option value="quant-codex">Quant Codex &amp; Formule</option>
+          <option value="adr-governance">ADR Governance</option>
+          <option value="framework-constitution">️ Costituzione (9 Pilastri)</option>
+          <option value="threat-matrix">️ Threat Matrix</option>
+          <option value="runbook-ops">️ Ops Incident Runbook</option>
+          <option value="visual-explainer">Visual Explainers (9)</option>
+          <option value="console">Dev Terminal Console</option>
         </optgroup>
       </select>
       <div class="tabs-left">
@@ -1419,7 +1440,7 @@
           <button class="action-btn" onclick="runConsoleCommand('frontend-lint')">🚨 Frontend Lint</button>
           <button class="action-btn danger" onclick="clearConsole()">🗑️ Clear</button>
         </div>
-        <div id="console-terminal" style="flex: 1; background: #070707; border: 1px solid #1f2937; border-radius: 8px; padding: 15px; overflow-y: auto; font-family: monospace; font-size: 13px; line-height: 1.5; color: #10b981; white-space: pre-wrap; word-break: break-all;">
+        <div id="console-terminal" style="flex: 1; background: #070707; border: 1px solid #1f2937; border-radius: 8px; padding: 15px; overflow-y: auto; font-family: monospace; font-size: 13px; line-height: 1.5; color: #ececec; white-space: pre-wrap; word-break: break-all;">
           Console initialized. Ready to execute commands...
         </div>
       </div>
@@ -1901,7 +1922,7 @@
           const code = pre.querySelector('code') ? pre.querySelector('code').innerText : pre.innerText;
           navigator.clipboard.writeText(code).then(() => {
             btn.textContent = '✓ Copiato!';
-            btn.style.borderColor = '#10b981';
+            btn.style.borderColor = '#ececec';
             btn.style.color = '#34d399';
             setTimeout(() => {
               btn.textContent = '📋 Copia';
@@ -2701,7 +2722,7 @@
         
         if (line.startsWith('[PROCESS_COMPLETED_WITH_EXIT_CODE:')) {
           const code = line.split(':')[1].replace(']', '');
-          const color = code === '0' ? '#10b981' : '#ef4444';
+          const color = code === '0' ? '#ececec' : '#ef4444';
           term.innerHTML += `\n<span style="color:${color}; font-weight:bold;">> Process completed with exit code: ${code}</span>\n`;
           consoleEventSource.close();
           consoleEventSource = null;
