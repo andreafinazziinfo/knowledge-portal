@@ -56,8 +56,8 @@
   }
 </style>
 <script src="live-reload.js"></script>
-  <link rel="stylesheet" href="portal-theme.css?v=fp2">
-  <script defer src="portal-ui.js?v=fp2"></script>
+  <link rel="stylesheet" href="portal-theme.css?v=fp3">
+  <script defer src="portal-ui.js?v=fp3"></script>
 </head>
 <body>
 <div id="hud">
@@ -172,7 +172,7 @@
     document.getElementById('hud-stats').textContent = `${rawNodes.length.toLocaleString()} nodi WebGL 3D • ${sortedCommIds.length} Nebulose`;
 
     const elem = document.getElementById('3d-graph');
-    graphInstance = ForceGraph3D({ rendererConfig: { alpha: true, antialias: true } })(elem)
+    graphInstance = window.__fpTransparent3D(ForceGraph3D({ rendererConfig: { alpha: true, antialias: true } })(elem))
       .graphData({ nodes: rawNodes, links: rawLinks })
       .nodeLabel('name')
       .nodeColor('color')

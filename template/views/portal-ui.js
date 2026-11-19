@@ -39,4 +39,23 @@
       });
     }
   });
+
+  window.__fpTransparent3D = function (fg) {
+    function clearBg() {
+      try {
+        if (fg && typeof fg.backgroundColor === 'function') fg.backgroundColor('rgba(0,0,0,0)');
+        if (fg && typeof fg.renderer === 'function' && fg.renderer()) {
+          fg.renderer().setClearColor(0x000000, 0);
+        }
+        if (fg && typeof fg.scene === 'function' && fg.scene()) {
+          fg.scene().background = null;
+        }
+      } catch (_) {}
+    }
+    clearBg();
+    setTimeout(clearBg, 50);
+    setTimeout(clearBg, 250);
+    setTimeout(clearBg, 1000);
+    return fg;
+  };
 })();

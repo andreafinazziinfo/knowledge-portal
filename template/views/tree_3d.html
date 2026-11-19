@@ -20,8 +20,8 @@
   .legend-label { flex: 1; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; color: #ececec; }
 </style>
   <script src="live-reload.js"></script>
-  <link rel="stylesheet" href="portal-theme.css?v=fp2">
-  <script defer src="portal-ui.js?v=fp2"></script>
+  <link rel="stylesheet" href="portal-theme.css?v=fp3">
+  <script defer src="portal-ui.js?v=fp3"></script>
 </head>
 <body>
 <div id="hud">🌲 3D Directory Tree (top-down DAG layout)</div>
@@ -107,7 +107,7 @@
     const { nodes, links } = buildDag(raw.nodes || []);
     document.getElementById('hud').textContent = `🌲 3D Directory Tree — ${nodes.length.toLocaleString()} entries`;
 
-    ForceGraph3D({ rendererConfig: { alpha: true, antialias: true } })(document.getElementById('3d-tree'))
+    window.__fpTransparent3D(ForceGraph3D({ rendererConfig: { alpha: true, antialias: true } })(document.getElementById('3d-tree')))
       .graphData({ nodes, links })
       .dagMode('td')
       .dagLevelDistance(60)
