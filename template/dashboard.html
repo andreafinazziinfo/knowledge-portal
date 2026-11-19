@@ -216,6 +216,8 @@
     /* ── Main Content ── */
     #main-content {
       flex: 1;
+      min-width: 0;
+      overflow: hidden;
       display: flex;
       flex-direction: column;
       height: 100%;
@@ -233,6 +235,7 @@
       padding: 0 15px;
       gap: 6px;
       flex-shrink: 0;
+      min-width: 0;
     }
 
     .tabs-left { display: flex; flex: 1; min-width: 0; gap: 4px; overflow-x: auto; align-items: center; scrollbar-width: none; }
@@ -259,7 +262,7 @@
     }
 
     /* Tab Panes */
-    .tab-pane { flex: 1; display: none; position: relative; overflow: hidden; }
+    .tab-pane { flex: 1; min-width: 0; min-height: 0; display: none; position: relative; overflow: hidden; }
     .tab-pane.active { display: flex; flex-direction: column; }
 
     /* Fullscreen */
@@ -2238,7 +2241,7 @@
       const btn = document.querySelector(`[onclick="switchTab('${tabId}')"]`);
       if (btn) {
         btn.classList.add("active");
-        try { btn.scrollIntoView({ behavior: 'smooth', block: 'nearest', inline: 'center' }); } catch(e){}
+        try { const c = btn.parentElement; if (c) c.scrollTo({ left: Math.max(0, btn.offsetLeft - c.clientWidth / 2 + btn.offsetWidth / 2), behavior: 'smooth' }); } catch(e){}
       }
       const pane = document.getElementById(`pane-${tabId}`);
       if (pane) pane.classList.add("active");
