@@ -40,7 +40,7 @@
     const paths = [];
     const meta = {};
     for (const n of nodes) {
-      if (!n.path || !n.path.startsWith('/') || seen.has(n.path)) continue;
+      if (!n.path || (!n.path.includes('/') && !n.path.includes('.')) || seen.has(n.path)) continue;
       seen.add(n.path);
       paths.push(n.path);
       meta[n.path] = { color: n.color, community: n.community };
