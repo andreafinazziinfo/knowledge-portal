@@ -6,11 +6,12 @@ Zero external runtime dependencies (Python standard library only).
 
 import json
 import mimetypes
-mimetypes.add_type("application/wasm", ".wasm")
 import time
 import urllib.parse
 from pathlib import Path
 from http.server import ThreadingHTTPServer, SimpleHTTPRequestHandler
+
+mimetypes.add_type("application/wasm", ".wasm")
 
 def get_template_dir() -> Path:
     candidates = [
