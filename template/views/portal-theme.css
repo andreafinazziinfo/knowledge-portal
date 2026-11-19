@@ -1,0 +1,121 @@
+/* ==========================================================================
+   Knowledge Portal — Unified Institutional Design System (Unslop Edition)
+   Palette: Total Black (#000000) · Surface (#0a0c10) · Emerald (#10b981)
+   ========================================================================== */
+
+:root {
+  --bg: #000000;
+  --bg-main: #000000;
+  --bg-sidebar: #07090c;
+  --bg-surface: #0a0c10;
+  --surface: #0a0c10;
+  --bg-card: #0e1217;
+  --card: #0e1217;
+  --bg-elevated: #141a22;
+  --border: rgba(255, 255, 255, 0.08);
+  --border-color: rgba(255, 255, 255, 0.08);
+  --border-strong: rgba(255, 255, 255, 0.14);
+  --text: #f3f4f6;
+  --text-main: #f3f4f6;
+  --text-muted: #9ca3af;
+  --muted: #9ca3af;
+  --accent: #10b981;
+  --accent-color: #10b981;
+  --accent-dim: rgba(16, 185, 129, 0.14);
+  --accent-glow: rgba(16, 185, 129, 0.14);
+}
+
+html, body {
+  background-color: #000000 !important;
+  color: #f3f4f6 !important;
+  font-family: -apple-system, BlinkMacSystemFont, "Inter", "Segoe UI", Roboto, sans-serif;
+  -webkit-font-smoothing: antialiased;
+}
+
+/* Unified Surface Cards & Panels */
+.card, .section, .kpi, .ep-card, .formula-card, .panel, .group-box, .stat-card, .metric-card, .box, .adr-card, .explainer-card, .threat-card, .worker-card, .store-card, .connector-card {
+  background-color: #0a0c10 !important;
+  border: 1px solid rgba(255, 255, 255, 0.08) !important;
+  border-radius: 8px !important;
+  box-shadow: none !important;
+}
+
+.card:hover, .ep-card:hover, .formula-card:hover, .explainer-card:hover, .adr-card:hover, .threat-card:hover, .worker-card:hover, .store-card:hover, .connector-card:hover {
+  background-color: #0e1217 !important;
+  border-color: rgba(16, 185, 129, 0.45) !important;
+  transform: none !important;
+  box-shadow: none !important;
+}
+
+/* Unified Floating HUDs & Legends */
+#hud, #legend, .hud, .legend-panel, .controls-bar, .toolbar, .header-bar, header {
+  background-color: #0a0c10 !important;
+  border-color: rgba(255, 255, 255, 0.08) !important;
+  box-shadow: none !important;
+}
+
+/* Unified Buttons & Filter Chips */
+button:not(.fullscreen-btn):not(.tab-button), .btn, .chip, .filter-btn, .ds-btn, .action-btn, .tab-btn {
+  background-color: #11161d !important;
+  color: #d1d5db !important;
+  border: 1px solid rgba(255, 255, 255, 0.10) !important;
+  border-radius: 6px !important;
+  font-size: 12px !important;
+  font-weight: 500 !important;
+  line-height: 1.2 !important;
+  padding: 6px 12px !important;
+  cursor: pointer;
+  box-shadow: none !important;
+  transition: background-color 0.15s ease-out, border-color 0.15s ease-out, color 0.15s ease-out !important;
+}
+
+button:not(.fullscreen-btn):not(.tab-button):hover, .btn:hover, .chip:hover, .filter-btn:hover, .ds-btn:hover, .action-btn:hover, .tab-btn:hover {
+  background-color: #161d26 !important;
+  border-color: rgba(255, 255, 255, 0.20) !important;
+  color: #ffffff !important;
+  transform: none !important;
+}
+
+button.active, .btn.active, .chip.active, .filter-btn.active, .ds-btn.active, .tab-btn.active {
+  background-color: rgba(16, 185, 129, 0.14) !important;
+  border-color: #10b981 !important;
+  color: #34d399 !important;
+  font-weight: 600 !important;
+}
+
+/* Unified Inputs & Selects */
+input[type="text"], input[type="search"], select, textarea {
+  background-color: #0a0c10 !important;
+  color: #f3f4f6 !important;
+  border: 1px solid rgba(255, 255, 255, 0.12) !important;
+  border-radius: 6px !important;
+  font-size: 12px !important;
+}
+
+input[type="text"]:focus, input[type="search"]:focus, select:focus, textarea:focus {
+  outline: none !important;
+  border-color: #10b981 !important;
+}
+
+/* Unified Tables */
+table {
+  border-collapse: collapse;
+  width: 100%;
+}
+th {
+  background-color: #0a0c10 !important;
+  color: #9ca3af !important;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.10) !important;
+  font-size: 11px !important;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+td {
+  border-bottom: 1px solid rgba(255, 255, 255, 0.06) !important;
+}
+
+/* Quiet Scrollbars */
+::-webkit-scrollbar { width: 6px; height: 6px; }
+::-webkit-scrollbar-track { background: #000000; }
+::-webkit-scrollbar-thumb { background: #1f2937; border-radius: 3px; }
+::-webkit-scrollbar-thumb:hover { background: #374151; }
