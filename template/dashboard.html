@@ -19,7 +19,7 @@
       --text-main: #ececec;
       --text-muted: #8b8b8b;
       --accent-color: #ececec;
-      --accent-glow: rgba(56, 189, 248, 0.15);
+      --accent-glow: rgba(255, 255, 255, 0.22);
       --success-color: #ececec;
       --warning-color: #f59e0b;
       --danger-color: #ef4444;
@@ -88,7 +88,7 @@
     }
 
     .sidebar-close-btn:hover {
-      background: rgba(56, 189, 248, 0.15);
+      background: rgba(255, 255, 255, 0.22);
       color: var(--accent-color);
       border-color: var(--accent-color);
     }
@@ -207,7 +207,7 @@
     .search-item:hover { background-color: var(--bg-card); }
     .search-item-title { font-size: 13px; font-weight: 600; color: var(--accent-color); margin-bottom: 4px; }
     .search-item-snippet { font-size: 11px; color: var(--text-muted); font-family: monospace; }
-    .search-item-snippet mark { background: rgba(56,189,248,0.3); color: white; padding: 0 2px; border-radius: 2px; }
+    .search-item-snippet mark { background: rgba(255, 255, 255, 0.22); color: white; padding: 0 2px; border-radius: 2px; }
 
     /* ── Main Content ── */
     #main-content {
@@ -506,7 +506,7 @@
       display: none;
       white-space: pre-wrap;
     }
-    .diff-line-add { background: rgba(16, 185, 129, 0.15); color: #6ee7b7; }
+    .diff-line-add { background: rgba(255, 255, 255, 0.22); color: #6ee7b7; }
     .diff-line-del { background: rgba(239, 68, 68, 0.15); color: #fca5a5; }
     .diff-line-ctx { color: var(--text-muted); }
 
@@ -540,7 +540,7 @@
     #editor-textarea {
       width: 100%;
       flex: 1;
-      background-color: #000000;
+      background-color: #0f0f0f;
       color: #f3f4f6;
       font-family: 'Fira Code', monospace;
       font-size: 14px;
@@ -552,7 +552,7 @@
     }
 
     /* Graph / Canvas / Tree / Floorplan / Visual Explainer Panes */
-    #pane-graph, #pane-canvas, #pane-tree, #pane-floorplan, #pane-stack-ecosystem, #pane-data-explorer, #pane-db-lineage, #pane-async-topology, #pane-visual-explainer, #pane-api-catalog, #pane-adr-governance, #pane-quant-codex, #pane-runbook-ops { background-color: #000000; }
+    #pane-graph, #pane-canvas, #pane-tree, #pane-floorplan, #pane-stack-ecosystem, #pane-data-explorer, #pane-db-lineage, #pane-async-topology, #pane-visual-explainer, #pane-api-catalog, #pane-adr-governance, #pane-quant-codex, #pane-runbook-ops { background-color: #0f0f0f; }
 
     /* ── Keyboard Shortcut Modal ── */
     #shortcuts-modal {
@@ -620,12 +620,12 @@
     }
     .search-item:hover {
       background: #1f2937;
-      color: #38bdf8;
+      color: #ececec;
     }
     
     /* clickable tracebacks style inside console terminal */
     #console-terminal a {
-      color: #38bdf8;
+      color: #ececec;
       text-decoration: underline;
       transition: color 0.15s;
     }
@@ -694,17 +694,17 @@
       font-size: 10px;
       font-weight: 700;
       color: var(--accent-color);
-      background: rgba(56, 189, 248, 0.1);
-      border: 1px solid rgba(56, 189, 248, 0.25);
+      background: rgba(255, 255, 255, 0.22);
+      border: 1px solid rgba(255, 255, 255, 0.22);
       border-radius: 4px;
       padding: 2px 6px;
       align-self: flex-start;
       flex-shrink: 0;
     }
     #mobile-view-picker {
-      background: #0f172a;
-      border: 1px solid rgba(56, 189, 248, 0.4);
-      color: #38bdf8;
+      background: #191919;
+      border: 1px solid rgba(255, 255, 255, 0.22);
+      color: #ececec;
       font-size: 12px;
       font-weight: 600;
       padding: 5px 8px;
@@ -724,8 +724,8 @@
     /* ── Mobile Responsive Layout (Phones & Small Tablets) ── */
     #mobile-menu-btn {
       display: none;
-      background: rgba(56, 189, 248, 0.12);
-      border: 1px solid rgba(56, 189, 248, 0.3);
+      background: rgba(255, 255, 255, 0.22);
+      border: 1px solid rgba(255, 255, 255, 0.22);
       color: var(--accent-color);
       border-radius: 6px;
       padding: 6px 12px;
@@ -831,9 +831,9 @@
       z-index: 5;
     }
     .copy-code-btn:hover {
-      background: #1e293b;
+      background: #232323;
       color: #fff;
-      border-color: #38bdf8;
+      border-color: #ececec;
     }
 
     /* Table of Contents */
@@ -842,7 +842,7 @@
       top: 16px;
       float: right;
       width: 210px;
-      background: rgba(11, 16, 29, 0.9);
+      background: rgba(26, 26, 26, 0.86);
       backdrop-filter: blur(8px);
       border: 1px solid var(--border-color);
       border-radius: 8px;
@@ -879,7 +879,7 @@
       display: none;
       position: fixed;
       inset: 0;
-      background: rgba(2, 4, 10, 0.94);
+      background: rgba(26, 26, 26, 0.86);
       backdrop-filter: blur(12px);
       z-index: 1000;
       flex-direction: column;
@@ -891,7 +891,7 @@
       display: flex;
       justify-content: space-between;
       align-items: center;
-      background: rgba(11, 16, 29, 0.92);
+      background: rgba(26, 26, 26, 0.86);
     }
     .lightbox-body {
       flex: 1;
@@ -937,6 +937,8 @@
 <script>if (typeof marked === "undefined") { document.write('<script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"><\/script>'); }</script>
   <script defer src="vendor/mermaid.min.js"></script>
 <script>if (typeof mermaid === "undefined") { document.write('<script src="https://cdn.jsdelivr.net/npm/mermaid@10.9.1/dist/mermaid.min.js"><\/script>'); }</script>
+  <link rel="stylesheet" href="views/portal-theme.css?v=fp1">
+  <script defer src="views/portal-ui.js?v=fp1"></script>
 </head>
 <body>
 
@@ -1063,7 +1065,7 @@
             <h3 style="margin:0; font-size:15px; color:#f8fafc; display:flex; align-items:center; gap:8px;">
               <span>🧭</span> Tutte le Viste dell'Architettura (21 Viste Interattive)
             </h3>
-            <span style="font-size:11px; color:#38bdf8; background:rgba(56,189,248,0.1); border:1px solid rgba(56,189,248,0.25); padding:3px 8px; border-radius:12px;">
+            <span style="font-size:11px; color:#ececec; background:rgba(255, 255, 255, 0.22); border:1px solid rgba(255, 255, 255, 0.22); padding:3px 8px; border-radius:12px;">
               Tocca una card per aprire la vista
             </span>
           </div>
@@ -1315,122 +1317,122 @@
     <!-- Tab 2: Interactive Graph -->
     <div class="tab-pane" id="pane-graph">
       <div style="position: absolute; right: 60px; top: 15px; z-index: 10;">
-        <button class="action-btn" onclick="toggleGraphDimension()" style="font-size: 11px; padding: 4px 8px; border: 1px solid #38bdf8; background: rgba(56, 189, 248, 0.1); color: #38bdf8; border-radius: 6px; cursor: pointer;">🌐 Switch to 3D</button>
+        <button class="action-btn" onclick="toggleGraphDimension()" style="font-size: 11px; padding: 4px 8px; border: 1px solid #ececec; background: rgba(255, 255, 255, 0.22); color: #ececec; border-radius: 6px; cursor: pointer;">🌐 Switch to 3D</button>
       </div>
       <button class="fullscreen-btn" onclick="toggleFullscreen('pane-graph')" title="Fullscreen">⛶</button>
-      <iframe id="graph-iframe" data-src="views/graph.html?v=10" style="width:100%; height:100%; border:none; background:#000000;"></iframe>
+      <iframe id="graph-iframe" data-src="views/graph.html?v=10" style="width:100%; height:100%; border:none; background:#0f0f0f;"></iframe>
     </div>
 
     <!-- Tab 3: Whiteboard Canvas -->
     <div class="tab-pane" id="pane-canvas">
       <div style="position: absolute; right: 60px; top: 15px; z-index: 10;">
-        <button class="action-btn" onclick="toggleCanvasDimension()" style="font-size: 11px; padding: 4px 8px; border: 1px solid #38bdf8; background: rgba(56, 189, 248, 0.1); color: #38bdf8; border-radius: 6px; cursor: pointer;">🌐 Switch to 3D</button>
+        <button class="action-btn" onclick="toggleCanvasDimension()" style="font-size: 11px; padding: 4px 8px; border: 1px solid #ececec; background: rgba(255, 255, 255, 0.22); color: #ececec; border-radius: 6px; cursor: pointer;">🌐 Switch to 3D</button>
       </div>
       <button class="fullscreen-btn" onclick="toggleFullscreen('pane-canvas')" title="Fullscreen">⛶</button>
-      <iframe id="canvas-iframe" data-src="views/canvas.html?v=10" style="width:100%; height:100%; border:none; background:#000000;"></iframe>
+      <iframe id="canvas-iframe" data-src="views/canvas.html?v=10" style="width:100%; height:100%; border:none; background:#0f0f0f;"></iframe>
     </div>
 
     <!-- Tab 4: Collapsible Tree View -->
     <div class="tab-pane" id="pane-tree">
       <div style="position: absolute; right: 60px; top: 15px; z-index: 10;">
-        <button class="action-btn" onclick="toggleTreeDimension()" style="font-size: 11px; padding: 4px 8px; border: 1px solid #38bdf8; background: rgba(56, 189, 248, 0.1); color: #38bdf8; border-radius: 6px; cursor: pointer;">🌐 Switch to 3D</button>
+        <button class="action-btn" onclick="toggleTreeDimension()" style="font-size: 11px; padding: 4px 8px; border: 1px solid #ececec; background: rgba(255, 255, 255, 0.22); color: #ececec; border-radius: 6px; cursor: pointer;">🌐 Switch to 3D</button>
       </div>
       <button class="fullscreen-btn" onclick="toggleFullscreen('pane-tree')" title="Fullscreen">⛶</button>
-      <iframe id="tree-iframe" data-src="views/GRAPH_TREE.html?v=10" style="width:100%; height:100%; border:none; background:#000000;"></iframe>
+      <iframe id="tree-iframe" data-src="views/GRAPH_TREE.html?v=10" style="width:100%; height:100%; border:none; background:#0f0f0f;"></iframe>
     </div>
 
     <!-- Tab 5: Floorplan Interactive Full-Stack & HTTP Map (ADR-053) -->
     <div class="tab-pane" id="pane-data-explorer">
       <button class="fullscreen-btn" onclick="toggleFullscreen('pane-data-explorer')" title="Fullscreen">⛶</button>
-      <iframe id="data-explorer-iframe" data-src="views/data-explorer.html" title="Portal Pivot & Data Explorer" style="width:100%; height:100%; border:none; background:#000000;"></iframe>
+      <iframe id="data-explorer-iframe" data-src="views/data-explorer.html" title="Portal Pivot & Data Explorer" style="width:100%; height:100%; border:none; background:#0f0f0f;"></iframe>
     </div>
 
     <div class="tab-pane" id="pane-stack-ecosystem">
       <button class="fullscreen-btn" onclick="toggleFullscreen('pane-stack-ecosystem')" title="Fullscreen">⛶</button>
-      <iframe id="stack-ecosystem-iframe" data-src="views/stack-ecosystem.html" title="Tech Stack, Dependencies & Ecosystem" style="width:100%; height:100%; border:none; background:#000000;"></iframe>
+      <iframe id="stack-ecosystem-iframe" data-src="views/stack-ecosystem.html" title="Tech Stack, Dependencies & Ecosystem" style="width:100%; height:100%; border:none; background:#0f0f0f;"></iframe>
     </div>
 
     <div class="tab-pane" id="pane-floorplan">
       <button class="fullscreen-btn" onclick="toggleFullscreen('pane-floorplan')" title="Fullscreen">⛶</button>
-      <iframe id="floorplan-iframe" data-src="views/floorplan.html" title="Floorplan Full-Stack & HTTP Map" style="width:100%; height:100%; border:none; background:#000000;"></iframe>
+      <iframe id="floorplan-iframe" data-src="views/floorplan.html" title="Floorplan Full-Stack & HTTP Map" style="width:100%; height:100%; border:none; background:#0f0f0f;"></iframe>
     </div>
 
     <!-- Tab 6: SQL & TimescaleDB Lineage Map (ADR-054) -->
     <div class="tab-pane" id="pane-db-lineage">
       <button class="fullscreen-btn" onclick="toggleFullscreen('pane-db-lineage')" title="Fullscreen">⛶</button>
-      <iframe id="db-lineage-iframe" data-src="views/db-lineage.html" title="SQL & TimescaleDB Lineage Map" style="width:100%; height:100%; border:none; background:#000000;"></iframe>
+      <iframe id="db-lineage-iframe" data-src="views/db-lineage.html" title="SQL & TimescaleDB Lineage Map" style="width:100%; height:100%; border:none; background:#0f0f0f;"></iframe>
     </div>
 
     <!-- Tab 7: AsyncAPI 3.0, WebSocket, Redis Pub/Sub & Celery Topology (ADR-054) -->
     <div class="tab-pane" id="pane-async-topology">
       <button class="fullscreen-btn" onclick="toggleFullscreen('pane-async-topology')" title="Fullscreen">⛶</button>
-      <iframe id="async-topology-iframe" data-src="views/async-topology.html" title="AsyncAPI 3.0 & WS/PubSub/Celery Topology" style="width:100%; height:100%; border:none; background:#000000;"></iframe>
+      <iframe id="async-topology-iframe" data-src="views/async-topology.html" title="AsyncAPI 3.0 & WS/PubSub/Celery Topology" style="width:100%; height:100%; border:none; background:#0f0f0f;"></iframe>
     </div>
 
     <!-- Tab 8: Visual Explainer Interactive Architecture (ADR-053) -->
     <div class="tab-pane" id="pane-visual-explainer">
       <button class="fullscreen-btn" onclick="toggleFullscreen('pane-visual-explainer')" title="Fullscreen">⛶</button>
-      <iframe id="visual-explainer-iframe" data-src="views/visual-explainers.html" title="Knowledge Portal Architecture Hub &amp; Visual Explainers" style="width:100%; height:100%; border:none; background:#000000;"></iframe>
+      <iframe id="visual-explainer-iframe" data-src="views/visual-explainers.html" title="Knowledge Portal Architecture Hub &amp; Visual Explainers" style="width:100%; height:100%; border:none; background:#0f0f0f;"></iframe>
     </div>
 
     <!-- Tab 9: API Gateway & OpenAPI Contracts -->
     <div class="tab-pane" id="pane-api-catalog">
       <button class="fullscreen-btn" onclick="toggleFullscreen('pane-api-catalog')" title="Fullscreen">⛶</button>
-      <iframe id="api-catalog-iframe" data-src="views/api-catalog.html" title="Knowledge Portal API Contracts &amp; Gateway Explorer" style="width:100%; height:100%; border:none; background:#000000;"></iframe>
+      <iframe id="api-catalog-iframe" data-src="views/api-catalog.html" title="Knowledge Portal API Contracts &amp; Gateway Explorer" style="width:100%; height:100%; border:none; background:#0f0f0f;"></iframe>
     </div>
 
     <!-- Tab 10: ADR Architecture Governance Matrix -->
     <div class="tab-pane" id="pane-adr-governance">
       <button class="fullscreen-btn" onclick="toggleFullscreen('pane-adr-governance')" title="Fullscreen">⛶</button>
-      <iframe id="adr-governance-iframe" data-src="views/adr-governance.html" title="Architecture Decision Records &amp; Governance Matrix" style="width:100%; height:100%; border:none; background:#000000;"></iframe>
+      <iframe id="adr-governance-iframe" data-src="views/adr-governance.html" title="Architecture Decision Records &amp; Governance Matrix" style="width:100%; height:100%; border:none; background:#0f0f0f;"></iframe>
     </div>
 
     <!-- Tab 11: Mathematical & Quant Theory Codex -->
     <div class="tab-pane" id="pane-quant-codex">
       <button class="fullscreen-btn" onclick="toggleFullscreen('pane-quant-codex')" title="Fullscreen">⛶</button>
-      <iframe id="quant-codex-iframe" data-src="views/quant-codex.html" title="Mathematical &amp; Quant Theory Codex" style="width:100%; height:100%; border:none; background:#000000;"></iframe>
+      <iframe id="quant-codex-iframe" data-src="views/quant-codex.html" title="Mathematical &amp; Quant Theory Codex" style="width:100%; height:100%; border:none; background:#0f0f0f;"></iframe>
     </div>
 
     <!-- Tab 12: Operations & Disaster Recovery Runbook -->
     <div class="tab-pane" id="pane-runbook-ops">
       <button class="fullscreen-btn" onclick="toggleFullscreen('pane-runbook-ops')" title="Fullscreen">⛶</button>
-      <iframe id="runbook-ops-iframe" data-src="views/runbook-ops.html" title="Operations &amp; Disaster Recovery Runbook" style="width:100%; height:100%; border:none; background:#000000;"></iframe>
+      <iframe id="runbook-ops-iframe" data-src="views/runbook-ops.html" title="Operations &amp; Disaster Recovery Runbook" style="width:100%; height:100%; border:none; background:#0f0f0f;"></iframe>
     </div>
 
     <!-- Tab: Framework Constitution & 9 Pilastri -->
     <div class="tab-pane" id="pane-framework-constitution">
       <button class="fullscreen-btn" onclick="toggleFullscreen('pane-framework-constitution')" title="Fullscreen">⛶</button>
-      <iframe id="framework-constitution-iframe" data-src="views/framework-constitution.html" title="Framework Constitution &amp; 9 Pilastri" style="width:100%; height:100%; border:none; background:#000000;"></iframe>
+      <iframe id="framework-constitution-iframe" data-src="views/framework-constitution.html" title="Framework Constitution &amp; 9 Pilastri" style="width:100%; height:100%; border:none; background:#0f0f0f;"></iframe>
     </div>
 
     <!-- Tab: Frontend Pinia State Architecture -->
     <div class="tab-pane" id="pane-frontend-state">
       <button class="fullscreen-btn" onclick="toggleFullscreen('pane-frontend-state')" title="Fullscreen">⛶</button>
-      <iframe id="frontend-state-iframe" data-src="views/frontend-state.html" title="Frontend Pinia State Architecture" style="width:100%; height:100%; border:none; background:#000000;"></iframe>
+      <iframe id="frontend-state-iframe" data-src="views/frontend-state.html" title="Frontend Pinia State Architecture" style="width:100%; height:100%; border:none; background:#0f0f0f;"></iframe>
     </div>
 
     <!-- Tab: Background Worker Tasks & Queues -->
     <div class="tab-pane" id="pane-worker-tasks">
       <button class="fullscreen-btn" onclick="toggleFullscreen('pane-worker-tasks')" title="Fullscreen">⛶</button>
-      <iframe id="worker-tasks-iframe" data-src="views/worker-tasks.html" title="Background Worker Tasks &amp; Queues" style="width:100%; height:100%; border:none; background:#000000;"></iframe>
+      <iframe id="worker-tasks-iframe" data-src="views/worker-tasks.html" title="Background Worker Tasks &amp; Queues" style="width:100%; height:100%; border:none; background:#0f0f0f;"></iframe>
     </div>
 
     <!-- Tab: Threat Model & Security Matrix -->
     <div class="tab-pane" id="pane-threat-matrix">
       <button class="fullscreen-btn" onclick="toggleFullscreen('pane-threat-matrix')" title="Fullscreen">⛶</button>
-      <iframe id="threat-matrix-iframe" data-src="views/threat-matrix.html" title="Threat Model &amp; Security Matrix" style="width:100%; height:100%; border:none; background:#000000;"></iframe>
+      <iframe id="threat-matrix-iframe" data-src="views/threat-matrix.html" title="Threat Model &amp; Security Matrix" style="width:100%; height:100%; border:none; background:#0f0f0f;"></iframe>
     </div>
 
     <!-- Tab: Ingestion Pipelines & Feed Health -->
     <div class="tab-pane" id="pane-data-ingestion">
       <button class="fullscreen-btn" onclick="toggleFullscreen('pane-data-ingestion')" title="Fullscreen">⛶</button>
-      <iframe id="data-ingestion-iframe" data-src="views/data-ingestion.html" title="Data Ingestion Pipelines &amp; Feed Health" style="width:100%; height:100%; border:none; background:#000000;"></iframe>
+      <iframe id="data-ingestion-iframe" data-src="views/data-ingestion.html" title="Data Ingestion Pipelines &amp; Feed Health" style="width:100%; height:100%; border:none; background:#0f0f0f;"></iframe>
     </div>
 
     <!-- Tab 8: Dev-Console -->
     <div class="tab-pane" id="pane-console">
       <button class="fullscreen-btn" onclick="toggleFullscreen('pane-console')" title="Fullscreen">⛶</button>
-      <div style="display: flex; flex-direction: column; height: 100%; padding: 20px; box-sizing: border-box; background: #000;">
+      <div style="display: flex; flex-direction: column; height: 100%; padding: 20px; box-sizing: border-box; background: #0f0f0f;">
         <div style="display: flex; gap: 10px; align-items: center; margin-bottom: 15px;">
           <h2 style="margin: 0; font-size: 1.5rem; font-weight: bold; color: var(--accent-color); flex: 1;">💻 Dev-Console & Test Runner</h2>
           <button class="action-btn" onclick="runConsoleCommand('sextet-refresh')">✨ Refresh Sextet</button>
@@ -1440,7 +1442,7 @@
           <button class="action-btn" onclick="runConsoleCommand('frontend-lint')">🚨 Frontend Lint</button>
           <button class="action-btn danger" onclick="clearConsole()">🗑️ Clear</button>
         </div>
-        <div id="console-terminal" style="flex: 1; background: #070707; border: 1px solid #1f2937; border-radius: 8px; padding: 15px; overflow-y: auto; font-family: monospace; font-size: 13px; line-height: 1.5; color: #ececec; white-space: pre-wrap; word-break: break-all;">
+        <div id="console-terminal" style="flex: 1; background: #0f0f0f; border: 1px solid #1f2937; border-radius: 8px; padding: 15px; overflow-y: auto; font-family: monospace; font-size: 13px; line-height: 1.5; color: #ececec; white-space: pre-wrap; word-break: break-all;">
           Console initialized. Ready to execute commands...
         </div>
       </div>
@@ -1812,12 +1814,12 @@
           themeVariables: {
             darkMode: true,
             background: '#090d16',
-            primaryColor: '#1e293b',
+            primaryColor: '#232323',
             primaryTextColor: '#f8fafc',
-            primaryBorderColor: '#38bdf8',
+            primaryBorderColor: '#ececec',
             lineColor: '#64748b',
-            secondaryColor: '#0f172a',
-            tertiaryColor: '#1e293b'
+            secondaryColor: '#191919',
+            tertiaryColor: '#232323'
           }
         });
       } catch (e) {
@@ -1834,7 +1836,7 @@
         const wrapper = document.createElement('div');
         wrapper.className = 'mermaid-container';
         wrapper.style.background = '#090d16';
-        wrapper.style.border = '1px solid #1e293b';
+        wrapper.style.border = '1px solid #232323';
         wrapper.style.borderRadius = '8px';
         wrapper.style.padding = '16px';
         wrapper.style.margin = '18px 0';
@@ -2076,7 +2078,7 @@
         const name = r.name || (r.path ? r.path.split('/').pop() : 'Risultato');
         const highlighted = name.replace(new RegExp(`(${query.replace(/[.*+?^${}()|[\\]\\\\]/g, '\\$&')})`, 'gi'), '<mark>$1</mark>');
         
-        const badgeHtml = r.badge ? `<span style="font-size:10px; font-weight:600; padding:2px 6px; border-radius:4px; background:rgba(56,189,248,0.15); color:#38bdf8; border:1px solid rgba(56,189,248,0.3); flex-shrink:0;">${esc(r.badge)}</span>` : '';
+        const badgeHtml = r.badge ? `<span style="font-size:10px; font-weight:600; padding:2px 6px; border-radius:4px; background:rgba(255, 255, 255, 0.22); color:#ececec; border:1px solid rgba(255, 255, 255, 0.22); flex-shrink:0;">${esc(r.badge)}</span>` : '';
         const subtitleHtml = r.subtitle ? `<div style="font-size:11px; color:var(--text-muted); margin-top:2px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">${esc(r.subtitle)}</div>` : '';
         const snippetHtml = r.snippet ? `<div class="search-item-snippet" style="font-size:11px; color:#94a3b8; margin-top:2px;">${esc(r.snippet.substring(0, 120))}</div>` : '';
 
@@ -2445,7 +2447,7 @@
     autocompletePopup.style.cssText = `
       position: absolute;
       z-index: 1000;
-      background: #0c0c0c;
+      background: #0f0f0f;
       border: 1px solid #1f2937;
       border-radius: 8px;
       box-shadow: 0 10px 25px -5px rgba(0,0,0,0.8);
@@ -2524,7 +2526,7 @@
         item.style.fontSize = '12px';
         item.style.cursor = 'pointer';
         item.style.background = idx === autocompleteSelectedIndex ? '#1f2937' : 'transparent';
-        item.style.color = idx === autocompleteSelectedIndex ? '#38bdf8' : '#f3f4f6';
+        item.style.color = idx === autocompleteSelectedIndex ? '#ececec' : '#f3f4f6';
         
         const cleanName = name.replace('.md', '');
         item.innerText = cleanName;
@@ -2677,7 +2679,7 @@
               }
               
               hoverPreviewDiv.innerHTML = `
-                <div style="font-weight:bold; color:#38bdf8; margin-bottom: 6px; border-bottom: 1px solid #1f2937; padding-bottom: 4px;">
+                <div style="font-weight:bold; color:#ececec; margin-bottom: 6px; border-bottom: 1px solid #1f2937; padding-bottom: 4px;">
                   📄 ${esc(targetName)}
                 </div>
                 <div>${esc(previewText)}</div>
@@ -2713,7 +2715,7 @@
       }
       
       const term = document.getElementById('console-terminal');
-      term.innerHTML = `<span style="color:#38bdf8; font-weight:bold;">> Launching ${cmdId}...</span>\n`;
+      term.innerHTML = `<span style="color:#ececec; font-weight:bold;">> Launching ${cmdId}...</span>\n`;
       
       consoleEventSource = new EventSource(`${API_BASE}/api/console/run?cmd=${cmdId}`);
       
@@ -2735,13 +2737,13 @@
         const relPathRegex = /((?:backend|frontend|docs)[a-zA-Z0-9_\-\/\\.]+\.py):(\d+)/g;
         formattedLine = formattedLine.replace(relPathRegex, (match, path, lineNum) => {
           const normalizedPath = path.replace(/\\/g, '/');
-          return `<a href="#" onclick="openInEditorFromConsole('${normalizedPath}', ${lineNum}); return false;" style="color:#38bdf8; text-decoration:underline;">${match}</a>`;
+          return `<a href="#" onclick="openInEditorFromConsole('${normalizedPath}', ${lineNum}); return false;" style="color:#ececec; text-decoration:underline;">${match}</a>`;
         });
         
         const fileLineRegex = /File &quot;([^&]+)&quot;, line (\d+)/g;
         formattedLine = formattedLine.replace(fileLineRegex, (match, path, lineNum) => {
           const normalizedPath = path.replace(/\\/g, '/');
-          return `File &quot;<a href="#" onclick="openInEditorFromConsole('${normalizedPath}', ${lineNum}); return false;" style="color:#38bdf8; text-decoration:underline;">${path}</a>&quot;, line ${lineNum}`;
+          return `File &quot;<a href="#" onclick="openInEditorFromConsole('${normalizedPath}', ${lineNum}); return false;" style="color:#ececec; text-decoration:underline;">${path}</a>&quot;, line ${lineNum}`;
         });
         
         term.innerHTML += formattedLine + '\n';
@@ -2807,11 +2809,11 @@
 
   <!-- Omni-Search Modal Overlay (Ctrl+K) -->
   <div id="omniModal" style="display:none; position:fixed; inset:0; background:rgba(0,0,0,0.75); z-index:9999; align-items:flex-start; justify-content:center; padding-top:10vh; backdrop-filter:blur(4px);">
-    <div style="background:#161b22; border:1px solid #30363d; border-radius:10px; width:90%; max-width:640px; box-shadow:0 16px 36px rgba(0,0,0,0.5); overflow:hidden; display:flex; flex-direction:column;">
+    <div style="background:#191919; border:1px solid #30363d; border-radius:10px; width:90%; max-width:640px; box-shadow:0 16px 36px rgba(0,0,0,0.5); overflow:hidden; display:flex; flex-direction:column;">
       <div style="padding:14px 18px; border-bottom:1px solid #30363d; display:flex; align-items:center; gap:12px;">
-        <span style="font-size:1.2rem; color:#58a6ff;">🔍</span>
+        <span style="font-size:1.2rem; color:#ececec;">🔍</span>
         <input type="text" id="omniInput" placeholder="Cerca viste, architettura, endpoint, worker, pilastri... (ESC per chiudere)" style="flex:1; background:transparent; border:none; outline:none; color:#e6edf3; font-size:1.05rem;" oninput="filterOmniResults()" onkeydown="handleOmniKey(event)">
-        <span style="font-size:0.75rem; color:#8b949e; background:#21262d; padding:2px 8px; border-radius:4px; border:1px solid #30363d;">ESC</span>
+        <span style="font-size:0.75rem; color:#8b949e; background:#232323; padding:2px 8px; border-radius:4px; border:1px solid #30363d;">ESC</span>
       </div>
       <div id="omniResults" style="max-height:380px; overflow-y:auto; padding:8px 0;">
         <!-- Dynamic Results -->
@@ -2887,7 +2889,7 @@
       filtered.forEach((item, index) => {
         const div = document.createElement('div');
         div.style = 'padding:10px 18px; display:flex; align-items:center; gap:12px; cursor:pointer; transition:background 0.15s; border-left:3px solid transparent;';
-        div.onmouseover = () => { div.style.background = '#21262d'; div.style.borderLeftColor = '#58a6ff'; };
+        div.onmouseover = () => { div.style.background = '#232323'; div.style.borderLeftColor = '#ececec'; };
         div.onmouseout = () => { div.style.background = 'transparent'; div.style.borderLeftColor = 'transparent'; };
         div.onclick = () => {
           closeOmniSearch();
@@ -2900,7 +2902,7 @@
             <div style="font-weight:600; color:#e6edf3; font-size:0.95rem;">${item.title}</div>
             <div style="font-size:0.8rem; color:#8b949e;">${item.desc}</div>
           </div>
-          <span style="font-size:0.75rem; color:#58a6ff; font-family:monospace;">${item.id}</span>
+          <span style="font-size:0.75rem; color:#ececec; font-family:monospace;">${item.id}</span>
         `;
         container.appendChild(div);
       });
@@ -3068,7 +3070,7 @@
   <!-- Mermaid Interactive Lightbox Modal -->
   <div id="mermaid-lightbox">
     <div class="lightbox-head">
-      <div style="font-size:13px; font-weight:700; color:#38bdf8;">🔍 Diagramma Mermaid (Fullscreen Vettoriale)</div>
+      <div style="font-size:13px; font-weight:700; color:#ececec;">🔍 Diagramma Mermaid (Fullscreen Vettoriale)</div>
       <div style="display:flex; gap:8px; align-items:center;">
         <button class="action-btn" onclick="zoomMermaid(1.2)">➕ Ingrandisci</button>
         <button class="action-btn" onclick="zoomMermaid(0.8)">➖ Rimpicciolisci</button>

@@ -1,8 +1,8 @@
 /* ==========================================================================
-   Knowledge Portal — Floorplan Institutional Design System
+   Knowledge Portal — Institutional Floorplan Design System (v2.7)
    Exact match to Institutional Floorplan:
-   Canvas #0f0f0f · Surface #191919 · Raised #232323 · Hairlines 6%-14%
-   White Hover Borders · Monochrome Active Controls (#ececec on #0f0f0f)
+   Canvas #0f0f0f · Surface #191919 · Raised #232323 · Glass rgba(26,26,26,0.86)
+   White Hover/Focus Borders · Monochrome Active Controls (#ececec on #0f0f0f)
    ========================================================================== */
 
 :root {
@@ -43,23 +43,31 @@ body {
   background-size: 24px 24px;
 }
 
-/* Override any hardcoded navy/slate/blue panel backgrounds across all views */
+/* Main Layout Containers */
 .sidebar, #sidebar, .main, .main-panel, .content, .container, .page-wrap,
-#graph, #3d-graph, #3d-tree, .canvas-wrap, .split-pane, .left-pane, .right-pane {
+#graph, #3d-graph, #3d-tree, .canvas-wrap, .split-pane, .left-pane, .right-pane,
+.empty-state, .diagram-box, .tab-pane, .viewer-wrap {
   background-color: #0f0f0f !important;
 }
 
-#hud, #legend, .hud, .legend-panel, .controls-bar, .toolbar, .header-bar, .header,
-.topbar, .filter-bar, .search-bar, #controls, #inspector, .inspector, .aside {
-  background-color: #141414 !important;
+/* Floating Glass Headers, Toolbars, HUDs & Controls */
+#hud, #legend, .hud, .legend-panel, .controls-bar, .controls, .toolbar,
+.header-bar, .header, header, .topbar, .filter-bar, .search-bar,
+#controls, #inspector, .inspector, .aside, .tree-hud, .graph-hud,
+.pipeline-hud, .viewer-bar, .tab-switcher, .view-toggle, .invariants-banner,
+.banner, .util-disclaimer {
+  background-color: rgba(26, 26, 26, 0.90) !important;
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
   border-color: rgba(255, 255, 255, 0.08) !important;
   box-shadow: none !important;
 }
 
-/* Unified Floorplan Cards & Panels (White border on hover, never green!) */
+/* Unified Floorplan Cards & Panels (Always #191919, White Border on Hover) */
 .card, .section, .kpi, .ep-card, .formula-card, .panel, .group-box,
 .stat-card, .metric-card, .box, .adr-card, .explainer-card, .threat-card,
-.worker-card, .store-card, .connector-card, .pillar-card, .canvas-card, .node-card {
+.worker-card, .store-card, .connector-card, .pillar-card, .canvas-card,
+.node-card, .math-box, .cmd-box, .table-card, .view-hub-card {
   background-color: #191919 !important;
   border: 1px solid rgba(255, 255, 255, 0.08) !important;
   border-radius: 12px !important;
@@ -69,16 +77,29 @@ body {
 
 .card:hover, .ep-card:hover, .formula-card:hover, .explainer-card:hover,
 .adr-card:hover, .threat-card:hover, .worker-card:hover, .store-card:hover,
-.connector-card:hover, .pillar-card:hover, .canvas-card:hover, .node-card:hover {
+.connector-card:hover, .pillar-card:hover, .canvas-card:hover, .node-card:hover,
+.table-card:hover, .view-hub-card:hover {
   background-color: #1e1e1e !important;
-  border-color: rgba(255, 255, 255, 0.35) !important;
+  border-color: rgba(255, 255, 255, 0.42) !important;
   transform: none !important;
   box-shadow: none !important;
 }
 
+/* Neutralize Brand Icons & Group Titles */
+.brand-icon {
+  background-color: #232323 !important;
+  border: 1px solid rgba(255, 255, 255, 0.12) !important;
+  color: #ececec !important;
+}
+
+.group-title {
+  color: #ececec !important;
+  border-color: rgba(255, 255, 255, 0.10) !important;
+}
+
 /* Unified Floorplan Buttons & Filter Chips (White border hover, monochrome active) */
 button:not(.fullscreen-btn):not(.tab-button),
-.btn, .chip, .filter-btn, .ds-btn, .action-btn, .tab-btn {
+.btn, .chip, .filter-btn, .ds-btn, .action-btn, .tab-btn, .tab-link {
   background-color: #191919 !important;
   color: #b4b4b4 !important;
   border: 1px solid rgba(255, 255, 255, 0.10) !important;
@@ -94,23 +115,27 @@ button:not(.fullscreen-btn):not(.tab-button),
 }
 
 button:not(.fullscreen-btn):not(.tab-button):hover,
-.btn:hover, .chip:hover, .filter-btn:hover, .ds-btn:hover, .action-btn:hover, .tab-btn:hover {
+.btn:hover, .chip:hover, .filter-btn:hover, .ds-btn:hover, .action-btn:hover,
+.tab-btn:hover, .tab-link:hover {
   background-color: #232323 !important;
-  border-color: rgba(255, 255, 255, 0.35) !important;
+  border-color: rgba(255, 255, 255, 0.42) !important;
   color: #ececec !important;
   transform: none !important;
 }
 
-button.active, .btn.active, .chip.active, .filter-btn.active, .ds-btn.active, .tab-btn.active {
+button.active, .btn.active, .chip.active, .filter-btn.active, .ds-btn.active,
+.tab-btn.active, .tab-link.active {
   background-color: #ececec !important;
   border-color: #ececec !important;
   color: #0f0f0f !important;
   font-weight: 600 !important;
 }
 
-/* Tame ALL Rainbow Badges & Pills into Floorplan Quiet Chips */
+/* Tame ALL Rainbow Badges, Tags & Pills into Floorplan Quiet Chips (never wrap 2 lines) */
 .badge, .pill, .tag, .status-badge, .auth-badge, .method-badge, .crosslink-chip,
-.badge-blue, .badge-green, .badge-yellow, .badge-red, .badge-purple, .badge-cyan {
+.badge-blue, .badge-green, .badge-yellow, .badge-red, .badge-purple, .badge-cyan,
+.inv-tag, .badge-100, .card-tag, .ref-pill, .sec-badge, .domain-tag,
+.hub-card-badge, .pillar-badge, .severity-badge, .tag-pill {
   background-color: #232323 !important;
   color: #b4b4b4 !important;
   border: 1px solid rgba(255, 255, 255, 0.08) !important;
@@ -124,9 +149,10 @@ button.active, .btn.active, .chip.active, .filter-btn.active, .ds-btn.active, .t
   box-shadow: none !important;
 }
 
+/* Subtle Floorplan Semantic Text Tints (text only, calm #232323 container) */
 .badge-red, .auth-P4, .m-DELETE { color: #f28b8b !important; }
 .badge-yellow, .m-PUT, .m-PATCH { color: #f0c36b !important; }
-.badge-green, .m-GET { color: #6fd7a8 !important; }
+.badge-green, .m-GET, .badge-100, .sec-badge { color: #6fd7a8 !important; }
 .badge-blue, .badge-cyan, .m-POST { color: #93c5fd !important; }
 .badge-purple { color: #c4b5fd !important; }
 
@@ -138,7 +164,7 @@ code, pre {
   border-radius: 6px !important;
 }
 
-/* Unified Inputs & Selects (White border on focus/hover) */
+/* Unified Inputs & Selects (White border on hover/focus) */
 input[type="text"], input[type="search"], select, textarea, .search-input, .search, optgroup, option {
   background-color: #141414 !important;
   color: #ececec !important;
@@ -148,9 +174,10 @@ input[type="text"], input[type="search"], select, textarea, .search-input, .sear
 }
 
 input[type="text"]:hover, input[type="search"]:hover, select:hover,
-input[type="text"]:focus, input[type="search"]:focus, select:focus, textarea:focus, .search-input:focus, .search:focus {
+input[type="text"]:focus, input[type="search"]:focus, select:focus,
+textarea:focus, .search-input:focus, .search:focus {
   outline: none !important;
-  border-color: rgba(255, 255, 255, 0.40) !important;
+  border-color: rgba(255, 255, 255, 0.42) !important;
 }
 
 /* Tables */

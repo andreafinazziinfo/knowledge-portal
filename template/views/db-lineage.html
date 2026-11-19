@@ -6,12 +6,12 @@
 <title>Database &amp; Schema Lineage Explorer — Knowledge Portal</title>
 <style>
   :root {
-    --bg: #070a12;
-    --panel: #0b101d;
+    --bg: #0f0f0f;
+    --panel: #191919;
     --card: #101524;
     --border: rgba(255,255,255,0.09);
     --cyan: #22d3ee;
-    --emerald: #10b981;
+    --emerald: #ececec;
     --amber: #f59e0b;
     --purple: #a855f7;
     --text: #f1f5f9;
@@ -36,7 +36,7 @@
   }
   .search {
     flex: 1; min-width: 240px; max-width: 440px;
-    background: #020617; border: 1px solid var(--border); border-radius: 8px;
+    background: #0f0f0f; border: 1px solid var(--border); border-radius: 8px;
     color: #fff; padding: 7px 12px; font-size: 12px; outline: none;
   }
   .search:focus { border-color: var(--cyan); }
@@ -57,7 +57,7 @@
   .tname { font-family: ui-monospace, monospace; font-size: 13.5px; font-weight: 700; color: #fff; }
   .badges { display: flex; gap: 5px; flex-wrap: wrap; }
   .badge { font-size: 10px; padding: 2px 6px; border-radius: 5px; font-family: monospace; font-weight: 600; }
-  .b-tbl { background: rgba(16,185,129,0.14); color: var(--emerald); border: 1px solid rgba(16,185,129,0.35); }
+  .b-tbl { background: rgba(255, 255, 255, 0.22); color: var(--emerald); border: 1px solid rgba(255, 255, 255, 0.22); }
   .b-fk { background: rgba(34,211,238,0.14); color: var(--cyan); border: 1px solid rgba(34,211,238,0.35); }
   .cols { font-size: 11px; color: var(--muted); font-family: monospace; line-height: 1.5; background: rgba(0,0,0,0.25); padding: 8px; border-radius: 6px; }
   .col-item { display: inline-block; margin-right: 8px; }
@@ -84,7 +84,8 @@
 </script>
 <script src="../data/db_schema.js"></script>
 <script src="live-reload.js"></script>
-  <link rel="stylesheet" href="portal-theme.css">
+  <link rel="stylesheet" href="portal-theme.css?v=fp1">
+  <script defer src="portal-ui.js?v=fp1"></script>
 </head>
 <body>
 <header>
@@ -101,7 +102,7 @@
 </header>
 <div class="controls">
   <div style="display:flex; align-items:center; gap:12px; flex:1;">
-    <div style="display:flex; background:#020617; border:1px solid var(--border); border-radius:8px; padding:3px; gap:4px;">
+    <div style="display:flex; background:#0f0f0f; border:1px solid var(--border); border-radius:8px; padding:3px; gap:4px;">
       <button id="btn-grid-view" class="pill active" style="margin:0;" onclick="switchDbView('grid')">📋 Schede Tabelle</button>
       <button id="btn-graph-view" class="pill" style="margin:0;" onclick="switchDbView('graph')">🕸️ Grafo Schema Relazionale (Vis.js)</button>
     </div>
@@ -123,9 +124,9 @@
   </div>
 </main>
 
-<div id="network-container" style="display:none; height:calc(100vh - 160px); background:#05070f; border:1px solid var(--border); border-radius:12px; margin:0 20px 20px; position:relative; overflow:hidden;">
-  <div style="position:absolute; top:14px; left:16px; z-index:10; background:rgba(11,16,29,0.85); backdrop-filter:blur(8px); padding:8px 14px; border-radius:8px; border:1px solid var(--border); font-size:12px; display:flex; gap:12px; align-items:center;">
-    <span><span style="color:#10b981;">●</span> Tabella SQL</span>
+<div id="network-container" style="display:none; height:calc(100vh - 160px); background:#0f0f0f; border:1px solid var(--border); border-radius:12px; margin:0 20px 20px; position:relative; overflow:hidden;">
+  <div style="position:absolute; top:14px; left:16px; z-index:10; background:rgba(26, 26, 26, 0.86); backdrop-filter:blur(8px); padding:8px 14px; border-radius:8px; border:1px solid var(--border); font-size:12px; display:flex; gap:12px; align-items:center;">
+    <span><span style="color:#ececec;">●</span> Tabella SQL</span>
     <span><span style="color:#22d3ee;">➔</span> Relazione Foreign Key</span>
     <span style="color:var(--muted);">| Clicca su un nodo per aprire la scheda dettagliata</span>
   </div>
@@ -378,9 +379,9 @@ function initRelationalGraph() {
       label: t.name,
       shape: 'box',
       color: {
-        background: '#0b101d',
-        border: '#10b981',
-        highlight: { background: '#101524', border: '#38bdf8' }
+        background: '#191919',
+        border: '#ececec',
+        highlight: { background: '#101524', border: '#ececec' }
       },
       font: { color: '#f1f5f9', face: 'monospace', size: 12 },
       margin: 9
@@ -439,13 +440,13 @@ document.addEventListener('DOMContentLoaded', init);
 </script>
 
 <!-- SQL DDL & Query Preview Modal -->
-<div id="sql-modal" style="display:none; position:fixed; inset:0; background:rgba(2,4,10,0.88); backdrop-filter:blur(10px); z-index:100; align-items:center; justify-content:center;">
-  <div style="background:#0b101d; border:1px solid var(--border); border-radius:12px; padding:22px; max-width:680px; width:92%; max-height:85vh; display:flex; flex-direction:column; box-shadow:0 12px 40px rgba(0,0,0,0.7);">
+<div id="sql-modal" style="display:none; position:fixed; inset:0; background:rgba(26, 26, 26, 0.86); backdrop-filter:blur(10px); z-index:100; align-items:center; justify-content:center;">
+  <div style="background:#191919; border:1px solid var(--border); border-radius:12px; padding:22px; max-width:680px; width:92%; max-height:85vh; display:flex; flex-direction:column; box-shadow:0 12px 40px rgba(0,0,0,0.7);">
     <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:14px;">
       <h3 id="sql-modal-title" style="font-size:14px; color:#fff; font-family:monospace; font-weight:700;">📄 SQL Preview</h3>
       <button onclick="closeSqlModal()" style="background:none; border:none; color:var(--muted); font-size:20px; cursor:pointer; line-height:1;">&times;</button>
     </div>
-    <pre id="sql-modal-code" style="flex:1; background:#020617; padding:14px; border-radius:8px; font-family:ui-monospace, monospace; font-size:12px; color:#38bdf8; overflow:auto; border:1px solid var(--border); line-height:1.45;"></pre>
+    <pre id="sql-modal-code" style="flex:1; background:#0f0f0f; padding:14px; border-radius:8px; font-family:ui-monospace, monospace; font-size:12px; color:#ececec; overflow:auto; border:1px solid var(--border); line-height:1.45;"></pre>
     <div style="display:flex; justify-content:flex-end; gap:8px; margin-top:14px;">
       <button id="btn-copy-sql" class="pill" onclick="copySqlCode()" style="background:rgba(34,211,238,0.15); border-color:var(--cyan); color:#fff; font-weight:600;">📋 Copia SQL</button>
       <button class="pill" onclick="closeSqlModal()">✕ Chiudi</button>
