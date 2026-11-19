@@ -4,6 +4,9 @@ var pollTimer = null;
  * Listens for repository changes via SSE (/api/live-events) with progressive fallback to HTTP polling.
  */
 (function() {
+  if (window.self !== window.top) {
+    return;
+  }
   if (window.location.protocol !== "http:" && window.location.protocol !== "https:") {
     return;
   }
