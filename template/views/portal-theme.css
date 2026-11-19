@@ -39,20 +39,26 @@ html, body {
 }
 
 body {
-  background-image: radial-gradient(rgba(255, 255, 255, 0.03) 1px, transparent 1px);
-  background-size: 24px 24px;
+  background-image: radial-gradient(rgba(255, 255, 255, 0.06) 1px, transparent 1px) !important;
+  background-size: 24px 24px !important;
 }
 
-/* Main Layout Containers */
+/* Main Layout Containers + Floorplan Dot-Grid on 2D/3D Graph & Tree Canvases */
 .sidebar, #sidebar, .main, .main-panel, .content, .container, .page-wrap,
-#graph, #3d-graph, #3d-tree, .canvas-wrap, .split-pane, .left-pane, .right-pane,
+.split-pane, .left-pane, .right-pane,
 .empty-state, .diagram-box, .tab-pane, .viewer-wrap {
   background-color: #0f0f0f !important;
 }
 
+#graph, [id="3d-graph"], [id="3d-canvas"], [id="3d-tree"], #cy, #tree, .canvas-wrap {
+  background-color: #0f0f0f !important;
+  background-image: radial-gradient(rgba(255, 255, 255, 0.06) 1px, transparent 1px) !important;
+  background-size: 24px 24px !important;
+}
+
 /* Floating Glass Headers, Toolbars, HUDs & Controls */
 #hud, #legend, .hud, .legend-panel, .controls-bar, .controls, .toolbar,
-.header-bar, .header, header, .topbar, .filter-bar, .search-bar,
+.header-bar, .header, header, .topbar,
 #controls, #inspector, .inspector, .aside, .tree-hud, .graph-hud,
 .pipeline-hud, .viewer-bar, .tab-switcher, .view-toggle, .invariants-banner,
 .banner, .util-disclaimer {
@@ -61,6 +67,16 @@ body {
   -webkit-backdrop-filter: blur(16px);
   border-color: rgba(255, 255, 255, 0.08) !important;
   box-shadow: none !important;
+}
+
+header, .header {
+  padding-right: 60px !important;
+}
+
+.filter-bar, .search-bar {
+  background: transparent !important;
+  backdrop-filter: none !important;
+  -webkit-backdrop-filter: none !important;
 }
 
 /* Unified Floorplan Cards & Panels (Always #191919, White Border on Hover) */
@@ -149,12 +165,12 @@ button.active, .btn.active, .chip.active, .filter-btn.active, .ds-btn.active,
   box-shadow: none !important;
 }
 
-/* Subtle Floorplan Semantic Text Tints (text only, calm #232323 container) */
+/* Subtle Floorplan Semantic Text Tints (monochrome for general pills, subtle HTTP/severity only) */
 .badge-red, .auth-P4, .m-DELETE { color: #f28b8b !important; }
 .badge-yellow, .m-PUT, .m-PATCH { color: #f0c36b !important; }
-.badge-green, .m-GET, .badge-100, .sec-badge { color: #6fd7a8 !important; }
-.badge-blue, .badge-cyan, .m-POST { color: #93c5fd !important; }
-.badge-purple { color: #c4b5fd !important; }
+.m-GET { color: #6fd7a8 !important; }
+.m-POST { color: #93c5fd !important; }
+.badge-green, .badge-blue, .badge-cyan, .badge-purple, .badge-100, .sec-badge, .crosslink-chip { color: #ececec !important; }
 
 /* Code snippets */
 code, pre {

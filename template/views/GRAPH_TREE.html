@@ -11,24 +11,24 @@
 <style>
   * { box-sizing: border-box; margin: 0; padding: 0; }
   body { background: #0f0f0f; color: #f1f5f9; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; overflow: hidden; }
-  #hud { position: absolute; top: 14px; left: 14px; background: rgba(15,23,42,0.85); backdrop-filter: blur(8px); border: 1px solid #232323; padding: 10px 14px; border-radius: 6px; font-size: 12px; color: #ececec; font-weight: 600; z-index: 10; }
-  #legend { position: absolute; top: 14px; right: 14px; max-height: 70vh; overflow-y: auto; background: rgba(15,23,42,0.85); backdrop-filter: blur(8px); border: 1px solid #232323; padding: 10px 12px; border-radius: 6px; font-size: 11px; z-index: 10; width: 200px; }
-  #legend h3 { font-size: 10px; color: #64748b; text-transform: uppercase; letter-spacing: 0.06em; margin-bottom: 6px; font-weight: 700; }
+  #hud { position: absolute; top: 14px; left: 14px; background: rgba(26, 26, 26, 0.86); backdrop-filter: blur(8px); border: 1px solid #232323; padding: 10px 14px; border-radius: 6px; font-size: 12px; color: #ececec; font-weight: 600; z-index: 10; }
+  #legend { position: absolute; top: 14px; right: 14px; max-height: 70vh; overflow-y: auto; background: rgba(26, 26, 26, 0.86); backdrop-filter: blur(8px); border: 1px solid #232323; padding: 10px 12px; border-radius: 6px; font-size: 11px; z-index: 10; width: 200px; }
+  #legend h3 { font-size: 10px; color: #8b8b8b; text-transform: uppercase; letter-spacing: 0.06em; margin-bottom: 6px; font-weight: 700; }
   .legend-item { display: flex; align-items: center; gap: 6px; padding: 3px 0; }
   .legend-dot { width: 9px; height: 9px; border-radius: 50%; flex-shrink: 0; }
-  .legend-label { flex: 1; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; color: #cbd5e1; }
+  .legend-label { flex: 1; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; color: #ececec; }
   svg { width: 100vw; height: 100vh; cursor: grab; }
   svg:active { cursor: grabbing; }
   .node circle { stroke-width: 1.5px; cursor: pointer; transition: r 0.15s; }
   .node circle:hover { r: 7; }
-  .node text { font-size: 11px; fill: #cbd5e1; pointer-events: none; opacity: 0; transition: opacity 0.15s; }
+  .node text { font-size: 11px; fill: #ececec; pointer-events: none; opacity: 0; transition: opacity 0.15s; }
   .node:hover text { opacity: 1; }
   .node.folder text { opacity: 0.9; font-weight: 600; fill: #ececec; }
   .link { fill: none; stroke: #232323; stroke-width: 1.5px; }
 </style>
   <script src="live-reload.js"></script>
-  <link rel="stylesheet" href="portal-theme.css?v=fp1">
-  <script defer src="portal-ui.js?v=fp1"></script>
+  <link rel="stylesheet" href="portal-theme.css?v=fp2">
+  <script defer src="portal-ui.js?v=fp2"></script>
 </head>
 <body>
 <div id="hud">🌳 D3 Zoomable Hierarchical Directory Tree (Scroll to zoom, drag to pan, hover node to view file)</div>
@@ -102,7 +102,7 @@
     sortedCommIds.slice(0, 20).forEach(cid => {
       const item = document.createElement('div');
       item.className = 'legend-item';
-      item.innerHTML = `<div class="legend-dot" style="background:${commColor[cid] || '#64748b'};"></div><div class="legend-label">${labelsMap[cid] || `Community ${cid}`}</div>`;
+      item.innerHTML = `<div class="legend-dot" style="background:${commColor[cid] || '#8b8b8b'};"></div><div class="legend-label">${labelsMap[cid] || `Community ${cid}`}</div>`;
       legendList.appendChild(item);
     });
 
@@ -144,7 +144,7 @@
 
     node.append("circle")
       .attr("r", d => d.children ? 5 : 3.5)
-      .attr("fill", d => d.children ? "#ececec" : (d.data.color || "#94a3b8"))
+      .attr("fill", d => d.children ? "#ececec" : (d.data.color || "#b4b4b4"))
       .attr("stroke", "#0284c7")
       .on("click", (e, d) => {
         if (d.data.path && window.parent && typeof window.parent.loadFile === 'function') {

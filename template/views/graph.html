@@ -14,20 +14,20 @@
   #graph { flex: 1; height: 100vh; background: radial-gradient(circle at center, #191919 0%, #0f0f0f 100%); }
   #sidebar { width: 300px; background: #191919; border-left: 1px solid #232323; display: flex; flex-direction: column; overflow: hidden; flex-shrink: 0; }
   #search-wrap { padding: 12px; border-bottom: 1px solid #232323; background: #191919; }
-  #search { width: 100%; background: #0f0f0f; border: 1px solid #334155; color: #f8fafc; padding: 8px 12px; border-radius: 6px; font-size: 13px; outline: none; }
+  #search { width: 100%; background: #0f0f0f; border: 1px solid rgba(255, 255, 255, 0.14); color: #f8fafc; padding: 8px 12px; border-radius: 6px; font-size: 13px; outline: none; }
   #search:focus { border-color: #ececec; }
   #info-panel { padding: 14px; border-bottom: 1px solid #232323; min-height: 130px; background: #141414; }
   #info-panel h3 { font-size: 11px; color: #ececec; text-transform: uppercase; letter-spacing: 0.08em; margin-bottom: 6px; font-weight: 700; }
-  #info-content { font-size: 13px; color: #94a3b8; line-height: 1.5; }
+  #info-content { font-size: 13px; color: #b4b4b4; line-height: 1.5; }
   #legend-wrap { flex: 1; overflow-y: auto; padding: 14px; background: #191919; }
-  #legend-wrap h3 { font-size: 11px; color: #64748b; text-transform: uppercase; letter-spacing: 0.08em; margin-bottom: 8px; font-weight: 700; }
+  #legend-wrap h3 { font-size: 11px; color: #8b8b8b; text-transform: uppercase; letter-spacing: 0.08em; margin-bottom: 8px; font-weight: 700; }
   .legend-item { display: flex; align-items: center; gap: 8px; padding: 5px 8px; border-radius: 6px; cursor: pointer; font-size: 12px; margin-bottom: 2px; }
   .legend-item:hover { background: #232323; }
   .legend-item.dimmed { opacity: 0.25; }
   .legend-dot { width: 10px; height: 10px; border-radius: 50%; flex-shrink: 0; }
-  .legend-label { flex: 1; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; color: #cbd5e1; font-weight: 500; }
-  .legend-count { color: #64748b; font-size: 11px; font-family: monospace; }
-  #stats { padding: 10px 14px; border-top: 1px solid #232323; font-size: 11px; color: #64748b; background: #0f0f0f; }
+  .legend-label { flex: 1; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; color: #ececec; font-weight: 500; }
+  .legend-count { color: #8b8b8b; font-size: 11px; font-family: monospace; }
+  #stats { padding: 10px 14px; border-top: 1px solid #232323; font-size: 11px; color: #8b8b8b; background: #0f0f0f; }
   @media (max-width: 768px) {
     #sidebar { display: none; }
     #graph { width: 100vw !important; }
@@ -36,8 +36,8 @@
   .analytics-btn {
     flex: 1;
     background: #191919;
-    border: 1px solid #334155;
-    color: #cbd5e1;
+    border: 1px solid rgba(255, 255, 255, 0.14);
+    color: #ececec;
     padding: 6px 8px;
     border-radius: 6px;
     font-size: 11px;
@@ -86,7 +86,7 @@
     align-items: center;
     font-size: 10px;
     font-weight: 600;
-    color: #94a3b8;
+    color: #b4b4b4;
     text-transform: uppercase;
     letter-spacing: 0.05em;
     padding: 0 2px;
@@ -103,8 +103,8 @@
 
 </style>
   <script src="live-reload.js"></script>
-  <link rel="stylesheet" href="portal-theme.css?v=fp1">
-  <script defer src="portal-ui.js?v=fp1"></script>
+  <link rel="stylesheet" href="portal-theme.css?v=fp2">
+  <script defer src="portal-ui.js?v=fp2"></script>
 </head>
 <body>
 <div id="graph"></div>
@@ -132,7 +132,7 @@
   </div>
   <div id="info-panel">
     <h3>Node Inspector</h3>
-    <div id="info-content"><span style="color:#64748b; font-style:italic;">Click a node to inspect details</span></div>
+    <div id="info-content"><span style="color:#8b8b8b; font-style:italic;">Click a node to inspect details</span></div>
   </div>
   <div id="legend-wrap">
     <h3>Communities Palette</h3>
@@ -145,7 +145,7 @@
   const COMMUNITY_COLORS = [
     "#4E79A7", "#F28E2B", "#E15759", "#76B7B2", "#59A14F", 
     "#EDC948", "#B07AA1", "#FF9DA7", "#9C755F", "#BAB0AC",
-    "#ececec", "#fbbf24", "#f87171", "#34d399", "#a78bfa",
+    "#ececec", "#fbbf24", "#f87171", "#ececec", "#a78bfa",
     "#f472b6", "#22d3ee", "#fb923c", "#818cf8", "#4ade80"
   ];
 
@@ -181,7 +181,7 @@
       })));
     }
     const info = document.getElementById('info-content');
-    if (info) info.innerHTML = '<span style="color:#64748b; font-style:italic;">Click a node to inspect details</span>';
+    if (info) info.innerHTML = '<span style="color:#8b8b8b; font-style:italic;">Click a node to inspect details</span>';
   }
 
   function toggleCycles() {
@@ -244,11 +244,11 @@
     const info = document.getElementById('info-content');
     if (cycleNodes.size === 0) {
       if (info) {
-        info.innerHTML = '<div style="color:#ececec; font-weight:700; font-size:13px;">✅ Nessun Ciclo Rilevato</div><div style="font-size:12px; color:#94a3b8; margin-top:4px;">Il grafo delle dipendenze è un <strong>DAG aciclico perfetto</strong> (zero accoppiamenti circolari).</div>';
+        info.innerHTML = '<div style="color:#ececec; font-weight:700; font-size:13px;">✅ Nessun Ciclo Rilevato</div><div style="font-size:12px; color:#b4b4b4; margin-top:4px;">Il grafo delle dipendenze è un <strong>DAG aciclico perfetto</strong> (zero accoppiamenti circolari).</div>';
       }
     } else {
       if (info) {
-        info.innerHTML = `<div style="color:#ef4444; font-weight:700; font-size:13px;">⚠️ ${cycleNodes.size} Nodi in Dipendenze Cicliche</div><div style="font-size:12px; color:#94a3b8; margin-top:4px;">I nodi ciclici sono evidenziati in <strong>rosso brillante</strong>. Gli altri nodi sono attenuati.</div>`;
+        info.innerHTML = `<div style="color:#ef4444; font-weight:700; font-size:13px;">⚠️ ${cycleNodes.size} Nodi in Dipendenze Cicliche</div><div style="font-size:12px; color:#b4b4b4; margin-top:4px;">I nodi ciclici sono evidenziati in <strong>rosso brillante</strong>. Gli altri nodi sono attenuati.</div>`;
       }
       if (visNodesDataSet) {
         const updates = allNodesData.map(n => {
@@ -294,7 +294,7 @@
 
     const info = document.getElementById('info-content');
     if (info) {
-      info.innerHTML = `<div style="color:#f59e0b; font-weight:700; font-size:13px;">⚪ ${orphanNodes.size} Nodi Orfani / Isolati</div><div style="font-size:12px; color:#94a3b8; margin-top:4px;">Nodi senza alcuna connessione in entrata o uscita (possibile codice morto o note non referenziate).</div>`;
+      info.innerHTML = `<div style="color:#f59e0b; font-weight:700; font-size:13px;">⚪ ${orphanNodes.size} Nodi Orfani / Isolati</div><div style="font-size:12px; color:#b4b4b4; margin-top:4px;">Nodi senza alcuna connessione in entrata o uscita (possibile codice morto o note non referenziate).</div>`;
     }
 
     if (visNodesDataSet) {
@@ -430,12 +430,12 @@
           const isEgoActive = (egoNodeId === n.id);
           document.getElementById('info-content').innerHTML = `
             <strong style="color:#f8fafc; font-size:13px;">${n.label}</strong>
-            <div style="font-size:11px; color:#64748b; margin-top:4px; font-family:monospace; word-break:break-all;">${n.path}</div>
+            <div style="font-size:11px; color:#8b8b8b; margin-top:4px; font-family:monospace; word-break:break-all;">${n.path}</div>
             <div style="display:flex; gap:6px; margin-top:10px; flex-wrap:wrap;">
               <button onclick="openNodeInReader('${n.path.replace(/'/g, "\\'")}')" style="flex:1; padding:6px 10px; background:#0284c7; color:#fff; border:none; border-radius:6px; cursor:pointer; font-size:11px; font-weight:600;">
                 📖 Apri nel Reader
               </button>
-              <button onclick="toggleEgoNetwork('${n.id.replace(/'/g, "\\'")}')" style="flex:1; padding:6px 10px; background:${isEgoActive ? '#ef4444' : '#232323'}; color:#fff; border:1px solid ${isEgoActive ? '#ef4444' : '#334155'}; border-radius:6px; cursor:pointer; font-size:11px; font-weight:600;">
+              <button onclick="toggleEgoNetwork('${n.id.replace(/'/g, "\\'")}')" style="flex:1; padding:6px 10px; background:${isEgoActive ? '#ef4444' : '#232323'}; color:#fff; border:1px solid ${isEgoActive ? '#ef4444' : 'rgba(255, 255, 255, 0.14)'}; border-radius:6px; cursor:pointer; font-size:11px; font-weight:600;">
                 ${isEgoActive ? '↺ Mostra Tutti' : '🎯 Isola Vicini'}
               </button>
             </div>

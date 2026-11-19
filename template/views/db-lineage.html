@@ -15,7 +15,7 @@
     --amber: #f59e0b;
     --purple: #a855f7;
     --text: #f1f5f9;
-    --muted: #94a3b8;
+    --muted: #b4b4b4;
   }
   * { box-sizing: border-box; margin: 0; padding: 0; }
   body { background: var(--bg); color: var(--text); font-family: system-ui, -apple-system, sans-serif; min-height: 100vh; }
@@ -84,8 +84,8 @@
 </script>
 <script src="../data/db_schema.js"></script>
 <script src="live-reload.js"></script>
-  <link rel="stylesheet" href="portal-theme.css?v=fp1">
-  <script defer src="portal-ui.js?v=fp1"></script>
+  <link rel="stylesheet" href="portal-theme.css?v=fp2">
+  <script defer src="portal-ui.js?v=fp2"></script>
 </head>
 <body>
 <header>
@@ -394,7 +394,7 @@ function initRelationalGraph() {
           to: fk.target_table,
           arrows: 'to',
           label: fk.column || '',
-          font: { color: '#94a3b8', size: 10, align: 'middle' },
+          font: { color: '#b4b4b4', size: 10, align: 'middle' },
           color: { color: 'rgba(34, 211, 238, 0.5)', highlight: '#22d3ee' }
         });
       }
