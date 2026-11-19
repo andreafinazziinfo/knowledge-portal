@@ -31,20 +31,21 @@
   .search-wrap input {
     background: #0f172a; border: 1px solid var(--border); color: #fff;
     padding: 5px 12px; border-radius: 6px; font-size: 11px; width: 190px;
-    outline: none; transition: all 0.2s;
+    outline: none; transition: color 0.15s ease-out, background-color 0.15s ease-out, border-color 0.15s ease-out;
   }
-  .search-wrap input:focus { border-color: var(--cyan); box-shadow: 0 0 10px rgba(56,189,248,0.25); }
+  .search-wrap input:focus { border-color: var(--cyan);
+ }
   .layer-pills-bar { display: flex; gap: 6px; align-items: center; flex-wrap: wrap; }
   .layer-pill {
     background: var(--panel); border: 1px solid var(--border); color: var(--muted);
-    padding: 4px 8px; border-radius: 4px; font-size: 10px; cursor: pointer; transition: all 0.2s;
+    padding: 4px 8px; border-radius: 4px; font-size: 10px; cursor: pointer; transition: color 0.15s ease-out, background-color 0.15s ease-out, border-color 0.15s ease-out;
     font-weight: 500;
   }
   .layer-pill.active { color: #fff; background: rgba(255,255,255,0.06); }
   .controls { display: flex; gap: 6px; align-items: center; }
   .btn {
     background: var(--panel); border: 1px solid var(--border); color: var(--text);
-    padding: 5px 10px; border-radius: 6px; font-size: 11px; cursor: pointer; transition: all 0.2s;
+    padding: 5px 10px; border-radius: 6px; font-size: 11px; cursor: pointer; transition: color 0.15s ease-out, background-color 0.15s ease-out, border-color 0.15s ease-out;
   }
   .btn:hover { border-color: var(--cyan); color: #fff; }
   #viewport {

@@ -88,7 +88,7 @@
       align-items: center;
       justify-content: center;
       font-size: 13px;
-      transition: all 0.2s;
+      transition: color 0.15s ease-out, background-color 0.15s ease-out, border-color 0.15s ease-out;
     }
 
     .sidebar-close-btn:hover {
@@ -235,27 +235,27 @@
       flex-shrink: 0;
     }
 
-    .tabs-left { display: flex; gap: 4px; overflow-x: auto; }
+    .tabs-left { display: flex; flex: 1; min-width: 0; gap: 4px; overflow-x: auto; align-items: center; scrollbar-width: none; }
     .tabs-right { display: flex; gap: 6px; align-items: center; flex-shrink: 0; }
 
     .tab-button {
       background: none;
-      border: none;
+      border: 1px solid transparent;
       color: var(--text-muted);
-      padding: 8px 14px;
+      padding: 8px 12px;
       font-size: 13px;
       font-weight: 500;
       cursor: pointer;
       border-radius: 6px;
-      transition: color 0.2s, background-color 0.2s;
+      transition: color 0.15s ease-out, background-color 0.15s ease-out, border-color 0.15s ease-out;
       white-space: nowrap;
+      flex-shrink: 0;
     }
-    .tab-button:hover { color: white; background-color: var(--bg-card); }
+    .tab-button:hover { color: #f8fafc; background-color: var(--bg-card); }
     .tab-button.active {
-      color: white;
+      color: #ffffff;
       background-color: var(--bg-card);
-      border: 1px solid var(--border-color);
-      box-shadow: 0 0 10px var(--accent-glow);
+      border-color: var(--accent-color);
     }
 
     /* Tab Panes */
@@ -337,7 +337,6 @@
     }
     .stat-card:hover {
       border-color: var(--accent-color);
-      transform: translateY(-2px);
     }
     .stat-value {
       font-family: 'Outfit', sans-serif;
@@ -638,26 +637,26 @@
     /* ── Views Navigation Hub Grid ── */
     .views-hub-grid {
       display: grid;
-      grid-template-columns: repeat(auto-fill, minmax(270px, 1fr));
+      grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
       gap: 12px;
+      align-items: stretch;
     }
     .view-hub-card {
       display: flex;
-      align-items: center;
+      align-items: flex-start;
       gap: 12px;
-      padding: 12px 14px;
+      height: 100%;
+      padding: 16px;
       background: var(--bg-card);
       border: 1px solid var(--border-color);
       border-radius: 8px;
       cursor: pointer;
       position: relative;
-      transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+      transition: background-color 0.15s ease-out, border-color 0.15s ease-out;
     }
     .view-hub-card:hover {
-      background: #172033;
+      background: #141c2e;
       border-color: var(--accent-color);
-      transform: translateY(-2px);
-      box-shadow: 0 8px 20px -4px rgba(56, 189, 248, 0.15);
     }
     .hub-card-icon {
       font-size: 24px;
@@ -829,7 +828,7 @@
       padding: 3px 8px;
       font-size: 11px;
       cursor: pointer;
-      transition: all 0.2s;
+      transition: color 0.15s ease-out, background-color 0.15s ease-out, border-color 0.15s ease-out;
       z-index: 5;
     }
     .copy-code-btn:hover {
@@ -936,7 +935,8 @@
     </div>
 
     <div class="search-container">
-      <div style="position:relative; width:100%;"><i class="fa-solid fa-magnifying-glass" style="position:absolute; left:10px; top:50%; transform:translateY(-50%); color:var(--text-muted); font-size:12px;"></i><input type="text" id="search-input" class="search-input" style="padding-left:30px; width:100%;" placeholder="Omni-Search: Formule, API, Note, Store, 3D… (Ctrl+K)" oninput="performSearch(this.value)"></div>
+      <div style="position:relative; width:100%;"><i class="fa-solid fa-magnifying-glass" style="position:absolute; left:10px; top:50%;
+ color:var(--text-muted); font-size:12px;"></i><input type="text" id="search-input" class="search-input" style="padding-left:30px; width:100%;" placeholder="Omni-Search: Formule, API, Note, Store, 3D… (Ctrl+K)" oninput="performSearch(this.value)"></div>
       <div class="search-hint">Omni-Search su 70 formule, 453 utility, 193 API, 17 store, task e note</div>
     </div>
 
@@ -986,7 +986,7 @@
       <div class="tabs-left">
         <button class="tab-button active" data-tab="home" onclick="switchTab('home')">Home</button>
         <button class="tab-button" data-tab="reader" onclick="switchTab('reader')">Reader</button>
-        <button class="tab-button" data-tab="graph" onclick="switchTab('graph')">🔗 Graph</button>
+        <button class="tab-button" data-tab="graph" onclick="switchTab('graph')">Graph</button>
         <button class="tab-button" data-tab="canvas" onclick="switchTab('canvas')">Canvas</button>
         <button class="tab-button" data-tab="tree" onclick="switchTab('tree')">Tree</button>
         <button class="tab-button" data-tab="floorplan" onclick="switchTab('floorplan')">Floorplan</button>
@@ -995,15 +995,15 @@
         <button class="tab-button" data-tab="db-lineage" onclick="switchTab('db-lineage')">DB Lineage</button>
         <button class="tab-button" data-tab="async-topology" onclick="switchTab('async-topology')">Async &amp; WS</button>
         <button class="tab-button" data-tab="visual-explainer" onclick="switchTab('visual-explainer')">Visual Explainers</button>
-        <button class="tab-button" data-tab="api-catalog" onclick="switchTab('api-catalog')">🔌 API Catalog</button>
-        <button class="tab-button" data-tab="adr-governance" onclick="switchTab('adr-governance')">📜 ADR Governance</button>
+        <button class="tab-button" data-tab="api-catalog" onclick="switchTab('api-catalog')">API Catalog</button>
+        <button class="tab-button" data-tab="adr-governance" onclick="switchTab('adr-governance')">ADR Governance</button>
         <button class="tab-button" data-tab="quant-codex" onclick="switchTab('quant-codex')">Quant Codex</button>
-        <button class="tab-button" data-tab="framework-constitution" onclick="switchTab('framework-constitution')">🏛️ Costituzione</button>
-        <button class="tab-button" data-tab="frontend-state" onclick="switchTab('frontend-state')">⚡ UI Stores</button>
-        <button class="tab-button" data-tab="worker-tasks" onclick="switchTab('worker-tasks')">⚙️ Worker Tasks</button>
-        <button class="tab-button" data-tab="threat-matrix" onclick="switchTab('threat-matrix')">🛡️ Threat Matrix</button>
-        <button class="tab-button" data-tab="data-ingestion" onclick="switchTab('data-ingestion')">📊 Data Ingestion</button>
-        <button class="tab-button" data-tab="runbook-ops" onclick="switchTab('runbook-ops')">🛠️ Ops Runbook</button>
+        <button class="tab-button" data-tab="framework-constitution" onclick="switchTab('framework-constitution')">Costituzione</button>
+        <button class="tab-button" data-tab="frontend-state" onclick="switchTab('frontend-state')">UI Stores</button>
+        <button class="tab-button" data-tab="worker-tasks" onclick="switchTab('worker-tasks')">Worker Tasks</button>
+        <button class="tab-button" data-tab="threat-matrix" onclick="switchTab('threat-matrix')">Threat Matrix</button>
+        <button class="tab-button" data-tab="data-ingestion" onclick="switchTab('data-ingestion')">Data Ingestion</button>
+        <button class="tab-button" data-tab="runbook-ops" onclick="switchTab('runbook-ops')">Ops Runbook</button>
         <button class="tab-button" data-tab="console" onclick="switchTab('console')">Console</button>
       </div>
       <div class="tabs-right">
