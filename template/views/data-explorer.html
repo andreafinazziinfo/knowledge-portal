@@ -87,7 +87,6 @@
     import perspective from "../vendor/perspective/client/dist/cdn/perspective.js";
     import "../vendor/perspective/viewer/dist/cdn/perspective-viewer.js";
     import "../vendor/perspective/viewer-datagrid/dist/cdn/perspective-viewer-datagrid.js";
-    import "../vendor/perspective/viewer-d3fc/dist/cdn/perspective-viewer-d3fc.js";
 
     const statusEl = document.getElementById("rowCount");
     const viewer = document.getElementById("viewer");
@@ -180,11 +179,12 @@
           statusEl.textContent = "0 rows (empty dataset)";
           return;
         }
-        const newTable = await workerInstance.table(rows);
-        await viewer.load(newTable);
-        await viewer.restore({ plugin: "Datagrid", ...config });
+        const tableName = `portal_${key}_${Date.now()}`;
+        const newTable = await workerInstance.table(rows, { name: tableName });
+        await viewer.load(workerInstance);
+        await viewer.restore({ table: tableName, plugin: "Datagrid", ...config });
         if (currentTable && currentTable !== newTable) {
-          await currentTable.delete();
+          try { await currentTable.delete(); } catch (_) {}
         }
         currentTable = newTable;
         statusEl.textContent = `${rows.length.toLocaleString()} rows`;

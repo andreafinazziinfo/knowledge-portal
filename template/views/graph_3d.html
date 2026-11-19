@@ -165,6 +165,9 @@
       origColor: 'rgba(56, 189, 248, 0.25)'
     }));
 
+    const _validNodeIds3D = new Set(rawNodes.map(n => n.id));
+    rawLinks = rawLinks.filter(l => _validNodeIds3D.has(l.source) && _validNodeIds3D.has(l.target));
+
     document.getElementById('hud-stats').textContent = `${rawNodes.length.toLocaleString()} nodi WebGL 3D • ${sortedCommIds.length} Nebulose`;
 
     const elem = document.getElementById('3d-graph');

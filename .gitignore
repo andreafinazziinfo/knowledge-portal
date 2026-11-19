@@ -32,3 +32,6 @@ Thumbs.db
 !template/vendor/perspective/**
 !template/vendor/perspective/**/dist/
 !template/vendor/perspective/**/dist/**
+
+!template/vendor/katex/fonts/
+!template/vendor/katex/fonts/**

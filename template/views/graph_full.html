@@ -129,6 +129,8 @@
       width: 1
     }));
 
+    const _seenVisIds = new Set();
+    allNodesData = allNodesData.filter(n => { if (_seenVisIds.has(n.id)) return false; _seenVisIds.add(n.id); return true; });
     visNodesDataSet = new vis.DataSet(allNodesData);
     const container = document.getElementById('graph');
 
