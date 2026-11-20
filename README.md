@@ -25,7 +25,27 @@
 - **🤖 AI Process Flow Bridge**: Generates end-to-end execution maps (`process-flows.json` & `process_flows.js`) linking API routes and CLI entrypoints to intermediary call chains and SQL database tables, elevating AI agent comprehension to ~98%.
 - **🔌 Air-Gapped Offline Scalar OpenAPI Catalog**: Explore and test REST APIs directly inside an embedded, zero-CDN `@scalar/api-reference` suite.
 - **⚡ Native SSE Live-Reload Push**: File modifications trigger instantaneous AST updates and browser sync over HTTP Server-Sent Events without manual page reloads.
+- **🎨 Unified Carbon-Black Floorplan Design System**: Every view shares the `#0f0f0f` dot-grid canvas, `#191919` surfaces, transparent gradient headers, crisp white hover borders, monochrome active controls, and `/` + `Esc` keyboard ergonomics.
+- **📡 Live Telemetry & Auto-Sync (`views/live-telemetry.html`)**: Real-time `/api/telemetry` dashboard with CPU/RAM/Disk sparklines, rebuild progress bars, service latency probes, and graceful offline fallback (`Static Snapshot`).
+- **📊 Offline Perspective WASM Pivot Explorer (`views/data-explorer.html`)**: Air-gapped WebAssembly data grid and pivot analytics for architecture nodes, metrics, and schemas.
+- **🛡️ Production-Grade Hardening & CI E2E Gate**: Strict path-confinement (`safe_resolve_under`), `PORTAL_READ_ONLY` & `PORTAL_API_TOKEN` guards, HTTP security headers, hardened `read_only` non-root Docker Compose, `pytest-cov` coverage gate, and automated Playwright E2E checks.
 - **🛡️ Zero-Dependency Core Runtime**: The server, watcher, and Polyglot AST scanner rely strictly on the **Python 3.10+ Standard Library** (zero heavy framework dependencies).
+
+---
+
+## 🖼️ Visual Showcase
+
+| Interactive Floorplan (SVG) | 2D Community Galaxy Graph |
+|---|---|
+| ![Floorplan View](docs/screenshots/floorplan-view.png) | ![2D Graph View](docs/screenshots/graph-2d-view.png) |
+
+| 3D WebGL Graph (Transparent Dot-Grid) | Live Telemetry & Auto-Sync |
+|---|---|
+| ![3D Graph View](docs/screenshots/graph-3d-view.png) | ![Live Telemetry View](docs/screenshots/live-telemetry-view.png) |
+
+| Tech Stack & Dependencies Ecosystem | Pivot Data Explorer (WASM Offline) |
+|---|---|
+| ![Stack Ecosystem View](docs/screenshots/stack-ecosystem-view.png) | ![Data Explorer View](docs/screenshots/data-explorer-view.png) |
 
 ---
 

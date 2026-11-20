@@ -186,7 +186,16 @@ Il Knowledge Portal include un gate di verifica continuo:
 - **Zero Proprietary Data**: Eseguire regolarmente `python3 verify_sanitization.py .` prima di qualsiasi commit pubblico o push su repository aperti.
 - **Air-Gapped Compliance**: Tutti gli asset (icone, font, librerie JS per grafi 3D e 2D, motori KaTeX) sono ospitati localmente nella cartella `template/vendor/` e `template/assets/`. Nessuna chiamata di rete esterna o CDN è permessa.
 - **Zero Telemetria**: Nessun dato d'uso, IP o codice sorgente viene mai inviato verso server esterni.
+- **Hardening Produzione**: Il server supporta `PORTAL_READ_ONLY=1` (blocco `403` sulle mutazioni), `PORTAL_API_TOKEN` (`X-Portal-Token` / `Authorization: Bearer`), path confinement rigoroso (`safe_resolve_under`) e security header HTTP (`nosniff`, `SAMEORIGIN`, `no-referrer`).
 
 ---
 
-*Knowledge Portal v2.4.0 — Peak Excellence Edition — Realizzato per massimizzare la sinergia tra intelligenza umana e intelligenza artificiale.*
+## 6. Design System Unificato, Telemetria Live & Scorciatoie
+
+- **Design System Floorplan Carbon-Black**: Tutte le viste condividono canvas `#0f0f0f` con griglia a pallini, card `#191919` con bordo bianco su `:hover`, header trasparenti sfumati e controlli monocromatici.
+- **Ergonomia da Tastiera (`portal-ui.js`)**: Premere `/` per focalizzare istantaneamente il campo di ricerca della vista attiva; premere `Esc` per svuotare il filtro o chiudere drawer/modali.
+- **Vista `Live Telemetry & Auto-Sync`**: Interroga `/api/telemetry` per visualizzare CPU, RAM, Disco, avanzamento rebuild e stato watcher/servizi, degradando a `Static Snapshot` in modalità offline.
+
+---
+
+*Knowledge Portal v2.7 — Floorplan Carbon-Black & Production Hardened Edition — Realizzato per massimizzare la sinergia tra intelligenza umana e intelligenza artificiale.*

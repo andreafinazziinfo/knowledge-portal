@@ -157,10 +157,18 @@ knowledge-portal audit .
 
 ---
 
-## 5. Manutenzione e CI/CD
+## 5. Sicurezza, Container & CI/CD
 
+### Hardening Server & Container (`docker-compose.yml`)
+- **`PORTAL_READ_ONLY=1`**: Blocca tutti gli endpoint mutanti (`POST`, rebuild, sync, console) con `403`, mantenendo attivi tutti i `GET` e `/api/telemetry`.
+- **`PORTAL_API_TOKEN`**: Se impostato, richiede `X-Portal-Token` o `Authorization: Bearer <token>` sulle operazioni di scrittura.
+- **`PORTAL_ACCESS_LOG=1`**: Emette access log JSON strutturati su `stdout`.
+- **Container Hardened**: Esegue come utente non-root `portaluser` con filesystem `read_only: true`, `no-new-privileges:true` e healthcheck su `/api/telemetry`.
+
+### Pipeline CI/CD (`CI Suite`)
 Il repository include una suite GitHub Actions con verifica continua:
 - **Code Quality**: Ruff linter, Mypy type checker e Bandit security scanner.
 - **OPSEC Audit**: Verifica `verify_sanitization.py` su ogni push.
-- **Unit & Polyglot Tests**: Test deterministici su Python, TypeScript, Vue, Go e Rust.
-- **Static Export Check**: Verifica della build statica in ambiente isolato.
+- **Unit, Polyglot & Coverage Tests**: `pytest` su Python 3.10, 3.11 e 3.12 con `pytest-cov` (`--cov-fail-under=65`), inclusi test su path traversal, security headers, `/api/telemetry` e `cli.py`.
+- **Frontend Playwright E2E & Style Gate**: Verifica headless Chromium su `dashboard.html` e tutte le viste (`0` errori JS/HTTP, sfondo `#0f0f0f`, scorciatoia `/`, responsiveness `1440×900`, `768×1024`, `390×844`).
+- **Container Build Check**: Verifica `docker build` dell'immagine di produzione su ogni push/PR.
