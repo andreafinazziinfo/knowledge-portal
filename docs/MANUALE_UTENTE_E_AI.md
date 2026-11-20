@@ -198,7 +198,7 @@ Il Knowledge Portal include un gate di verifica continuo:
 - **Comandi CLI & Server MCP Nativo (`stdio` JSON-RPC 2.0)**:
   - `knowledge-portal status --json`: stato live `/api/telemetry` o snapshot statico.
   - `knowledge-portal query "<term>" --type search|flow|schema|stack`: query diretta sui JSON del portale.
-  - `knowledge-portal mcp --dir . --url http://127.0.0.1:8000`: espone i 6 tool MCP read-only (`portal_search`, `portal_process_flow`, `portal_db_schema`, `portal_stack`, `portal_telemetry`, `portal_read_doc`) configurabili in qualsiasi client MCP:
+  - `knowledge-portal mcp --dir . --url http://127.0.0.1:8000`: espone i 7 tool MCP read-only (`portal_search` su SQLite FTS5 BM25, `portal_process_flow`, `portal_db_schema`, `portal_stack`, `portal_telemetry`, `portal_read_doc`, `portal_graph_neighbors`) configurabili in qualsiasi client MCP:
     ```json
     {
       "mcpServers": {
