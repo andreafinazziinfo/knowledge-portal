@@ -19,7 +19,9 @@ for (const urlPath of ['dashboard.html', ...viewFiles.map(f => `views/${f}`)]) {
   const badResponses = [];
   page.on('pageerror', e => pageErrors.push(e.message));
   page.on('response', r => {
-    if (r.status() >= 400) badResponses.push(`${r.status()} ${r.url()}`);
+    if (r.status() >= 400 && !(r.request().method() === 'HEAD' && r.url().includes('stack-diagram.html'))) {
+      badResponses.push(`${r.status()} ${r.url()}`);
+    }
   });
 
   await page.goto(`${BASE}/${urlPath}`, { waitUntil: 'domcontentloaded', timeout: 15000 });

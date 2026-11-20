@@ -288,9 +288,9 @@
             <div class="ep-summary">${e.summary || e.description || ''}</div>
             <div class="ep-details">
               <span>Tag: <strong style="color:#fff;">${e.tag}</strong></span>
-              ${e.params.length ? `<span>Parametri: <strong>${e.params.length}</strong></span>` : ''}
+              ${(e.params || []).length ? `<span>Parametri: <strong>${(e.params || []).length}</strong></span>` : ''}
               ${e.has_body ? `<span>Request Body: <strong style="color:var(--accent);">Pydantic Schema</strong></span>` : ''}
-              <div class="responses-tag">Responses: ${e.responses.map(r => `<span class="code-pill">${r}</span>`).join('')}</div>
+              ${(e.responses || []).length ? `<div class="responses-tag">Responses: ${(e.responses || []).map(r => `<span class="code-pill">${r}</span>`).join('')}</div>` : ''}
             </div>
           </div>
         `;
