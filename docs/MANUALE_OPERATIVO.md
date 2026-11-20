@@ -164,7 +164,7 @@ knowledge-portal audit .
 - **`PORTAL_API_TOKEN`**: Se impostato, richiede `X-Portal-Token` o `Authorization: Bearer <token>` sulle operazioni di scrittura.
 - **`PORTAL_ACCESS_LOG=1`**: Emette access log JSON strutturati su `stdout`.
 - **Container Hardened**: Esegue come utente non-root `portaluser` con filesystem `read_only: true`, `no-new-privileges:true` e healthcheck su `/api/telemetry`.
-- **CLI & MCP Integration**: `knowledge-portal mcp`, `knowledge-portal status` e `knowledge-portal query` usano `PortalMcpEngine` (zero dipendenze esterne, `safe_resolve_under` attivo su `portal_read_doc`).
+- **CLI & MCP Integration**: `knowledge-portal mcp`, `knowledge-portal status` e `knowledge-portal query` usano `PortalMcpEngine` + **SQLite FTS5 (`bm25` + prefix)** su `omni-search.fts.sqlite` (zero dipendenze esterne, `safe_resolve_under` attivo su `portal_read_doc`, tool `portal_graph_neighbors` incluso e extra opzionale `[treesitter]`).
 
 ### Pipeline CI/CD (`CI Suite`)
 Il repository include una suite GitHub Actions con verifica continua:

@@ -23,6 +23,10 @@ test = [
     "mypy>=1.0.0",
     "bandit>=1.7.0"
 ]
+treesitter = [
+    "tree-sitter>=0.21.0",
+    "tree-sitter-language-pack>=0.6.0"
+]
 
 [tool.ruff]
 line-length = 120

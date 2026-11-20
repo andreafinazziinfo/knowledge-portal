@@ -12,6 +12,7 @@ import urllib.parse
 from pathlib import Path
 from typing import Any
 
+from knowledge_portal.indexer.fts_engine import FtsSearchEngine
 from knowledge_portal.server import safe_resolve_under
 
 PROTOCOL_VERSION = "2024-11-05"
@@ -31,6 +32,7 @@ class PortalMcpEngine:
         self.data_dir = data_dir.resolve()
         self.portal_url = portal_url.rstrip("/")
         self._cache: dict[str, Any] = {}
+        self._fts = FtsSearchEngine(self.data_dir)
 
     def _load_json(self, filename: str) -> Any:
         if filename in self._cache:
@@ -50,54 +52,69 @@ class PortalMcpEngine:
         return None
 
     def search(self, query: str, limit: int = 15) -> dict[str, Any]:
-        q = (query or "").strip().lower()
+        q = (query or "").strip()
         lim = max(1, min(int(limit or 15), 50))
-        results: list[dict[str, Any]] = []
+        if q:
+            results = self._fts.search(q, limit=lim)
+            return {"query": query, "engine": "sqlite-fts5-bm25", "count": len(results), "results": results}
 
         omni = self._load_json("omni-search-index.json")
-        items = omni.get("items", omni) if isinstance(omni, dict) else omni
-        if isinstance(items, list):
-            for entry in items:
-                if not isinstance(entry, dict):
-                    continue
-                hay = " ".join(
-                    str(entry.get(k, ""))
-                    for k in ("name", "title", "subtitle", "path", "category", "tags", "summary")
-                ).lower()
-                if not q or q in hay:
-                    results.append({
-                        "name": entry.get("name") or entry.get("title") or "",
-                        "category": entry.get("category", "item"),
-                        "path": entry.get("path", ""),
-                        "tab": entry.get("tab", ""),
-                        "subtitle": entry.get("subtitle", ""),
-                    })
-                    if len(results) >= lim:
-                        break
+        items = (omni.get("entities") or omni.get("items") or []) if isinstance(omni, dict) else (omni if isinstance(omni, list) else [])
+        results = [
+            {
+                "name": e.get("title") or e.get("name") or "",
+                "category": e.get("category", "item"),
+                "path": e.get("path", ""),
+                "tab": e.get("tab", ""),
+                "subtitle": e.get("subtitle", ""),
+            }
+            for e in items[:lim]
+            if isinstance(e, dict)
+        ]
+        return {"query": query, "engine": "snapshot", "count": len(results), "results": results}
 
-        if len(results) < lim:
-            graph = self._load_json("graph.json")
-            nodes = graph.get("nodes", []) if isinstance(graph, dict) else []
-            seen = {r.get("name") for r in results}
-            for node in nodes:
-                if not isinstance(node, dict):
-                    continue
-                name = str(node.get("label") or node.get("name") or node.get("id") or "")
-                path = str(node.get("path") or "")
-                if name in seen:
-                    continue
-                if not q or q in name.lower() or q in path.lower():
-                    results.append({
-                        "name": name,
-                        "category": node.get("type", "node"),
-                        "path": path,
-                        "community": node.get("community"),
-                    })
-                    seen.add(name)
-                    if len(results) >= lim:
-                        break
+    def graph_neighbors(self, node_id: str, depth: int = 1) -> dict[str, Any]:
+        target_q = (node_id or "").strip().lower()
+        hops = max(1, min(int(depth or 1), 2))
+        graph = self._load_json("graph.json")
+        if not isinstance(graph, dict):
+            return {"node_id": node_id, "matches": [], "neighbors": []}
+        nodes = {str(n.get("id")): n for n in graph.get("nodes", []) if isinstance(n, dict) and n.get("id") is not None}
+        edges = graph.get("edges") or graph.get("links") or []
 
-        return {"query": query, "count": len(results), "results": results}
+        matched_ids = [
+            nid for nid, n in nodes.items()
+            if target_q in nid.lower() or target_q in str(n.get("label") or n.get("name") or "").lower()
+        ][:5]
+        frontier = set(matched_ids)
+        visited = set(matched_ids)
+        rel_edges = []
+        for _ in range(hops):
+            next_frontier: set[str] = set()
+            for e in edges:
+                if not isinstance(e, dict):
+                    continue
+                s = str(e.get("source", ""))
+                t = str(e.get("target", ""))
+                if s in frontier or t in frontier:
+                    rel_edges.append({"source": s, "target": t, "relation": e.get("relation") or e.get("type") or "edge"})
+                    if s not in visited:
+                        next_frontier.add(s)
+                    if t not in visited:
+                        next_frontier.add(t)
+            visited.update(next_frontier)
+            frontier = next_frontier
+            if not frontier:
+                break
+
+        neighbor_ids = [nid for nid in visited if nid not in matched_ids][:40]
+        return {
+            "query": node_id,
+            "depth": hops,
+            "matched_nodes": [nodes[i] for i in matched_ids],
+            "neighbors": [nodes[i] for i in neighbor_ids if i in nodes],
+            "edges": rel_edges[:60],
+        }
 
     def process_flow(self, query: str = "", limit: int = 10) -> dict[str, Any]:
         q = (query or "").strip().lower()
@@ -257,6 +274,18 @@ TOOLS_SPEC: list[dict[str, Any]] = [
             "required": ["path"],
         },
     },
+    {
+        "name": "portal_graph_neighbors",
+        "description": "Inspect 1-hop or 2-hop neighbors and edges of a node in graph.json.",
+        "inputSchema": {
+            "type": "object",
+            "properties": {
+                "node_id": {"type": "string", "description": "Node ID or label substring"},
+                "depth": {"type": "integer", "default": 1},
+            },
+            "required": ["node_id"],
+        },
+    },
 ]
 
 
@@ -295,6 +324,7 @@ def handle_jsonrpc_request(engine: PortalMcpEngine, req: dict[str, Any]) -> dict
             "portal_stack": lambda a: engine.stack(a.get("query", "")),
             "portal_telemetry": lambda a: engine.telemetry(a.get("url", "")),
             "portal_read_doc": lambda a: engine.read_doc(a.get("path", "")),
+            "portal_graph_neighbors": lambda a: engine.graph_neighbors(a.get("node_id", ""), a.get("depth", 1)),
         }
         fn = dispatch.get(name)
         if fn is None:

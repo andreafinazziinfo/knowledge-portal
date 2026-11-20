@@ -27,7 +27,7 @@ def generate_search_index(codebase_dir: Path, output_file: Path) -> int:
                 "category": "documentation",
                 "tab": "reader",
                 "path": rel,
-                "search_text": content[:500]
+                "search_text": content[:4000]
             })
         except Exception:
             pass

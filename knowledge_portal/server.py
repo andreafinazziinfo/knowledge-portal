@@ -271,6 +271,12 @@ class PortalRequestHandler(SimpleHTTPRequestHandler):
         elif path == "/api/rebuild/status":
             self.send_json({"rebuilding": False, "phase": "idle", "processed": 0, "total": 4, "percent": 0, "message": "Idle"})
 
+        elif path == "/api/search":
+            from knowledge_portal.indexer.fts_engine import FtsSearchEngine
+            q = query.get("q", [""])[0]
+            engine = FtsSearchEngine(self.template_dir / "data")
+            self.send_json(engine.search(q, limit=30))
+
         elif path == "/api/file":
             filepath = query.get("path", [""])[0]
             target = safe_resolve_under(self.project_dir, filepath)
