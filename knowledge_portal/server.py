@@ -4,14 +4,65 @@ Serves the portal web application, static vendor assets, and provides REST/SSE A
 Zero external runtime dependencies (Python standard library only).
 """
 
+import hmac
 import json
 import mimetypes
+import os
+import shutil
 import time
 import urllib.parse
+from http.server import SimpleHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
-from http.server import ThreadingHTTPServer, SimpleHTTPRequestHandler
 
 mimetypes.add_type("application/wasm", ".wasm")
+
+_DENY_PARTS = {".git", ".hg", ".svn", "__pycache__", "frozen"}
+_DENY_SUFFIXES = (".key", ".pem", ".p12", ".pfx", ".sqlite", ".db")
+_PREV_CPU_SAMPLE: tuple[int, int] | None = None
+
+
+def safe_resolve_under(base_dir: Path, rel_path: str) -> Path | None:
+    """Resolve rel_path strictly inside base_dir, rejecting traversal and sensitive files."""
+    if not rel_path or "\x00" in rel_path:
+        return None
+    cleaned = urllib.parse.unquote(rel_path).lstrip("/\\")
+    if not cleaned:
+        return None
+    parts = Path(cleaned).parts
+    for part in parts:
+        if part in ("..", "") or part in _DENY_PARTS or part.startswith(".env"):
+            return None
+    if cleaned.lower().endswith(_DENY_SUFFIXES):
+        return None
+    try:
+        base_resolved = base_dir.resolve()
+        candidate = (base_resolved / cleaned).resolve()
+        if not candidate.is_relative_to(base_resolved):
+            return None
+        return candidate
+    except (OSError, ValueError):
+        return None
+
+
+def _sample_cpu_pct() -> float:
+    global _PREV_CPU_SAMPLE
+    cpu_pct = 0.0
+    try:
+        with open("/proc/stat", "r", encoding="utf-8") as f:
+            parts = [int(x) for x in f.readline().split()[1:8]]
+        idle = parts[3] + parts[4]
+        total = sum(parts)
+        if _PREV_CPU_SAMPLE is not None:
+            prev_idle, prev_total = _PREV_CPU_SAMPLE
+            dt = total - prev_total
+            di = idle - prev_idle
+            if dt > 0:
+                cpu_pct = round(100.0 * (1.0 - di / dt), 1)
+        _PREV_CPU_SAMPLE = (idle, total)
+    except OSError:
+        pass
+    return cpu_pct
+
 
 def get_template_dir() -> Path:
     candidates = [
@@ -25,25 +76,65 @@ def get_template_dir() -> Path:
             return c
     return candidates[0]
 
+
 class PortalRequestHandler(SimpleHTTPRequestHandler):
-    extensions_map = {**SimpleHTTPRequestHandler.extensions_map, '.wasm': 'application/wasm'}
+    extensions_map = {**SimpleHTTPRequestHandler.extensions_map, ".wasm": "application/wasm"}
     template_dir = get_template_dir()
     project_dir = Path.cwd()
 
-    def send_cors_headers(self):
+    def log_message(self, format: str, *args) -> None:
+        if os.environ.get("PORTAL_ACCESS_LOG", "1") == "1":
+            entry = {
+                "ts": round(time.time(), 3),
+                "client": self.client_address[0] if self.client_address else "-",
+                "method": getattr(self, "command", "-"),
+                "path": getattr(self, "path", "-"),
+                "msg": format % args if args else format,
+            }
+            print(json.dumps(entry), flush=True)
+
+    def send_security_headers(self) -> None:
+        self.send_header("X-Content-Type-Options", "nosniff")
+        self.send_header("X-Frame-Options", "SAMEORIGIN")
+        self.send_header("Referrer-Policy", "no-referrer")
+        self.send_header("Permissions-Policy", "camera=(), microphone=(), geolocation=()")
+
+    def send_cors_headers(self) -> None:
         self.send_header("Access-Control-Allow-Origin", "*")
         self.send_header("Access-Control-Allow-Methods", "GET, POST, OPTIONS")
-        self.send_header("Access-Control-Allow-Headers", "Content-Type")
+        self.send_header("Access-Control-Allow-Headers", "Content-Type, Authorization, X-Portal-Token")
+        self.send_security_headers()
 
-    def do_HEAD(self):
+    def is_mutation_authorized(self) -> tuple[bool, int, str]:
+        if os.environ.get("PORTAL_READ_ONLY", "0") == "1":
+            return False, 403, "Portal is running in read-only mode"
+        expected = os.environ.get("PORTAL_API_TOKEN", "")
+        if expected:
+            token = self.headers.get("X-Portal-Token", "")
+            if not token:
+                auth = self.headers.get("Authorization", "")
+                if auth.startswith("Bearer "):
+                    token = auth[7:].strip()
+            if not token or not hmac.compare_digest(token, expected):
+                return False, 401, "Unauthorized"
+        return True, 200, "OK"
+
+    def do_HEAD(self) -> None:
         self.do_GET()
 
-    def do_OPTIONS(self):
+    def do_OPTIONS(self) -> None:
         self.send_response(200)
         self.send_cors_headers()
         self.end_headers()
 
-    def do_GET(self):
+    def do_POST(self) -> None:
+        ok, code, msg = self.is_mutation_authorized()
+        if not ok:
+            self.send_error(code, msg)
+            return
+        self.send_error(404, "POST endpoint not supported in standalone mode")
+
+    def do_GET(self) -> None:
         parsed = urllib.parse.urlparse(self.path)
         path = parsed.path
         query = urllib.parse.parse_qs(parsed.query)
@@ -52,27 +143,20 @@ class PortalRequestHandler(SimpleHTTPRequestHandler):
             self.handle_api(path, query)
             return
 
-        # Serve dashboard as root index
         if path == "/" or path == "/index.html":
             path = "/dashboard.html"
 
-        # Check in template_dir first
-        target = self.template_dir / path.lstrip("/")
-        if target.exists() and target.is_file():
-            return self.serve_file(target)
-
-        # Check in project_dir
-        target = self.project_dir / path.lstrip("/")
-        if target.exists() and target.is_file():
-            return self.serve_file(target)
+        target = safe_resolve_under(self.template_dir, path)
+        if target and target.exists() and target.is_file():
+            self.serve_file(target)
+            return
 
         self.send_error(404, f"File not found: {path}")
 
-    def serve_file(self, file_path: Path):
+    def serve_file(self, file_path: Path) -> None:
         content_type = self.guess_type(str(file_path))
         try:
-            with open(file_path, "rb") as f:
-                data = f.read()
+            data = file_path.read_bytes()
             self.send_response(200)
             self.send_cors_headers()
             self.send_header("Content-Type", content_type)
@@ -82,39 +166,44 @@ class PortalRequestHandler(SimpleHTTPRequestHandler):
         except Exception as e:
             self.send_error(500, f"Error reading file: {e}")
 
-    def handle_api(self, path: str, query: dict):
+    def handle_api(self, path: str, query: dict) -> None:
         if path == "/api/stats":
             data_file = self.template_dir / "data" / "graph.json"
             if data_file.exists():
                 try:
-                    with open(data_file, "r", encoding="utf-8") as f:
-                        gdata = json.load(f)
+                    gdata = json.loads(data_file.read_text(encoding="utf-8"))
                     stats = {
-                        "total_files": len(set(n.get("path") for n in gdata.get("nodes", []))),
+                        "total_files": len({n.get("path") for n in gdata.get("nodes", [])}),
                         "total_words": 10000,
                         "total_nodes": len(gdata.get("nodes", [])),
                         "total_edges": len(gdata.get("edges", [])),
-                        "communities": len(set(n.get("community") for n in gdata.get("nodes", []))),
+                        "communities": len({n.get("community") for n in gdata.get("nodes", [])}),
                         "orphan_count": 0,
-                        "top_connected": []
+                        "top_connected": [],
                     }
-                    return self.send_json(stats)
+                    self.send_json(stats)
+                    return
                 except Exception:
                     pass
-            self.send_json({"total_files": 0, "total_words": 0, "total_nodes": 0, "total_edges": 0, "communities": 0, "orphan_count": 0, "top_connected": []})
+            self.send_json({
+                "total_files": 0, "total_words": 0, "total_nodes": 0, "total_edges": 0,
+                "communities": 0, "orphan_count": 0, "top_connected": [],
+            })
 
         elif path == "/api/tree":
             tree = []
             for item in self.project_dir.iterdir():
-                if item.name.startswith(".") or item.name in ["venv", "__pycache__", "node_modules"]:
+                if item.name.startswith(".") or item.name in ("venv", "__pycache__", "node_modules"):
                     continue
                 if item.is_dir():
                     children = []
                     for child in item.rglob("*.md"):
+                        if any(p in _DENY_PARTS or p.startswith(".") for p in child.parts):
+                            continue
                         children.append({
                             "name": child.name,
                             "type": "file",
-                            "path": str(child.relative_to(self.project_dir)).replace("\\", "/")
+                            "path": str(child.relative_to(self.project_dir)).replace("\\", "/"),
                         })
                     if children:
                         tree.append({"name": item.name, "type": "directory", "children": children})
@@ -128,7 +217,7 @@ class PortalRequestHandler(SimpleHTTPRequestHandler):
             self.send_header("Connection", "keep-alive")
             self.end_headers()
             try:
-                self.wfile.write(b"data: {\"status\": \"connected\"}\n\n")
+                self.wfile.write(b'data: {"status": "connected"}\n\n')
                 self.wfile.flush()
                 for _ in range(30):
                     time.sleep(2.0)
@@ -138,7 +227,6 @@ class PortalRequestHandler(SimpleHTTPRequestHandler):
                 pass
 
         elif path == "/api/telemetry":
-            import shutil
             disk_pct, disk_free_gb = 0.0, 0.0
             try:
                 du = shutil.disk_usage(str(self.project_dir))
@@ -149,7 +237,7 @@ class PortalRequestHandler(SimpleHTTPRequestHandler):
                 pass
             mem_total_mb, mem_used_mb, mem_pct = 0, 0, 0.0
             try:
-                info = {}
+                info: dict[str, int] = {}
                 with open("/proc/meminfo", "r", encoding="utf-8") as f:
                     for line in f:
                         k, v = line.split(":", 1)
@@ -166,7 +254,7 @@ class PortalRequestHandler(SimpleHTTPRequestHandler):
                 "timestamp": time.time(),
                 "mode": "standalone",
                 "host": {
-                    "cpu_pct": 0.0,
+                    "cpu_pct": _sample_cpu_pct(),
                     "mem_pct": mem_pct,
                     "mem_used_mb": mem_used_mb,
                     "mem_total_mb": mem_total_mb,
@@ -185,8 +273,8 @@ class PortalRequestHandler(SimpleHTTPRequestHandler):
 
         elif path == "/api/file":
             filepath = query.get("path", [""])[0]
-            target = self.project_dir / filepath
-            if target.exists() and target.is_file():
+            target = safe_resolve_under(self.project_dir, filepath)
+            if target and target.exists() and target.is_file():
                 try:
                     text = target.read_text(encoding="utf-8", errors="replace")
                     self.send_json({"content": text, "path": filepath})
@@ -199,22 +287,24 @@ class PortalRequestHandler(SimpleHTTPRequestHandler):
         else:
             self.send_error(404, "API endpoint not found")
 
-    def send_json(self, data):
+    def send_json(self, data: object) -> None:
         content = json.dumps(data, indent=2).encode("utf-8")
         self.send_response(200)
         self.send_cors_headers()
-        self.send_header("Content-Type", "application/json")
+        self.send_header("Content-Type", "application/json; charset=utf-8")
         self.send_header("Content-Length", str(len(content)))
         self.end_headers()
         self.wfile.write(content)
 
-def run_server(host="0.0.0.0", port=8000, template_dir=None, project_dir=None):
+
+def run_server(host: str = "0.0.0.0", port: int = 8000, template_dir: str | None = None, project_dir: str | None = None) -> None:
     PortalRequestHandler.template_dir = Path(template_dir) if template_dir else get_template_dir()
     if project_dir:
         PortalRequestHandler.project_dir = Path(project_dir)
 
+    _sample_cpu_pct()
     server = ThreadingHTTPServer((host, port), PortalRequestHandler)
-    print(f"🚀 Knowledge Portal running on http://{host}:{port}/dashboard.html")
+    print(f"🚀 Knowledge Portal running on http://{host}:{port}/dashboard.html", flush=True)
     try:
         server.serve_forever()
     except KeyboardInterrupt:

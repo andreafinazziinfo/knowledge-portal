@@ -14,6 +14,9 @@ RUN pip install --no-cache-dir .
 RUN adduser -D -u 1000 portaluser && \
     chown -R portaluser:portaluser /app
 
+ENV PYTHONUNBUFFERED=1 \
+    PORTAL_READ_ONLY=1
+
 USER portaluser
 
 EXPOSE 8000

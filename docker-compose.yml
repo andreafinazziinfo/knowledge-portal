@@ -1,0 +1,20 @@
+services:
+  knowledge-portal:
+    build: .
+    container_name: knowledge-portal
+    restart: unless-stopped
+    read_only: true
+    tmpfs:
+      - /tmp
+    security_opt:
+      - no-new-privileges:true
+    environment:
+      PORTAL_READ_ONLY: "1"
+      PORTAL_ACCESS_LOG: "1"
+    ports:
+      - "8000:8000"
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8000/api/telemetry', timeout=3)"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
