@@ -43,8 +43,8 @@ jobs:
           python-version: ${{ matrix.python-version }}
       - name: Install Package
         run: pip install -e .[test]
-      - name: Run Polyglot Unit Tests
-        run: python -m unittest discover tests/unit -v
+      - name: Run Polyglot Unit Tests & Coverage
+        run: pytest tests/unit -v --cov=knowledge_portal --cov-report=term-missing --cov-fail-under=65
       - name: Test AST Scan on Sample Project
         run: |
           python -m knowledge_portal.cli scan sample_project --output template/data
@@ -66,3 +66,43 @@ jobs:
           test -f /tmp/static-dist/views/db-lineage.html
           test -f /tmp/static-dist/views/floorplan.html
           test -f /tmp/static-dist/.nojekyll
+
+  portal-playwright-e2e:
+    name: Frontend Playwright E2E & Style Gate
+    needs: code-quality
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - name: Set up Python 3.12
+        uses: actions/setup-python@v7
+        with:
+          python-version: "3.12"
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+      - name: Install Package & Playwright Chromium
+        run: |
+          pip install -e .
+          npm install --no-save playwright
+          npx playwright install chromium
+      - name: Scan Sample Project & Run Playwright E2E
+        run: |
+          python -m knowledge_portal.cli scan sample_project --output template/data
+          PORTAL_ACCESS_LOG=0 python -m knowledge_portal.cli serve --host 127.0.0.1 --port 18999 --dir sample_project &
+          SERVER_PID=$!
+          trap "kill $SERVER_PID 2>/dev/null || true" EXIT
+          for i in $(seq 1 20); do
+            if curl -sf http://127.0.0.1:18999/api/telemetry >/dev/null; then break; fi
+            sleep 0.5
+          done
+          node tests/e2e/playwright_smoke.mjs
+
+  docker-build-check:
+    name: Container Build Hardening Check
+    needs: code-quality
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - name: Build Production Docker Image
+        run: docker build -t knowledge-portal:ci .
