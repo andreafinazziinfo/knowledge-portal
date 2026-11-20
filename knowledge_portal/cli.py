@@ -40,6 +40,26 @@ def main():
     audit_p = subparsers.add_parser("audit", help="Run Zero-Proprietary Sanitization Audit")
     audit_p.add_argument("path", nargs="?", default=".", help="Directory to audit")
 
+    # Command: mcp
+    mcp_p = subparsers.add_parser("mcp", help="Start stdio MCP (Model Context Protocol) server for AI agents")
+    mcp_p.add_argument("--dir", "-d", default=".", help="Project root directory (default: current directory)")
+    mcp_p.add_argument("--data-dir", default=None, help="Portal data directory (default: template/data)")
+    mcp_p.add_argument("--url", default="http://127.0.0.1:8000", help="Running portal URL for live telemetry")
+
+    # Command: status
+    status_p = subparsers.add_parser("status", help="Inspect live portal telemetry or static snapshot status")
+    status_p.add_argument("--url", default="http://127.0.0.1:8000", help="Running portal URL (default: http://127.0.0.1:8000)")
+    status_p.add_argument("--data-dir", default=None, help="Portal data directory (default: template/data)")
+    status_p.add_argument("--json", action="store_true", help="Output raw JSON")
+
+    # Command: query
+    query_p = subparsers.add_parser("query", help="Query portal knowledge artifacts (search, flow, schema, stack)")
+    query_p.add_argument("term", nargs="?", default="", help="Search term or table/symbol name")
+    query_p.add_argument("--type", "-t", choices=["search", "flow", "schema", "stack"], default="search", help="Query target")
+    query_p.add_argument("--limit", "-l", type=int, default=15, help="Max results")
+    query_p.add_argument("--data-dir", default=None, help="Portal data directory (default: template/data)")
+    query_p.add_argument("--dir", "-d", default=".", help="Project root directory")
+
     args = parser.parse_args()
 
     if args.command == "scan":
@@ -96,6 +116,40 @@ def main():
             subprocess.run([sys.executable, str(audit_script), args.path])
         else:
             print("Audit script not found.")
+
+    elif args.command == "mcp":
+        from knowledge_portal.mcp_server import run_mcp_stdio
+        from knowledge_portal.server import get_template_dir
+        data_dir = Path(args.data_dir).resolve() if args.data_dir else (get_template_dir() / "data")
+        run_mcp_stdio(project_dir=Path(args.dir), data_dir=data_dir, portal_url=args.url)
+
+    elif args.command == "status":
+        import json
+        from knowledge_portal.mcp_server import PortalMcpEngine
+        from knowledge_portal.server import get_template_dir
+        data_dir = Path(args.data_dir).resolve() if args.data_dir else (get_template_dir() / "data")
+        engine = PortalMcpEngine(project_dir=Path.cwd(), data_dir=data_dir, portal_url=args.url)
+        res = engine.telemetry(args.url)
+        if args.json:
+            print(json.dumps(res, indent=2, ensure_ascii=False))
+        else:
+            mode = "LIVE" if res.get("live") else "STATIC"
+            print(f"Knowledge Portal [{mode}] ({res.get('url')})")
+            print(json.dumps(res, indent=2, ensure_ascii=False))
+
+    elif args.command == "query":
+        import json
+        from knowledge_portal.mcp_server import PortalMcpEngine
+        from knowledge_portal.server import get_template_dir
+        data_dir = Path(args.data_dir).resolve() if args.data_dir else (get_template_dir() / "data")
+        engine = PortalMcpEngine(project_dir=Path(args.dir), data_dir=data_dir)
+        dispatch = {
+            "search": lambda: engine.search(args.term, args.limit),
+            "flow": lambda: engine.process_flow(args.term, args.limit),
+            "schema": lambda: engine.db_schema(args.term),
+            "stack": lambda: engine.stack(args.term),
+        }
+        print(json.dumps(dispatch[args.type](), indent=2, ensure_ascii=False))
     else:
         parser.print_help()
 

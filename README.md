@@ -29,6 +29,7 @@
 - **📡 Live Telemetry & Auto-Sync (`views/live-telemetry.html`)**: Real-time `/api/telemetry` dashboard with CPU/RAM/Disk sparklines, rebuild progress bars, service latency probes, and graceful offline fallback (`Static Snapshot`).
 - **📊 Offline Perspective WASM Pivot Explorer (`views/data-explorer.html`)**: Air-gapped WebAssembly data grid and pivot analytics for architecture nodes, metrics, and schemas.
 - **🛡️ Production-Grade Hardening & CI E2E Gate**: Strict path-confinement (`safe_resolve_under`), `PORTAL_READ_ONLY` & `PORTAL_API_TOKEN` guards, HTTP security headers, hardened `read_only` non-root Docker Compose, `pytest-cov` coverage gate, and automated Playwright E2E checks.
+- **🔌 Native Zero-Dep MCP Server & CLI Query (`knowledge-portal mcp | status | query`)**: Connect any MCP client (`stdio` JSON-RPC 2.0) to query `omni-search-index.json`, `process-flows.json`, `db-schema.json`, `stack-ecosystem.json`, live `/api/telemetry`, and safe workspace docs.
 - **🛡️ Zero-Dependency Core Runtime**: The server, watcher, and Polyglot AST scanner rely strictly on the **Python 3.10+ Standard Library** (zero heavy framework dependencies).
 
 ---

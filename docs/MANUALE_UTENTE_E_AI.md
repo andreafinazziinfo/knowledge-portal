@@ -195,6 +195,20 @@ Il Knowledge Portal include un gate di verifica continuo:
 - **Design System Floorplan Carbon-Black**: Tutte le viste condividono canvas `#0f0f0f` con griglia a pallini, card `#191919` con bordo bianco su `:hover`, header trasparenti sfumati e controlli monocromatici.
 - **Ergonomia da Tastiera (`portal-ui.js`)**: Premere `/` per focalizzare istantaneamente il campo di ricerca della vista attiva; premere `Esc` per svuotare il filtro o chiudere drawer/modali.
 - **Vista `Live Telemetry & Auto-Sync`**: Interroga `/api/telemetry` per visualizzare CPU, RAM, Disco, avanzamento rebuild e stato watcher/servizi, degradando a `Static Snapshot` in modalità offline.
+- **Comandi CLI & Server MCP Nativo (`stdio` JSON-RPC 2.0)**:
+  - `knowledge-portal status --json`: stato live `/api/telemetry` o snapshot statico.
+  - `knowledge-portal query "<term>" --type search|flow|schema|stack`: query diretta sui JSON del portale.
+  - `knowledge-portal mcp --dir . --url http://127.0.0.1:8000`: espone i 6 tool MCP read-only (`portal_search`, `portal_process_flow`, `portal_db_schema`, `portal_stack`, `portal_telemetry`, `portal_read_doc`) configurabili in qualsiasi client MCP:
+    ```json
+    {
+      "mcpServers": {
+        "knowledge-portal": {
+          "command": "knowledge-portal",
+          "args": ["mcp", "--dir", ".", "--url", "http://127.0.0.1:8000"]
+        }
+      }
+    }
+    ```
 
 ---
 
