@@ -5,9 +5,10 @@ Implements JSON-RPC 2.0 over stdio (protocolVersion 2024-11-05) using Python std
 
 from __future__ import annotations
 
+import http.client
 import json
 import sys
-import urllib.request
+import urllib.parse
 from pathlib import Path
 from typing import Any
 
@@ -153,10 +154,18 @@ class PortalMcpEngine:
         target = (url or self.portal_url).rstrip("/")
         if target:
             try:
-                req = urllib.request.Request(f"{target}/api/telemetry", headers={"Accept": "application/json"})
-                with urllib.request.urlopen(req, timeout=1.5) as resp:
-                    data = json.loads(resp.read().decode("utf-8"))
-                    return {"live": True, "url": target, "telemetry": data}
+                parsed = urllib.parse.urlparse(target)
+                if parsed.scheme in ("http", "https") and parsed.netloc:
+                    conn_cls = http.client.HTTPSConnection if parsed.scheme == "https" else http.client.HTTPConnection
+                    conn = conn_cls(parsed.netloc, timeout=1.5)
+                    try:
+                        conn.request("GET", f"{parsed.path.rstrip('/')}/api/telemetry", headers={"Accept": "application/json"})
+                        resp = conn.getresponse()
+                        if resp.status == 200:
+                            data = json.loads(resp.read().decode("utf-8"))
+                            return {"live": True, "url": target, "telemetry": data}
+                    finally:
+                        conn.close()
             except Exception:
                 pass
 
