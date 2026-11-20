@@ -34,19 +34,64 @@
 
 ---
 
-## 🖼️ Visual Showcase
+## 🖼️ Visual Showcase (All 25 Portal Views)
 
-| Interactive Floorplan (SVG) | 2D Community Galaxy Graph |
+### 1. Core Dashboard Shell & Interactive Architecture
+| Home Hub & Federated Omni-Search | Interactive Floorplan (SVG) |
 |---|---|
-| ![Floorplan View](docs/screenshots/floorplan-view.png) | ![2D Graph View](docs/screenshots/graph-2d-view.png) |
+| ![Home Dashboard](docs/screenshots/home-dashboard.png) | ![Floorplan View](docs/screenshots/floorplan-view.png) |
 
-| 3D WebGL Graph (Transparent Dot-Grid) | Live Telemetry & Auto-Sync |
+| Tech Stack & Dependencies Ecosystem | Vendor Stack Architecture Diagram |
 |---|---|
-| ![3D Graph View](docs/screenshots/graph-3d-view.png) | ![Live Telemetry View](docs/screenshots/live-telemetry-view.png) |
+| ![Stack Ecosystem](docs/screenshots/stack-ecosystem-view.png) | ![Stack Diagram](docs/screenshots/stack-diagram-view.png) |
 
-| Tech Stack & Dependencies Ecosystem | Pivot Data Explorer (WASM Offline) |
+### 2. Multi-Dimensional Graphs, Canvas & Directory Trees (2D & 3D WebGL)
+| 2D Community Galaxy Graph | 3D WebGL Spherical Nebulae Graph |
 |---|---|
-| ![Stack Ecosystem View](docs/screenshots/stack-ecosystem-view.png) | ![Data Explorer View](docs/screenshots/data-explorer-view.png) |
+| ![2D Graph](docs/screenshots/graph-2d-view.png) | ![3D Graph](docs/screenshots/graph-3d-view.png) |
+
+| Full Organic Network Graph | 2D Whiteboard Canvas |
+|---|---|
+| ![Full Graph](docs/screenshots/graph-full-view.png) | ![2D Canvas](docs/screenshots/canvas-2d-view.png) |
+
+| 3D WebGL Canvas Panels | 2D Collapsible Directory Tree |
+|---|---|
+| ![3D Canvas](docs/screenshots/canvas-3d-view.png) | ![2D Tree](docs/screenshots/tree-2d-view.png) |
+
+| 3D WebGL Top-Down Directory DAG | |
+|---|---|
+| ![3D Tree](docs/screenshots/tree-3d-view.png) | |
+
+### 3. Data, Schemas, APIs & Real-Time Telemetry
+| Pivot Data Explorer (Perspective WASM Offline) | Database & Schema Lineage |
+|---|---|
+| ![Data Explorer](docs/screenshots/data-explorer-view.png) | ![DB Lineage](docs/screenshots/db-lineage-view.png) |
+
+| OpenAPI Catalog (Offline Scalar) | Live Telemetry & Auto-Sync |
+|---|---|
+| ![API Catalog](docs/screenshots/api-catalog-view.png) | ![Live Telemetry](docs/screenshots/live-telemetry-view.png) |
+
+| Async & WebSocket Topology | Data Ingestion Pipeline |
+|---|---|
+| ![Async Topology](docs/screenshots/async-topology-view.png) | ![Data Ingestion](docs/screenshots/data-ingestion-view.png) |
+
+### 4. Engineering, State, Codex & Visual Explainers
+| UI Reactive State & Stores | Background Worker Tasks |
+|---|---|
+| ![Frontend State](docs/screenshots/frontend-state-view.png) | ![Worker Tasks](docs/screenshots/worker-tasks-view.png) |
+
+| Mathematical Codex (KaTeX) | Visual Explainers Hub |
+|---|---|
+| ![Quant Codex](docs/screenshots/quant-codex-view.png) | ![Visual Explainers](docs/screenshots/visual-explainers-view.png) |
+
+### 5. Governance, Security & Operations
+| ADR Governance Matrix | Engineering Quality Constitution |
+|---|---|
+| ![ADR Governance](docs/screenshots/adr-governance-view.png) | ![Framework Constitution](docs/screenshots/framework-constitution-view.png) |
+
+| Security Threat Matrix | Operations & Disaster Recovery Runbook |
+|---|---|
+| ![Threat Matrix](docs/screenshots/threat-matrix-view.png) | ![Ops Runbook](docs/screenshots/runbook-ops-view.png) |
 
 ---
 

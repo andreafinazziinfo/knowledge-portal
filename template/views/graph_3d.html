@@ -138,10 +138,23 @@
       legendList.appendChild(item);
     });
 
+    const goldenAngle = Math.PI * (3 - Math.sqrt(5));
+    const totalComms = Math.max(1, sortedCommIds.length);
     rawNodes = (raw.nodes || []).map(n => {
       const cid = n.community || 0;
-      const commIdx = sortedCommIds.indexOf(cid);
-      const angle = (commIdx / Math.max(1, sortedCommIds.length)) * 2 * Math.PI;
+      const commIdx = Math.max(0, sortedCommIds.indexOf(cid));
+      const cy = totalComms === 1 ? 0 : 1 - (commIdx / (totalComms - 1)) * 2;
+      const cr = Math.sqrt(Math.max(0, 1 - cy * cy));
+      const cTheta = goldenAngle * commIdx;
+      const centerDist = totalComms === 1 ? 0 : 280;
+      const cx = Math.cos(cTheta) * cr * centerDist;
+      const cz = Math.sin(cTheta) * cr * centerDist;
+      const cyPos = cy * centerDist;
+
+      const u = Math.random() * 2 - 1;
+      const phi = Math.random() * 2 * Math.PI;
+      const rad = Math.cbrt(Math.random()) * 115;
+      const sinT = Math.sqrt(Math.max(0, 1 - u * u));
 
       return {
         id: n.id,
@@ -152,9 +165,9 @@
         origColor: n.color || COMMUNITY_COLORS[cid % COMMUNITY_COLORS.length],
         val: Math.min(14, (n.degree || 1) * 1.2),
         origVal: Math.min(14, (n.degree || 1) * 1.2),
-        fx: Math.cos(angle) * 350 + (Math.random() - 0.5) * 180,
-        fy: Math.sin(angle) * 350 + (Math.random() - 0.5) * 180,
-        fz: (commIdx % 5 - 2) * 150 + (Math.random() - 0.5) * 180
+        fx: cx + rad * sinT * Math.cos(phi),
+        fy: cyPos + rad * u,
+        fz: cz + rad * sinT * Math.sin(phi)
       };
     });
 
