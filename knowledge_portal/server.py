@@ -318,6 +318,14 @@ class PortalRequestHandler(SimpleHTTPRequestHandler):
             eng = PortalMcpEngine(self.project_dir, self.template_dir / "data")
             self.send_json(eng.health_audit())
 
+        elif path == "/api/arch-diff":
+            from knowledge_portal.generators.arch_health import generate_arch_diff
+            diff_file = self.template_dir / "data" / "arch-diff.json"
+            if diff_file.exists():
+                self.send_json(json.loads(diff_file.read_text(encoding="utf-8")))
+            else:
+                self.send_json(generate_arch_diff(self.template_dir / "data"))
+
         elif path == "/api/file":
             filepath = query.get("path", [""])[0]
             target = safe_resolve_under(self.project_dir, filepath)

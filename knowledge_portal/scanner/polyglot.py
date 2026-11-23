@@ -845,9 +845,20 @@ def scan_polyglot_codebase(target_dir: Path, output_dir: Path) -> Dict[str, Any]
     }
 
     graph_json_path = output_dir / "graph.json"
+    graph_prev_path = output_dir / "graph-prev.json"
     graph_viz_js = output_dir / "graph_viz.js"
     graph_labels_js = output_dir / "graph_labels.js"
     config_js = output_dir / "config.js"
+
+    # Save compact file-level snapshot of previous graph.json for Architecture Diff (ADR-074)
+    if graph_json_path.exists():
+        try:
+            prev_raw = json.loads(graph_json_path.read_text(encoding="utf-8"))
+            prev_files = sorted({str(n.get("path") or n.get("id")) for n in (prev_raw.get("nodes") or []) if isinstance(n, dict) and (n.get("path") or n.get("id"))})
+            prev_edges = prev_raw.get("edges") or prev_raw.get("links") or []
+            graph_prev_path.write_text(json.dumps({"modules": prev_files, "edges": prev_edges}), encoding="utf-8")
+        except Exception:
+            pass
 
     with open(graph_json_path, "w", encoding="utf-8") as f:
         json.dump(graph_data, f, indent=2)

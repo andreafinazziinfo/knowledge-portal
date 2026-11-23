@@ -277,7 +277,12 @@ def compute_arch_health(graph_data: dict[str, Any]) -> dict[str, Any]:
     s_orphans = max(0, round(100 * (1.0 - min(1.0, orphan_ratio))))
     s_main_seq = max(0, round(100 * (1.0 - min(1.0, avg_dist))))
     s_modularity = max(0, min(100, round(100 - max(0, len(hubs) - 10) * 1.5)))
-    s_coupling = max(0, min(100, round(100 - (sum(1 for h in hubs if h["total_degree"] >= 20) * 6))))
+    # ADR-074: Distinguish Stable Core (high in, low out <= 2) from true High Fan-Out / God-Objects
+    bad_coupling_count = sum(
+        1 for h in hubs
+        if h["out_degree"] >= 15 or (h["in_degree"] >= 8 and h["out_degree"] >= 8)
+    )
+    s_coupling = max(0, min(100, round(100 - bad_coupling_count * 8)))
 
     score = round(
         s_cycles * 0.28 + s_layers * 0.22 + s_orphans * 0.15 + s_main_seq * 0.15 + s_modularity * 0.10 + s_coupling * 0.10
@@ -353,4 +358,91 @@ def generate_arch_health(data_dir: Path, project_dir: Path | None = None) -> dic
     data_dir.mkdir(parents=True, exist_ok=True)
     out_file = data_dir / "arch-health.json"
     out_file.write_text(json.dumps(report, indent=2), encoding="utf-8")
+    generate_arch_diff(data_dir)
     return report
+
+
+def generate_arch_diff(data_dir: Path) -> dict[str, Any]:
+    """Compare graph-prev.json vs graph.json + arch-health-history.json and write arch-diff.json (ADR-074)."""
+    data_dir = Path(data_dir)
+    curr_path = data_dir / "graph.json"
+    prev_path = data_dir / "graph-prev.json"
+    hist_path = data_dir / "arch-health-history.json"
+
+    curr_mods: set[str] = set()
+    curr_edges: set[tuple[str, str]] = set()
+    if curr_path.exists():
+        try:
+            g = json.loads(curr_path.read_text(encoding="utf-8"))
+            for n in g.get("nodes") or []:
+                if isinstance(n, dict):
+                    p = str(n.get("path") or n.get("id") or "").replace("\\", "/")
+                    if p and not _is_denied(p):
+                        curr_mods.add(p)
+            for e in (g.get("edges") or g.get("links") or []):
+                if isinstance(e, dict):
+                    s = str(e.get("source", "")).replace("\\", "/")
+                    t = str(e.get("target", "")).replace("\\", "/")
+                    if s and t and s != t and not _is_denied(s) and not _is_denied(t):
+                        curr_edges.add((s, t))
+        except Exception:
+            pass
+
+    has_prev = prev_path.exists()
+    prev_mods: set[str] = set()
+    prev_edges: set[tuple[str, str]] = set()
+    if has_prev:
+        try:
+            pg = json.loads(prev_path.read_text(encoding="utf-8"))
+            prev_mods = {str(m).replace("\\", "/") for m in (pg.get("modules") or []) if m and not _is_denied(str(m))}
+            for e in (pg.get("edges") or []):
+                if isinstance(e, dict):
+                    s = str(e.get("source", "")).replace("\\", "/")
+                    t = str(e.get("target", "")).replace("\\", "/")
+                    if s and t and s != t:
+                        prev_edges.add((s, t))
+        except Exception:
+            has_prev = False
+
+    history: list[dict[str, Any]] = []
+    if hist_path.exists():
+        try:
+            loaded = json.loads(hist_path.read_text(encoding="utf-8"))
+            if isinstance(loaded, list):
+                history = loaded
+        except Exception:
+            pass
+
+    score_delta = 0
+    cycle_delta = 0
+    if len(history) >= 2:
+        score_delta = int(history[-1].get("health_score", 0)) - int(history[-2].get("health_score", 0))
+        cycle_delta = int(history[-1].get("cycle_count", 0)) - int(history[-2].get("cycle_count", 0))
+
+    added_mods = sorted(curr_mods - prev_mods)[:80] if has_prev else []
+    removed_mods = sorted(prev_mods - curr_mods)[:80] if has_prev else []
+    added_edges = [{"source": s, "target": t} for s, t in sorted(curr_edges - prev_edges)[:80]] if has_prev else []
+    removed_edges = [{"source": s, "target": t} for s, t in sorted(prev_edges - curr_edges)[:80]] if has_prev else []
+
+    diff_data = {
+        "generated_at": time.time(),
+        "has_previous_snapshot": has_prev,
+        "summary": {
+            "current_modules": len(curr_mods),
+            "current_edges": len(curr_edges),
+            "added_modules": len(curr_mods - prev_mods) if has_prev else 0,
+            "removed_modules": len(prev_mods - curr_mods) if has_prev else 0,
+            "added_edges": len(curr_edges - prev_edges) if has_prev else 0,
+            "removed_edges": len(prev_edges - curr_edges) if has_prev else 0,
+            "score_delta": score_delta,
+            "cycle_delta": cycle_delta,
+        },
+        "added_modules": added_mods,
+        "removed_modules": removed_mods,
+        "added_edges": added_edges,
+        "removed_edges": removed_edges,
+        "history": history,
+    }
+    out_diff = data_dir / "arch-diff.json"
+    out_diff.write_text(json.dumps(diff_data, indent=2), encoding="utf-8")
+    return diff_data

@@ -331,13 +331,13 @@ Please ensure all tests and `verify_sanitization.py` pass before opening PRs.
 
 This project is licensed under the **Apache License, Version 2.0**. See the [LICENSE](LICENSE) file for details.
 
-## 🧭 Unified Graph Studio (18 Modes), Health & Audit Center, AI Intelligence & Code Mode MCP (ADR-069 / 070 / 071 / 072 / 073)
+## 🧭 Unified Graph Studio (20 Modes), Health & Audit Center, AI Intelligence & Code Mode MCP (ADR-069 – ADR-074)
 
-- **Unified Graph Studio (`views/graph-studio.html`)**: Consolidates **18 zero-dependency interactive visualizations** into a single 60 FPS studio shell with clean WebGL disposal:
+- **Unified Graph Studio (`views/graph-studio.html`)**: Consolidates **20 zero-dependency interactive visualizations** into a single 60 FPS studio shell with clean WebGL disposal:
   - *Network*: `2D Graph`, `3D Sphere`, `Particle Flow` (60 FPS white particles), `Chord Matrix`, `Edge Bundling`, `Arc Diagram` (backward cycle detector), `Hive Plot` (deterministic 3-axis)
   - *Arch*: `2D Canvas`, `3D Z-Planes` (60 FPS white particles), `CodeCity 3D` (isometric buildings with district titles), `Sankey Flow` (clickable layer drawer)
-  - *Hierarchy*: `Tree` (Horizontal/Vertical toggle + branch colors), `Treemap`, `Sunburst` (20x zoom), `Circle Pack`, `Icicle / Flamegraph`, `3D Tree`
-  - *Audit*: Quick jump to `Arch Health`
+  - *Hierarchy*: `Tree` (Horizontal/Vertical toggle + branch colors), `Treemap`, `Sunburst` (20x zoom), `Circle Pack`, `Icicle / Flamegraph`, `Radial Tree` (360° tidy tree), `3D Tree`
+  - *Audit*: `Arch Health` & `Arch Diff` (snapshot evolution viewer via `graph-prev.json` & `/api/arch-diff`)
 - **Dedicated 8-Pillar Health & Audit Center (`views/arch-health.html`)**: Promoted to top-level navigation with 6 diagnostic tabs — File-level Tarjan SCC cycles, Robert C. Martin Main Sequence ($I$ vs $A$), Domain DSM Heatmap, 6-Axis Radar, AST McCabe/Cognitive Complexity & Maintainability Index, Git Crime Scene (90d Churn Hotspots, Hotspot Bubble Map & Temporal Coupling), 4-Axis Parallel Coordinates, Coverage Report ingestion (`coverage.xml` / `lcov.info`), SQL/Asset Bloat, DB Health, AI Readiness Score, Historical Trend (`arch-health-history.json`), and ROI-prioritized Fix Queue (click any file to open directly in Reader).
 - **Full-Project Sidebar & Specialist Visuals**: `📚 Docs | 💻 Source Code` sidebar toggle (`/api/tree?scope=docs|code`, P4 Gate enforced), `ADR Chronological Timeline`, `24h Worker Schedule Gantt`, `Bipartite Store ↔ View Flow`, and universal `? Guida & AI` overlay (`Copy AI Context Pack`, `/llms.txt`, inline `Blast Radius`).
 - **AI Intelligence Endpoints & Generators**:

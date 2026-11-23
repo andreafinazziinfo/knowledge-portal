@@ -1,0 +1,123 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Architecture Diff &amp; Evolution Viewer</title>
+  <link rel="stylesheet" href="portal-theme.css?v=fp3">
+  <script src="../assets/d3.v7.min.js"></script>
+  <style>
+    * { box-sizing: border-box; }
+    html, body { margin: 0; padding: 0; background: #0f0f0f; color: #f3f4f6; font-family: 'Inter', system-ui, sans-serif; min-height: 100%; }
+    .ad-wrap { max-width: 1320px; margin: 0 auto; padding: 20px 24px 60px; }
+    .ad-head { border-bottom: 1px solid #262626; padding-bottom: 14px; margin-bottom: 18px; }
+    .ad-head h1 { margin: 0; font-size: 20px; color: #fff; }
+    .ad-head p { margin: 4px 0 0; font-size: 12px; color: #9ca3af; }
+    .ad-kpis { display: grid; grid-template-columns: repeat(auto-fit, minmax(155px, 1fr)); gap: 12px; margin-bottom: 18px; }
+    .ad-kpi { background: #191919; border: 1px solid #262626; border-radius: 10px; padding: 13px 15px; }
+    .ad-val { font-size: 22px; font-weight: 700; color: #fff; }
+    .ad-lbl { font-size: 10px; text-transform: uppercase; letter-spacing: 0.06em; color: #9ca3af; margin-top: 4px; }
+    .ad-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(340px, 1fr)); gap: 16px; margin-bottom: 16px; }
+    .ad-card { background: #191919; border: 1px solid #262626; border-radius: 10px; padding: 16px; }
+    .ad-card h2 { margin: 0 0 10px; font-size: 12px; text-transform: uppercase; letter-spacing: 0.06em; color: #e5e7eb; display: flex; justify-content: space-between; }
+    .ad-list { max-height: 280px; overflow-y: auto; display: flex; flex-direction: column; gap: 6px; }
+    .ad-item { font-size: 12px; padding: 7px 10px; border-radius: 6px; background: #141414; border: 1px solid #262626; word-break: break-all; cursor: pointer; }
+    .ad-add { border-left: 3px solid #34d399; color: #a7f3d0; }
+    .ad-rem { border-left: 3px solid #ef4444; color: #fecaca; }
+    .ad-empty { color: #737373; font-size: 12px; }
+  </style>
+</head>
+<body>
+  <div class="ad-wrap">
+    <div class="ad-head">
+      <h1>Architecture Diff &amp; Evolution Viewer</h1>
+      <p>Compares consecutive portal scans (<code>graph-prev.json</code> vs <code>graph.json</code>) and tracks Health Score &amp; Cycle evolution over time.</p>
+    </div>
+    <div class="ad-kpis" id="ad-kpis"></div>
+    <section class="ad-card" style="margin-bottom:16px;">
+      <h2>Health Score &amp; Cycles Evolution Timeline <span id="ad-hist-cnt" style="color:#9ca3af;">0 scans</span></h2>
+      <div id="ad-chart" style="width:100%;min-height:210px;display:flex;align-items:center;justify-content:center;"></div>
+    </section>
+    <div class="ad-grid">
+      <section class="ad-card">
+        <h2>Added Modules <span id="cnt-am" style="color:#34d399;">0</span></h2>
+        <div class="ad-list" id="list-am"></div>
+      </section>
+      <section class="ad-card">
+        <h2>Removed Modules <span id="cnt-rm" style="color:#ef4444;">0</span></h2>
+        <div class="ad-list" id="list-rm"></div>
+      </section>
+      <section class="ad-card">
+        <h2>Added Dependencies <span id="cnt-ae" style="color:#34d399;">0</span></h2>
+        <div class="ad-list" id="list-ae"></div>
+      </section>
+      <section class="ad-card">
+        <h2>Removed Dependencies <span id="cnt-re" style="color:#ef4444;">0</span></h2>
+        <div class="ad-list" id="list-re"></div>
+      </section>
+    </div>
+  </div>
+  <script src="portal-ui.js?v=fp4"></script>
+  <script src="live-reload.js"></script>
+  <script>
+  (async function () {
+    let data = null;
+    for (const url of ['/api/arch-diff', '../data/arch-diff.json']) {
+      try {
+        const r = await fetch(url);
+        if (r.ok) { const j = await r.json(); if (j && j.summary) { data = j; break; } }
+      } catch (_) {}
+    }
+    if (!data) {
+      document.getElementById('ad-kpis').innerHTML = '<div class="ad-empty">No diff snapshot available yet.</div>';
+      return;
+    }
+    const s = data.summary || {};
+    const fmtDelta = v => (v > 0 ? `+${v}` : `${v}`);
+    const kpis = [
+      { lbl: 'Current Modules', val: (s.current_modules || 0).toLocaleString() },
+      { lbl: 'Current Edges', val: (s.current_edges || 0).toLocaleString() },
+      { lbl: 'Added Modules', val: `+${s.added_modules || 0}`, col: '#34d399' },
+      { lbl: 'Removed Modules', val: `-${s.removed_modules || 0}`, col: '#ef4444' },
+      { lbl: 'Δ Health Score', val: fmtDelta(s.score_delta || 0), col: (s.score_delta || 0) >= 0 ? '#34d399' : '#ef4444' },
+      { lbl: 'Δ Cycles', val: fmtDelta(s.cycle_delta || 0), col: (s.cycle_delta || 0) <= 0 ? '#34d399' : '#ef4444' },
+    ];
+    document.getElementById('ad-kpis').innerHTML = kpis.map(k =>
+      `<div class="ad-kpi"><div class="ad-val" style="${k.col ? 'color:' + k.col : ''}">${k.val}</div><div class="ad-lbl">${k.lbl}</div></div>`
+    ).join('');
+
+    const hist = data.history || [];
+    document.getElementById('ad-hist-cnt').textContent = `${hist.length} scans`;
+    if (typeof d3 !== 'undefined' && hist.length) {
+      const W = 760, H = 200, pad = 36;
+      const svg = d3.select('#ad-chart').append('svg').attr('width', '100%').attr('viewBox', `0 0 ${W} ${H}`);
+      const x = d3.scaleLinear().domain([0, Math.max(1, hist.length - 1)]).range([pad, W - 20]);
+      const y = d3.scaleLinear().domain([0, 100]).range([H - pad, 16]);
+      svg.append('g').attr('transform', `translate(${pad},0)`).call(d3.axisLeft(y).ticks(4)).attr('color', '#737373');
+      const area = d3.area().x((_, i) => x(i)).y0(H - pad).y1(d => y(d.health_score || 0));
+      svg.append('path').datum(hist).attr('fill', 'rgba(52,211,153,0.16)').attr('d', area);
+      const line = d3.line().x((_, i) => x(i)).y(d => y(d.health_score || 0));
+      svg.append('path').datum(hist).attr('fill', 'none').attr('stroke', '#34d399').attr('stroke-width', 2.2).attr('d', line);
+      svg.selectAll('circle').data(hist).join('circle').attr('cx', (_, i) => x(i)).attr('cy', d => y(d.health_score || 0))
+        .attr('r', 4.5).attr('fill', '#fff').append('title').text(d => `Score: ${d.health_score}/100 (${d.grade}) · Cycles: ${d.cycle_count} · Edges: ${d.total_edges}`);
+    }
+
+    function openFile(p) { try { window.parent.postMessage({ action: 'openFile', path: p }, '*'); } catch (_) {} }
+    window.__adOpen = openFile;
+
+    const am = data.added_modules || [], rm = data.removed_modules || [];
+    const ae = data.added_edges || [], re = data.removed_edges || [];
+    document.getElementById('cnt-am').textContent = am.length;
+    document.getElementById('cnt-rm').textContent = rm.length;
+    document.getElementById('cnt-ae').textContent = ae.length;
+    document.getElementById('cnt-re').textContent = re.length;
+
+    const noPrevMsg = data.has_previous_snapshot ? 'No changes detected.' : 'Baseline snapshot recorded — run a second scan to see module/edge diffs.';
+    document.getElementById('list-am').innerHTML = am.length ? am.map(m => `<div class="ad-item ad-add" onclick="__adOpen('${m.replace(/'/g,"\\'")}')">+ ${m}</div>`).join('') : `<div class="ad-empty">${noPrevMsg}</div>`;
+    document.getElementById('list-rm').innerHTML = rm.length ? rm.map(m => `<div class="ad-item ad-rem">- ${m}</div>`).join('') : `<div class="ad-empty">${noPrevMsg}</div>`;
+    document.getElementById('list-ae').innerHTML = ae.length ? ae.map(e => `<div class="ad-item ad-add" onclick="__adOpen('${e.source.replace(/'/g,"\\'")}')">+ ${e.source} → ${e.target}</div>`).join('') : `<div class="ad-empty">${noPrevMsg}</div>`;
+    document.getElementById('list-re').innerHTML = re.length ? re.map(e => `<div class="ad-item ad-rem">- ${e.source} → ${e.target}</div>`).join('') : `<div class="ad-empty">${noPrevMsg}</div>`;
+  })();
+  </script>
+</body>
+</html>
