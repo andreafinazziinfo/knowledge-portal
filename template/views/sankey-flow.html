@@ -27,10 +27,15 @@
 <body>
   <div id="sk-hud">
     <strong>Sankey / Alluvial Architecture Flow</strong><br>
-    <span style="font-size:11px; color:#9ca3af;">Cross-layer dependency volume across Presentation → API → Domain → Workers → Data</span>
+    <span style="font-size:11px; color:#9ca3af;">Click any layer bar or flow ribbon to inspect exact modules &amp; cross-layer imports</span>
   </div>
   <div id="sk-stage"></div>
   <div id="sk-tip"></div>
+  <aside id="sk-drawer" style="display:none;position:fixed;top:14px;right:14px;width:300px;max-height:calc(100vh - 28px);overflow-y:auto;background:rgba(20,20,20,0.95);border:1px solid #333;border-radius:10px;padding:12px;z-index:35;font-size:11.5px;color:#e5e7eb;">
+    <button onclick="document.getElementById('sk-drawer').style.display='none'" style="float:right;background:none;border:none;color:#9ca3af;cursor:pointer;font-size:14px;">✕</button>
+    <h3 id="sk-dr-title" style="margin:0 0 8px 0;font-size:13px;color:#fff;">Layer</h3>
+    <div id="sk-dr-body" style="display:flex;flex-direction:column;gap:5px;"></div>
+  </aside>
   <script src="portal-ui.js?v=fp4"></script>
   <script src="live-reload.js"></script>
   <script>
@@ -50,6 +55,7 @@
     const raw = window.GRAPH_VIZ || window.GRAPH_DATA || { nodes: [], edges: [] };
     const idToL = new Map(), pathToL = new Map(), stemToL = new Map();
     const counts = [0, 0, 0, 0, 0];
+    const layerFiles = [[], [], [], [], []];
     const seenFiles = new Set();
     for (const n of (raw.nodes || [])) {
       const p = String(n.path || n.label || n.id).replace(/\\/g, '/');
@@ -58,7 +64,7 @@
       const low = p.toLowerCase();
       pathToL.set(low, lid);
       stemToL.set(low.replace(/\.[^/.]+$/, ''), lid);
-      if (!seenFiles.has(low)) { seenFiles.add(low); counts[lid]++; }
+      if (!seenFiles.has(low)) { seenFiles.add(low); counts[lid]++; layerFiles[lid].push(p); }
     }
     function resL(r) {
       const s = String(r || '');
@@ -114,8 +120,15 @@
       }
     }
 
-    rects.forEach(r => {
-      svg.append('rect').attr('x', r.x).attr('y', r.y).attr('width', nodeW).attr('height', r.h).attr('rx', 6).attr('fill', r.color);
+    rects.forEach((r, idx) => {
+      svg.append('rect').attr('x', r.x).attr('y', r.y).attr('width', nodeW).attr('height', r.h).attr('rx', 6).attr('fill', r.color)
+        .style('cursor', 'pointer')
+        .on('click', () => {
+          document.getElementById('sk-dr-title').textContent = `${r.name} (${r.count} files)`;
+          document.getElementById('sk-dr-body').innerHTML = layerFiles[idx].slice(0, 40)
+            .map(f => `<div style="padding:4px 7px;background:#141414;border:1px solid #262626;border-radius:5px;word-break:break-all;">${f}</div>`).join('');
+          document.getElementById('sk-drawer').style.display = 'block';
+        });
       svg.append('text').attr('x', r.x + nodeW / 2).attr('y', r.y - 10).attr('text-anchor', 'middle').attr('fill', '#ffffff').attr('font-size', 12).attr('font-weight', 700).text(r.name);
       svg.append('text').attr('x', r.x + nodeW / 2).attr('y', r.y + r.h + 16).attr('text-anchor', 'middle').attr('fill', '#9ca3af').attr('font-size', 11).text(`${r.count} files`);
     });

@@ -37,6 +37,7 @@
     <button class="btn active" id="mode-tree" onclick="setTreeMode('tree')">Tree</button>
     <button class="btn" id="mode-treemap" onclick="setTreeMode('treemap')">Treemap</button>
     <button class="btn" id="mode-sunburst" onclick="setTreeMode('sunburst')">Sunburst</button>
+    <button class="btn" id="btn-orient" onclick="toggleTreeOrientation()">Vertical</button>
   </div>
 </div>
 <div id="legend"><h3>Communities</h3><div id="legend-list">Loading...</div></div>
@@ -140,31 +141,51 @@
     const width = window.innerWidth;
     const height = window.innerHeight;
 
+    let treeVertical = false;
+    window.toggleTreeOrientation = function () {
+      treeVertical = !treeVertical;
+      const b = document.getElementById('btn-orient');
+      if (b) b.textContent = treeVertical ? 'Horizontal' : 'Vertical';
+      renderTreeMode();
+    };
+
     function renderTreeMode() {
       container.selectAll("*").remove();
-      document.getElementById('hud-label').textContent = '🌳 D3 Hierarchical Directory Tree';
-      const treeLayout = d3.tree().nodeSize([24, 220]);
+      document.getElementById('hud-label').textContent = treeVertical
+        ? '🌳 D3 Directory Tree (Vertical)'
+        : '🌳 D3 Directory Tree (Horizontal)';
+      const bOrient = document.getElementById('btn-orient');
+      if (bOrient) bOrient.style.display = 'inline-flex';
+      const treeLayout = treeVertical ? d3.tree().nodeSize([34, 150]) : d3.tree().nodeSize([22, 220]);
       const root = d3.hierarchy(treeData);
       treeLayout(root);
 
-      svg.call(zoom.transform, d3.zoomIdentity.translate(80, height / 2).scale(0.8));
+      if (treeVertical) {
+        svg.call(zoom.transform, d3.zoomIdentity.translate(width / 2, 70).scale(0.65));
+      } else {
+        svg.call(zoom.transform, d3.zoomIdentity.translate(80, height / 2).scale(0.8));
+      }
 
       container.selectAll(".link")
         .data(root.links())
         .enter().append("path")
         .attr("class", "link")
-        .attr("d", d3.linkHorizontal().x(d => d.y).y(d => d.x));
+        .attr("stroke", d => getBranchColor(d.target))
+        .attr("stroke-opacity", 0.45)
+        .attr("d", treeVertical
+          ? d3.linkVertical().x(d => d.x).y(d => d.y)
+          : d3.linkHorizontal().x(d => d.y).y(d => d.x));
 
       const node = container.selectAll(".node")
         .data(root.descendants())
         .enter().append("g")
         .attr("class", d => "node " + (d.children ? "folder" : "leaf"))
-        .attr("transform", d => `translate(${d.y},${d.x})`);
+        .attr("transform", d => treeVertical ? `translate(${d.x},${d.y})` : `translate(${d.y},${d.x})`);
 
       node.append("circle")
-        .attr("r", d => d.children ? 5 : 3.5)
-        .attr("fill", d => d.children ? "#ececec" : (d.data.color || "#b4b4b4"))
-        .attr("stroke", "rgba(255,255,255,0.28)")
+        .attr("r", d => d.children ? 5.5 : 3.8)
+        .attr("fill", d => getBranchColor(d))
+        .attr("stroke", "rgba(255,255,255,0.45)")
         .on("click", (e, d) => {
           if (d.data.path && window.parent && typeof window.parent.loadFile === 'function') {
             window.parent.loadFile(d.data.path);
@@ -172,9 +193,10 @@
         });
 
       node.append("text")
-        .attr("dy", "0.32em")
-        .attr("x", d => d.children ? -8 : 8)
-        .attr("text-anchor", d => d.children ? "end" : "start")
+        .attr("dy", treeVertical ? (d => d.children ? "-0.8em" : "1.1em") : "0.32em")
+        .attr("x", treeVertical ? 0 : (d => d.children ? -8 : 8))
+        .attr("text-anchor", treeVertical ? "middle" : (d => d.children ? "end" : "start"))
+        .attr("fill", d => d.children ? "#ffffff" : getBranchColor(d))
         .text(d => d.data.name.replace(".md", ""))
         .on("click", (e, d) => {
           if (d.data.path && window.parent && typeof window.parent.loadFile === 'function') {

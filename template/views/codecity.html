@@ -85,6 +85,15 @@
     // Painter's algorithm sort (back to front)
     buildings.sort((a, b) => (a.x0 + a.y0) - (b.x0 + b.y0));
 
+    // District labels (centroid + top height per district)
+    const districtBoxes = (root.children || []).map(d => ({
+      name: d.data.name,
+      cx: (d.x0 + d.x1) / 2 - CITY / 2,
+      cy: (d.y0 + d.y1) / 2 - CITY / 2,
+      count: d.leaves().length,
+      color: (d.leaves()[0] && d.leaves()[0].data.color) || '#38bdf8',
+    }));
+
     const canvas = document.getElementById('cc-canvas');
     const ctx = canvas.getContext('2d');
     const tip = document.getElementById('cc-tip');
@@ -143,6 +152,23 @@
         ctx.strokeStyle = 'rgba(0,0,0,0.35)'; ctx.lineWidth = 0.6; ctx.stroke();
 
         screenRects.push({ b, cx: (t00.sx + t11.sx) / 2, cy: (t00.sy + p11.sy) / 2, r: Math.max(6, (b.w + b.l) * 0.3 * zoom) });
+      }
+
+      // Draw crisp district titles floating above each neighborhood
+      ctx.font = '600 11px Inter, system-ui, sans-serif';
+      ctx.textAlign = 'center';
+      for (const db of districtBoxes) {
+        if (db.count < 3 && districtBoxes.length > 12) continue;
+        const pt = iso(db.cx, db.cy, 105);
+        const text = `${db.name} (${db.count})`;
+        const tw = ctx.measureText(text).width + 12;
+        ctx.fillStyle = 'rgba(15, 15, 15, 0.82)';
+        ctx.fillRect(pt.sx - tw / 2, pt.sy - 12, tw, 18);
+        ctx.strokeStyle = db.color;
+        ctx.lineWidth = 1;
+        ctx.strokeRect(pt.sx - tw / 2, pt.sy - 12, tw, 18);
+        ctx.fillStyle = '#ffffff';
+        ctx.fillText(text, pt.sx, pt.sy + 1);
       }
     }
 

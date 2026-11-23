@@ -31,6 +31,7 @@
   <script src="live-reload.js"></script>
   <script>
   (function () {
+    const PALETTE = ['#38bdf8','#34d399','#fbbf24','#f87171','#a78bfa','#22d3ee','#f472b6','#a3e635','#fb923c','#818cf8','#2dd4bf','#facc15','#fb7185','#c084fc','#60a5fa'];
     const raw = window.GRAPH_VIZ || window.GRAPH_DATA || { nodes: [], edges: [] };
     const fileMap = new Map();
     const idToFile = new Map(), pathToFile = new Map(), stemToFile = new Map();
@@ -39,7 +40,8 @@
       const key = p.includes('/') || p.includes('.') ? p : String(n.id);
       if (!fileMap.has(key)) {
         const parts = p.split('/').filter(Boolean);
-        fileMap.set(key, { id: key, name: parts[parts.length - 1] || key, group: parts.length >= 2 ? parts.slice(0, 2).join('/') : 'root', deg: 0 });
+        const cid = Number.isFinite(Number(n.community)) ? Number(n.community) : 0;
+        fileMap.set(key, { id: key, name: parts[parts.length - 1] || key, group: parts.length >= 2 ? parts.slice(0, 2).join('/') : 'root', color: n.color || PALETTE[Math.abs(cid) % PALETTE.length], deg: 0 });
       }
       idToFile.set(String(n.id), key);
       const low = p.toLowerCase();
@@ -83,26 +85,29 @@
 
     const linkSel = svg.append('g').attr('fill', 'none').selectAll('path').data(bundledLinks).join('path')
       .attr('d', d => line(d.source.path(d.target)))
-      .attr('stroke', 'rgba(255, 255, 255, 0.14)').attr('stroke-width', 1);
+      .attr('stroke', d => d.source.data.color || '#38bdf8').attr('stroke-opacity', 0.28).attr('stroke-width', 1.1);
 
     const nodeSel = svg.append('g').selectAll('g').data(root.leaves()).join('g')
       .attr('transform', d => `rotate(${d.x * 180 / Math.PI - 90}) translate(${d.y},0)`);
 
+    nodeSel.append('circle').attr('r', 2.8).attr('fill', d => d.data.color || '#38bdf8');
+
     nodeSel.append('text')
-      .attr('dy', '0.31em').attr('x', d => d.x < Math.PI ? 6 : -6)
+      .attr('dy', '0.31em').attr('x', d => d.x < Math.PI ? 7 : -7)
       .attr('text-anchor', d => d.x < Math.PI ? 'start' : 'end')
       .attr('transform', d => d.x >= Math.PI ? 'rotate(180)' : null)
-      .attr('fill', '#b4b4b4').attr('font-size', '9.5px').style('cursor', 'pointer')
+      .attr('fill', d => d.data.color || '#d4d4d8').attr('font-size', '9.5px').style('cursor', 'pointer')
       .text(d => d.data.name.length > 20 ? d.data.name.slice(0, 19) + '…' : d.data.name)
       .on('mouseenter', function (_, d) {
         d3.select(this).attr('fill', '#ffffff').attr('font-weight', '700');
         linkSel
-          .attr('stroke', l => l.source === d ? '#38bdf8' : (l.target === d ? '#34d399' : 'rgba(255,255,255,0.04)'))
-          .attr('stroke-width', l => (l.source === d || l.target === d) ? 2.0 : 0.8);
+          .attr('stroke', l => l.source === d ? '#38bdf8' : (l.target === d ? '#34d399' : '#ffffff'))
+          .attr('stroke-opacity', l => (l.source === d || l.target === d) ? 0.92 : 0.03)
+          .attr('stroke-width', l => (l.source === d || l.target === d) ? 2.2 : 0.7);
       })
-      .on('mouseleave', function () {
-        d3.select(this).attr('fill', '#b4b4b4').attr('font-weight', '400');
-        linkSel.attr('stroke', 'rgba(255,255,255,0.14)').attr('stroke-width', 1);
+      .on('mouseleave', function (_, d) {
+        d3.select(this).attr('fill', d.data.color || '#d4d4d8').attr('font-weight', '400');
+        linkSel.attr('stroke', l => l.source.data.color || '#38bdf8').attr('stroke-opacity', 0.28).attr('stroke-width', 1.1);
       });
   })();
   </script>
