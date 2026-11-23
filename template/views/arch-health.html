@@ -177,6 +177,11 @@
           <div class="ah-list" id="list-bus-dom"></div>
         </section>
       </div>
+      <section class="ah-card" style="margin-bottom:18px;">
+        <h2>Ownership &amp; Conway's Law Map (CODEOWNERS + 180d Git) <span class="ah-badge" id="cnt-own">0 domains</span></h2>
+        <div class="ah-hint">Chi mantiene ogni dominio, Bus Factor e alert di Conway friction (single-author bottleneck o multi-team friction).</div>
+        <div class="ah-list" id="list-own"></div>
+      </section>
       <section class="ah-card">
         <h2>Most Complex Files (McCabe Cyclomatic, Cognitive &amp; Maintainability Index) <span class="ah-badge" id="cnt-cc">0</span></h2>
         <div class="ah-list" id="list-complex"></div>
@@ -666,6 +671,23 @@
     document.getElementById('list-bus-dom').innerHTML = busDoms.length
       ? busDoms.map(b => `<div class="ah-row"><strong>${b.domain}</strong> — ${b.single_author_hotspots} single-author hotspot(s) (max ${b.max_commits} commits)</div>`).join('')
       : '<div class="ah-empty">No single-author domain hotspots detected in last 90d.</div>';
+
+    // Ownership & Conway's Law Map (ADR-077)
+    (async function loadOwnership() {
+      let ow = null;
+      for (const u of ['/api/ownership', '../data/ownership.json', 'data/ownership.json']) {
+        try { const r = await fetch(u); if (r.ok) { const j = await r.json(); if (j && Array.isArray(j.domains)) { ow = j; break; } } } catch (_) {}
+      }
+      const doms = (ow && ow.domains) || [];
+      document.getElementById('cnt-own').textContent = `${doms.length} domains${ow && ow.codeowners_file ? ' · CODEOWNERS' : ''}`;
+      document.getElementById('list-own').innerHTML = doms.length
+        ? doms.map(d => {
+            const stCol = d.conway_status === 'Healthy' ? '#34d399' : (d.conway_status.includes('Single') ? '#f59e0b' : '#ef4444');
+            const owners = (d.codeowners && d.codeowners.length) ? d.codeowners.join(', ') : ((d.top_authors || []).slice(0, 2).map(a => `${a.author} (${a.share_pct}%)`).join(', ') || 'n/a');
+            return `<div class="ah-row"><span class="ah-prio" style="background:${stCol};color:#0f0f0f;">${d.conway_status}</span><strong>${d.domain}</strong> — Bus Factor: <strong>${d.bus_factor}</strong> · Authors: ${d.unique_authors} · Touches: ${d.total_touches} · Owner(s): <code>${owners}</code></div>`;
+          }).join('')
+        : '<div class="ah-empty">No ownership/git history data available yet.</div>';
+    })();
 
     // Enrich temporal coupling with coupling ratio % if available
     const tcEnriched = csRisk.temporal_coupling_enriched || [];

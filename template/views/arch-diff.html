@@ -29,10 +29,29 @@
 </head>
 <body>
   <div class="ad-wrap">
-    <div class="ad-head">
-      <h1>Architecture Diff &amp; Evolution Viewer</h1>
-      <p>Compares consecutive portal scans (<code>graph-prev.json</code> vs <code>graph.json</code>) and tracks Health Score &amp; Cycle evolution over time.</p>
+    <div class="ad-head" style="display:flex;justify-content:space-between;align-items:flex-end;gap:12px;flex-wrap:wrap;">
+      <div>
+        <h1>Architecture Diff, Git-Ref &amp; Doc-Drift Evolution</h1>
+        <p>Compares consecutive portal scans (<code>graph-prev.json</code> vs <code>graph.json</code>) or any Git branch/tag (<code>base..HEAD</code>) with Doc-Drift detection.</p>
+      </div>
+      <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;">
+        <input id="git-ref-inp" type="text" value="main" placeholder="Base ref (main, HEAD~5, tag)..." style="background:#141414;border:1px solid #333;color:#fff;padding:6px 10px;border-radius:6px;font-size:12px;width:190px;">
+        <button id="git-ref-btn" onclick="runGitRefDiff()" style="background:#fff;color:#0f0f0f;border:none;border-radius:6px;padding:6px 12px;font-size:12px;font-weight:700;cursor:pointer;">Compare Git Ref</button>
+      </div>
     </div>
+    <section class="ad-card" id="git-ref-panel" style="margin-bottom:16px;display:none;">
+      <h2>Git-Ref Diff &amp; Living Doc-Drift (<span id="gr-label">main..HEAD</span>) <span id="gr-cnt" style="color:#38bdf8;">0 files</span></h2>
+      <div class="ad-grid" style="margin-bottom:0;">
+        <div>
+          <div style="font-size:11px;color:#9ca3af;margin-bottom:6px;text-transform:uppercase;">Changed Code Files</div>
+          <div class="ad-list" id="gr-changed"></div>
+        </div>
+        <div>
+          <div style="font-size:11px;color:#9ca3af;margin-bottom:6px;text-transform:uppercase;">Candidate Stale Docs &amp; Impacted Tests</div>
+          <div class="ad-list" id="gr-stale"></div>
+        </div>
+      </div>
+    </section>
     <div class="ad-kpis" id="ad-kpis"></div>
     <section class="ad-card" style="margin-bottom:16px;">
       <h2>Health Score &amp; Cycles Evolution Timeline <span id="ad-hist-cnt" style="color:#9ca3af;">0 scans</span></h2>
@@ -117,6 +136,32 @@
     document.getElementById('list-rm').innerHTML = rm.length ? rm.map(m => `<div class="ad-item ad-rem">- ${m}</div>`).join('') : `<div class="ad-empty">${noPrevMsg}</div>`;
     document.getElementById('list-ae').innerHTML = ae.length ? ae.map(e => `<div class="ad-item ad-add" onclick="__adOpen('${e.source.replace(/'/g,"\\'")}')">+ ${e.source} → ${e.target}</div>`).join('') : `<div class="ad-empty">${noPrevMsg}</div>`;
     document.getElementById('list-re').innerHTML = re.length ? re.map(e => `<div class="ad-item ad-rem">- ${e.source} → ${e.target}</div>`).join('') : `<div class="ad-empty">${noPrevMsg}</div>`;
+
+    window.runGitRefDiff = async function () {
+      const ref = (document.getElementById('git-ref-inp').value || 'main').trim();
+      const panel = document.getElementById('git-ref-panel');
+      panel.style.display = 'block';
+      document.getElementById('gr-label').textContent = `${ref}..HEAD`;
+      document.getElementById('gr-changed').innerHTML = '<div class="ad-empty">Computing git diff & doc-drift...</div>';
+      document.getElementById('gr-stale').innerHTML = '';
+      try {
+        const r = await fetch(`/api/pr-context?base=${encodeURIComponent(ref)}`);
+        if (!r.ok) throw new Error('API unavailable');
+        const d = await r.json();
+        const ch = d.code_files_changed || [];
+        const st = d.stale_docs || [];
+        const ts = d.impacted_tests || [];
+        document.getElementById('gr-cnt').textContent = `${d.changed_files_count || 0} changed · ${st.length} stale docs · ${ts.length} tests`;
+        document.getElementById('gr-changed').innerHTML = ch.length
+          ? ch.map(f => `<div class="ad-item ad-add" onclick="__adOpen('${f.replace(/'/g,"\\'")}')">Δ ${f}</div>`).join('')
+          : '<div class="ad-empty">No code changes between base ref and HEAD.</div>';
+        const rightRows = st.map(s => `<div class="ad-item ad-rem" onclick="__adOpen('${s.doc.replace(/'/g,"\\'")}')">📝 Stale Doc: <strong>${s.doc}</strong> (cites ${s.referenced_changed_files.join(', ')})</div>`)
+          .concat(ts.map(t => `<div class="ad-item" onclick="__adOpen('${t.replace(/'/g,"\\'")}')">🧪 Impacted Test: <code>${t}</code></div>`));
+        document.getElementById('gr-stale').innerHTML = rightRows.length ? rightRows.join('') : '<div class="ad-empty">✅ Zero stale docs detected for this diff.</div>';
+      } catch (_) {
+        document.getElementById('gr-changed').innerHTML = '<div class="ad-empty">Git-Ref Diff requires live portal server (/api/pr-context).</div>';
+      }
+    };
   })();
   </script>
 </body>
