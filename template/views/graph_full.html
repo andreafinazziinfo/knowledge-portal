@@ -240,6 +240,11 @@
 
     renderFlow();
   });
+
+  (function() {
+    const m = new URLSearchParams(window.location.search).get('mode');
+    if (m === 'chord' && typeof setMode === 'function') setTimeout(() => setMode('chord'), 80);
+  })();
 </script>
 </body>
 </html>

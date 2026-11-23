@@ -5,12 +5,6 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Graph Studio — Unified Codebase Explorer</title>
   <link rel="stylesheet" href="portal-theme.css?v=fp3">
-  <script src="../assets/d3.v7.min.js"></script>
-  <script src="../assets/force-graph.min.js"></script>
-  <script src="../assets/3d-force-graph.min.js"></script>
-  <script src="../data/config.js"></script>
-  <script src="../data/graph_viz.js"></script>
-  <script src="../data/graph_labels.js"></script>
   <style>
     html, body {
       margin: 0;
@@ -33,9 +27,8 @@
       align-items: center;
       gap: 10px;
       padding: 8px 14px;
-      background: rgba(15, 15, 15, 0.92);
+      background: rgba(15, 15, 15, 0.96);
       border-bottom: 1px solid #262626;
-      backdrop-filter: blur(10px);
       z-index: 30;
       overflow-x: auto;
       scrollbar-width: none;
@@ -43,13 +36,13 @@
     }
     .gs-toolbar::-webkit-scrollbar { display: none; }
     .gs-brand {
-      font-size: 13px;
+      font-size: 12px;
       font-weight: 700;
-      letter-spacing: 0.04em;
+      letter-spacing: 0.05em;
       text-transform: uppercase;
       color: #ffffff;
       white-space: nowrap;
-      padding-right: 8px;
+      padding-right: 10px;
       border-right: 1px solid #2a2a2a;
     }
     .gs-group {
@@ -75,7 +68,7 @@
       color: #a3a3a3;
       border: 1px solid transparent;
       border-radius: 6px;
-      padding: 5px 9px;
+      padding: 5px 10px;
       font-size: 12px;
       font-weight: 500;
       cursor: pointer;
@@ -93,108 +86,19 @@
       border-color: #ffffff;
       font-weight: 600;
     }
-    .gs-controls {
-      display: flex;
-      align-items: center;
-      gap: 8px;
-      margin-left: auto;
-      flex-shrink: 0;
-    }
-    .gs-input, .gs-select {
-      background: #171717;
-      color: #f3f4f6;
-      border: 1px solid #2e2e2e;
-      border-radius: 6px;
-      padding: 5px 9px;
-      font-size: 12px;
-      outline: none;
-    }
-    .gs-input:focus, .gs-select:focus { border-color: #ffffff; }
-    .gs-input { width: 170px; }
-    .gs-stage-wrap {
+    .gs-stage {
       position: relative;
       flex: 1;
       width: 100%;
-      overflow: hidden;
-      background-color: #0f0f0f;
-      background-image: radial-gradient(#242424 1px, transparent 1px);
-      background-size: 22px 22px;
+      min-height: 0;
+      background: #0f0f0f;
     }
-    #gs-stage {
+    #gs-frame {
       width: 100%;
       height: 100%;
-      position: relative;
-    }
-    .gs-hud {
-      position: absolute;
-      left: 14px;
-      bottom: 14px;
-      background: rgba(20, 20, 20, 0.88);
-      border: 1px solid #2b2b2b;
-      border-radius: 8px;
-      padding: 7px 12px;
-      font-size: 11px;
-      color: #a3a3a3;
-      pointer-events: none;
-      z-index: 20;
-    }
-    .gs-hud strong { color: #ffffff; }
-    .gs-inspector {
-      position: absolute;
-      top: 14px;
-      right: 14px;
-      width: 280px;
-      max-height: calc(100% - 28px);
-      overflow-y: auto;
-      background: rgba(20, 20, 20, 0.94);
-      border: 1px solid #2e2e2e;
-      border-radius: 10px;
-      padding: 12px;
-      z-index: 25;
-      display: none;
-      font-size: 12px;
-    }
-    .gs-inspector.open { display: block; }
-    .gs-inspector h3 {
-      margin: 0 0 6px 0;
-      font-size: 14px;
-      color: #ffffff;
-      word-break: break-word;
-    }
-    .gs-meta {
-      color: #a3a3a3;
-      font-size: 11px;
-      margin-bottom: 8px;
-      word-break: break-all;
-    }
-    .gs-chips {
-      display: flex;
-      flex-wrap: wrap;
-      gap: 5px;
-      margin-top: 6px;
-    }
-    .gs-chip {
-      background: #242424;
-      border: 1px solid #333333;
-      border-radius: 5px;
-      padding: 3px 7px;
-      font-size: 11px;
-      color: #e5e5e5;
-      cursor: pointer;
-    }
-    .gs-chip:hover { border-color: #ffffff; color: #ffffff; }
-    .gs-close {
-      float: right;
-      background: none;
       border: none;
-      color: #a3a3a3;
-      cursor: pointer;
-      font-size: 14px;
-    }
-    .gs-close:hover { color: #ffffff; }
-    @media (max-width: 640px) {
-      .gs-input { width: 120px; }
-      .gs-inspector { width: calc(100% - 28px); top: auto; bottom: 14px; max-height: 45%; }
+      display: block;
+      background: #0f0f0f;
     }
   </style>
 </head>
@@ -205,16 +109,16 @@
 
       <div class="gs-group">
         <span class="gs-group-label">Network</span>
-        <button class="gs-btn" data-mode="2d-galaxy">2D Galaxy</button>
-        <button class="gs-btn" data-mode="3d-sphere">3D Sphere</button>
+        <button class="gs-btn" data-mode="graph">2D Graph</button>
+        <button class="gs-btn" data-mode="graph_3d">3D Sphere</button>
         <button class="gs-btn" data-mode="particle-flow">Particle Flow</button>
-        <button class="gs-btn" data-mode="chord">Chord</button>
+        <button class="gs-btn" data-mode="chord">Chord Matrix</button>
       </div>
 
       <div class="gs-group">
-        <span class="gs-group-label">Arch</span>
-        <button class="gs-btn" data-mode="2d-board">2D Board</button>
-        <button class="gs-btn" data-mode="3d-zplanes">3D Z-Planes</button>
+        <span class="gs-group-label">Canvas</span>
+        <button class="gs-btn" data-mode="canvas">2D Canvas</button>
+        <button class="gs-btn" data-mode="canvas_3d">3D Z-Planes</button>
       </div>
 
       <div class="gs-group">
@@ -222,464 +126,85 @@
         <button class="gs-btn" data-mode="tree">Tree</button>
         <button class="gs-btn" data-mode="treemap">Treemap</button>
         <button class="gs-btn" data-mode="sunburst">Sunburst</button>
-        <button class="gs-btn" data-mode="3d-tree">3D Tree</button>
-      </div>
-
-      <div class="gs-controls">
-        <input id="gs-search" class="gs-input" type="search" placeholder="Filter symbol / path..." aria-label="Filter nodes">
-        <select id="gs-community" class="gs-select" aria-label="Filter community">
-          <option value="all">All Communities</option>
-        </select>
+        <button class="gs-btn" data-mode="tree_3d">3D Tree</button>
       </div>
     </div>
 
-    <div class="gs-stage-wrap">
-      <div id="gs-stage"></div>
-      <div id="gs-hud" class="gs-hud">Loading graph data...</div>
-      <aside id="gs-inspector" class="gs-inspector" aria-label="Node Inspector">
-        <button id="gs-close-inspector" class="gs-close" title="Close">✕</button>
-        <h3 id="gs-insp-title">Node</h3>
-        <div id="gs-insp-meta" class="gs-meta"></div>
-        <div style="font-size:11px; color:#a3a3a3; margin-top:8px;">Neighbors:</div>
-        <div id="gs-insp-neighbors" class="gs-chips"></div>
-      </aside>
+    <div class="gs-stage">
+      <iframe id="gs-frame" title="Graph Studio Active View"></iframe>
     </div>
   </div>
 
   <script src="portal-ui.js?v=fp3"></script>
-  <script src="live-reload.js"></script>
   <script>
   (function () {
-    const PALETTE = [
-      '#38bdf8', '#818cf8', '#34d399', '#f472b6', '#fbbf24',
-      '#a78bfa', '#f87171', '#2dd4bf', '#fb923c', '#e879f9',
-      '#4ade80', '#22d3ee', '#f43f5e', '#c084fc', '#60a5fa'
-    ];
-    const LAYERS = [
-      { id: 0, name: 'UI / Views', z: 180, color: '#38bdf8', hints: ['view', 'ui', 'frontend', 'template', 'component', 'page', 'dashboard'] },
-      { id: 1, name: 'API / Routes', z: 90, color: '#818cf8', hints: ['api', 'route', 'server', 'controller', 'endpoint', 'mcp', 'cli'] },
-      { id: 2, name: 'Core / Logic', z: 0, color: '#34d399', hints: ['service', 'engine', 'scanner', 'generator', 'core', 'indexer', 'sandbox'] },
-      { id: 3, name: 'Data / Schema', z: -90, color: '#fbbf24', hints: ['db', 'database', 'model', 'schema', 'sql', 'store', 'repo', 'data'] },
-      { id: 4, name: 'Infra / Tests', z: -180, color: '#f472b6', hints: ['test', 'docker', 'script', 'config', 'util', 'exporter', 'deploy'] }
-    ];
-
-    const raw = window.GRAPH_VIZ || window.GRAPH_DATA || window.graphData || { nodes: [], links: [] };
-    const rawNodes = Array.isArray(raw.nodes) ? raw.nodes : [];
-    const rawEdges = Array.isArray(raw.links) ? raw.links : (Array.isArray(raw.edges) ? raw.edges : []);
-
-    const nodeMap = new Map();
-    const baseNodes = rawNodes.map((n, idx) => {
-      const id = String(n.id ?? idx);
-      const comm = Number.isFinite(Number(n.community)) ? Number(n.community) : (idx % PALETTE.length);
-      const label = String(n.label || n.name || id);
-      const path = String(n.path || n.file || label);
-      const color = n.color || PALETTE[Math.abs(comm) % PALETTE.length];
-      const layer = classifyLayer(path + ' ' + label);
-      const norm = { id, label, path, type: n.type || 'module', community: comm, color, layer, val: Number(n.val || n.size || 2) };
-      nodeMap.set(id, norm);
-      return norm;
-    });
-
-    const adj = new Map();
-    const baseLinks = [];
-    for (const e of rawEdges) {
-      const rawS = e.source ?? e.from;
-      const s = String(rawS && typeof rawS === 'object' ? rawS.id : rawS);
-      const rawT = e.target ?? e.to;
-      const t = String(rawT && typeof rawT === 'object' ? rawT.id : rawT);
-      if (!nodeMap.has(s) || !nodeMap.has(t) || s === t) continue;
-      baseLinks.push({ source: s, target: t, relation: e.relation || e.type || 'link' });
-      if (!adj.has(s)) adj.set(s, new Set());
-      if (!adj.has(t)) adj.set(t, new Set());
-      adj.get(s).add(t);
-      adj.get(t).add(s);
-    }
-
-    function classifyLayer(text) {
-      const low = text.toLowerCase();
-      for (const l of LAYERS) {
-        if (l.hints.some(h => low.includes(h))) return l.id;
-      }
-      return 2;
-    }
-
-    // Populate community dropdown
-    const commSet = Array.from(new Set(baseNodes.map(n => n.community))).sort((a, b) => a - b);
-    const commSelect = document.getElementById('gs-community');
-    for (const c of commSet) {
-      const opt = document.createElement('option');
-      opt.value = String(c);
-      opt.textContent = 'Community ' + c;
-      commSelect.appendChild(opt);
-    }
-
-    const params = new URLSearchParams(window.location.search);
-    const state = {
-      mode: params.get('mode') || '2d-galaxy',
-      query: params.get('q') || '',
-      community: params.get('c') || 'all',
-      selectedId: params.get('node') || null
+    const MODES = {
+      'graph':         { file: 'graph.html',      sub: null },
+      'graph_3d':      { file: 'graph_3d.html',   sub: null },
+      'particle-flow': { file: 'graph_full.html', sub: 'flow',     fn: 'setMode' },
+      'chord':         { file: 'graph_full.html', sub: 'chord',    fn: 'setMode' },
+      'canvas':        { file: 'canvas.html',     sub: null },
+      'canvas_3d':     { file: 'canvas_3d.html',  sub: null },
+      'tree':          { file: 'GRAPH_TREE.html', sub: 'tree',     fn: 'setTreeMode' },
+      'treemap':       { file: 'GRAPH_TREE.html', sub: 'treemap',  fn: 'setTreeMode' },
+      'sunburst':      { file: 'GRAPH_TREE.html', sub: 'sunburst', fn: 'setTreeMode' },
+      'tree_3d':       { file: 'tree_3d.html',    sub: null }
     };
 
-    const searchInput = document.getElementById('gs-search');
-    searchInput.value = state.query;
-    commSelect.value = state.community;
-
-    let activeInstance = null;
-    let activeCleanup = null;
-
-    function syncUrl() {
-      const p = new URLSearchParams();
-      p.set('mode', state.mode);
-      if (state.query) p.set('q', state.query);
-      if (state.community !== 'all') p.set('c', state.community);
-      if (state.selectedId) p.set('node', state.selectedId);
-      try {
-        history.replaceState(null, '', '?' + p.toString());
-      } catch (_) {}
-    }
-
-    function getFilteredGraph() {
-      const q = state.query.trim().toLowerCase();
-      const c = state.community;
-      const keptNodes = baseNodes.filter(n => {
-        if (c !== 'all' && String(n.community) !== c) return false;
-        if (q && !n.label.toLowerCase().includes(q) && !n.path.toLowerCase().includes(q) && !n.id.toLowerCase().includes(q)) return false;
-        return true;
-      }).map(n => ({ ...n }));
-      const keptIds = new Set(keptNodes.map(n => n.id));
-      const keptLinks = baseLinks
-        .filter(l => keptIds.has(l.source) && keptIds.has(l.target))
-        .map(l => ({ ...l }));
-      return { nodes: keptNodes, links: keptLinks };
-    }
-
-    function openInspector(node) {
-      if (!node) return;
-      state.selectedId = node.id;
-      syncUrl();
-      const panel = document.getElementById('gs-inspector');
-      document.getElementById('gs-insp-title').textContent = node.label;
-      document.getElementById('gs-insp-meta').textContent =
-        `${node.path} · type: ${node.type} · community: ${node.community} · layer: ${LAYERS[node.layer]?.name || 'Core'}`;
-      const nbWrap = document.getElementById('gs-insp-neighbors');
-      nbWrap.innerHTML = '';
-      const nbs = Array.from(adj.get(node.id) || []).slice(0, 20);
-      if (!nbs.length) {
-        nbWrap.innerHTML = '<span style="color:#737373;font-size:11px;">No direct edges</span>';
-      } else {
-        for (const nid of nbs) {
-          const nb = nodeMap.get(nid);
-          if (!nb) continue;
-          const chip = document.createElement('button');
-          chip.className = 'gs-chip';
-          chip.textContent = nb.label;
-          chip.onclick = () => openInspector(nb);
-          nbWrap.appendChild(chip);
-        }
-      }
-      panel.classList.add('open');
-    }
-
-    document.getElementById('gs-close-inspector').onclick = () => {
-      document.getElementById('gs-inspector').classList.remove('open');
-      state.selectedId = null;
-      syncUrl();
+    const ALIASES = {
+      '2d-galaxy': 'graph',
+      '3d-sphere': 'graph_3d',
+      '2d-board': 'canvas',
+      '3d-zplanes': 'canvas_3d',
+      '3d-tree': 'tree_3d',
+      'graph_full': 'particle-flow'
     };
 
-    function teardownActiveMode() {
-      if (typeof activeCleanup === 'function') {
-        try { activeCleanup(); } catch (_) {}
-        activeCleanup = null;
-      }
-      if (activeInstance) {
-        try {
-          if (typeof activeInstance.pauseAnimation === 'function') activeInstance.pauseAnimation();
-          if (typeof activeInstance.renderer === 'function') {
-            const r = activeInstance.renderer();
-            if (r) {
-              if (typeof r.dispose === 'function') r.dispose();
-              if (typeof r.forceContextLoss === 'function') r.forceContextLoss();
-            }
-          }
-          if (typeof activeInstance._destructor === 'function') activeInstance._destructor();
-        } catch (_) {}
-        activeInstance = null;
-      }
-      const stage = document.getElementById('gs-stage');
-      stage.innerHTML = '';
+    const frame = document.getElementById('gs-frame');
+    let currentFile = null;
+    let currentMode = null;
+
+    function resolveMode(m) {
+      const key = ALIASES[m] || m;
+      return MODES[key] ? key : 'graph';
     }
 
-    function buildHierarchy(nodes) {
-      const root = { name: 'root', children: [] };
-      const map = new Map([['', root]]);
-      for (const n of nodes) {
-        const parts = n.path.replace(/\\/g, '/').split('/').filter(Boolean);
-        let curPath = '';
-        let parent = root;
-        for (let i = 0; i < parts.length; i++) {
-          const seg = parts[i];
-          const isLeaf = i === parts.length - 1;
-          const nextPath = curPath ? curPath + '/' + seg : seg;
-          if (isLeaf) {
-            parent.children.push({ name: seg, value: Math.max(1, n.val), color: n.color, nodeRef: n });
-          } else {
-            if (!map.has(nextPath)) {
-              const folder = { name: seg, children: [], color: n.color };
-              map.set(nextPath, folder);
-              parent.children.push(folder);
-            }
-            parent = map.get(nextPath);
-          }
-          curPath = nextPath;
-        }
-      }
-      return root;
-    }
-
-    function applyTransparent3D(fg) {
-      if (typeof window.__fpTransparent3D === 'function') {
-        window.__fpTransparent3D(fg);
-        return;
-      }
-      try {
-        const r = fg.renderer();
-        if (r && typeof r.setClearColor === 'function') r.setClearColor(0x000000, 0);
-        const s = fg.scene();
-        if (s) s.background = null;
-      } catch (_) {}
-    }
-
-    function renderMode() {
-      teardownActiveMode();
-      syncUrl();
+    function activateMode(rawMode) {
+      const mode = resolveMode(rawMode);
+      const spec = MODES[mode];
+      currentMode = mode;
 
       document.querySelectorAll('.gs-btn[data-mode]').forEach(btn => {
-        btn.classList.toggle('active', btn.dataset.mode === state.mode);
+        btn.classList.toggle('active', btn.dataset.mode === mode);
       });
 
-      const stage = document.getElementById('gs-stage');
-      const hud = document.getElementById('gs-hud');
-      const data = getFilteredGraph();
-      const W = stage.clientWidth || window.innerWidth;
-      const H = stage.clientHeight || (window.innerHeight - 54);
+      try {
+        const p = new URLSearchParams(window.location.search);
+        p.set('mode', mode);
+        history.replaceState(null, '', '?' + p.toString());
+      } catch (_) {}
 
-      hud.innerHTML = `Mode: <strong>${state.mode}</strong> · Nodes: <strong>${data.nodes.length}</strong> · Edges: <strong>${data.links.length}</strong>`;
-
-      if (!data.nodes.length) {
-        stage.innerHTML = '<div style="display:flex;align-items:center;justify-content:center;height:100%;color:#737373;font-size:14px;">No nodes match current filter.</div>';
-        return;
+      // Instant in-place sub-mode switch if the same host page is already loaded
+      if (currentFile === spec.file && spec.fn && frame.contentWindow && typeof frame.contentWindow[spec.fn] === 'function') {
+        try {
+          frame.contentWindow[spec.fn](spec.sub);
+          return;
+        } catch (_) {}
       }
 
-      if (state.mode === '2d-galaxy' || state.mode === 'particle-flow') {
-        if (typeof ForceGraph !== 'function') return;
-        const isFlow = state.mode === 'particle-flow';
-        const fg = ForceGraph()(stage)
-          .width(W).height(H)
-          .backgroundColor('rgba(0,0,0,0)')
-          .graphData(data)
-          .nodeLabel(n => `${n.label}\n${n.path}`)
-          .nodeColor(n => n.id === state.selectedId ? '#ffffff' : n.color)
-          .nodeRelSize(4)
-          .linkColor(() => isFlow ? 'rgba(56,189,248,0.35)' : 'rgba(255,255,255,0.16)')
-          .linkDirectionalParticles(isFlow ? 3 : 0)
-          .linkDirectionalParticleSpeed(0.006)
-          .linkDirectionalParticleWidth(2.4)
-          .onNodeClick(n => openInspector(n));
-        activeInstance = fg;
-        return;
-      }
-
-      if (state.mode === '3d-sphere' || state.mode === '3d-zplanes' || state.mode === '3d-tree') {
-        if (typeof ForceGraph3D !== 'function') return;
-        if (state.mode === '3d-sphere') {
-          const N = data.nodes.length;
-          const golden = Math.PI * (3 - Math.sqrt(5));
-          data.nodes.forEach((n, i) => {
-            const y = 1 - (i / Math.max(1, N - 1)) * 2;
-            const r = Math.sqrt(Math.max(0, 1 - y * y));
-            const theta = golden * i;
-            const radius = 140 + (n.community % 5) * 32;
-            n.fx = Math.cos(theta) * r * radius;
-            n.fy = y * radius;
-            n.fz = Math.sin(theta) * r * radius;
-          });
-        } else if (state.mode === '3d-zplanes') {
-          data.nodes.forEach(n => {
-            n.fz = LAYERS[n.layer]?.z ?? 0;
-          });
-        }
-
-        const fg3 = ForceGraph3D({ controlType: 'orbit', rendererConfig: { alpha: true, antialias: true } })(stage)
-          .width(W).height(H)
-          .backgroundColor('rgba(0,0,0,0)')
-          .graphData(data)
-          .nodeLabel(n => `${n.label} (${n.path})`)
-          .nodeColor(n => n.id === state.selectedId ? '#ffffff' : (state.mode === '3d-zplanes' ? (LAYERS[n.layer]?.color || n.color) : n.color))
-          .nodeVal(n => Math.max(2, n.val))
-          .linkColor(() => 'rgba(255,255,255,0.22)')
-          .linkDirectionalParticles(state.mode === '3d-zplanes' ? 2 : 0)
-          .linkDirectionalParticleWidth(1.8)
-          .onNodeClick(n => openInspector(n));
-
-        if (state.mode === '3d-tree') {
-          try { fg3.dagMode('td').dagLevelDistance(45); } catch (_) {}
-        }
-        applyTransparent3D(fg3);
-        activeInstance = fg3;
-        return;
-      }
-
-      if (state.mode === 'chord') {
-        const comms = Array.from(new Set(data.nodes.map(n => n.community))).sort((a, b) => a - b);
-        const cIndex = new Map(comms.map((c, i) => [c, i]));
-        const m = comms.length;
-        const matrix = Array.from({ length: m }, () => Array(m).fill(0));
-        const byId = new Map(data.nodes.map(n => [n.id, n]));
-        for (const l of data.links) {
-          const s = byId.get(l.source);
-          const t = byId.get(l.target);
-          if (s && t) matrix[cIndex.get(s.community)][cIndex.get(t.community)] += 1;
-        }
-        const outerR = Math.min(W, H) * 0.38;
-        const innerR = outerR - 18;
-        const svg = d3.select(stage).append('svg').attr('width', W).attr('height', H);
-        const g = svg.append('g').attr('transform', `translate(${W / 2},${H / 2})`);
-        const chords = d3.chord().padAngle(0.05).sortSubgroups(d3.descending)(matrix);
-        const arc = d3.arc().innerRadius(innerR).outerRadius(outerR);
-        const ribbon = d3.ribbon().radius(innerR);
-
-        g.append('g').selectAll('path').data(chords.groups).join('path')
-          .attr('d', arc)
-          .attr('fill', d => PALETTE[comms[d.index] % PALETTE.length])
-          .attr('stroke', '#0f0f0f')
-          .append('title').text(d => `Community ${comms[d.index]} (${d.value} edges)`);
-
-        g.append('g').selectAll('path').data(chords).join('path')
-          .attr('d', ribbon)
-          .attr('fill', d => PALETTE[comms[d.source.index] % PALETTE.length])
-          .attr('fill-opacity', 0.45)
-          .attr('stroke', '#191919');
-        return;
-      }
-
-      if (state.mode === '2d-board') {
-        const svg = d3.select(stage).append('svg').attr('width', W).attr('height', H);
-        const g = svg.append('g');
-        svg.call(d3.zoom().scaleExtent([0.2, 5]).on('zoom', e => g.attr('transform', e.transform)));
-        const colW = Math.max(220, (W - 60) / LAYERS.length);
-        const pos = new Map();
-
-        LAYERS.forEach((layer, li) => {
-          const x = 30 + li * colW;
-          const items = data.nodes.filter(n => n.layer === layer.id);
-          g.append('rect').attr('x', x).attr('y', 20).attr('width', colW - 18).attr('height', Math.max(H - 60, items.length * 32 + 50))
-            .attr('rx', 10).attr('fill', '#161616').attr('stroke', '#2a2a2a');
-          g.append('text').attr('x', x + 12).attr('y', 42).attr('fill', layer.color).attr('font-size', 12).attr('font-weight', 700)
-            .text(`${layer.name} (${items.length})`);
-          items.forEach((n, idx) => {
-            const nx = x + 12;
-            const ny = 58 + idx * 30;
-            pos.set(n.id, { x: nx + (colW - 42) / 2, y: ny + 12 });
-            const card = g.append('g').style('cursor', 'pointer').on('click', () => openInspector(n));
-            card.append('rect').attr('x', nx).attr('y', ny).attr('width', colW - 42).attr('height', 24).attr('rx', 5)
-              .attr('fill', '#1f1f1f').attr('stroke', n.id === state.selectedId ? '#ffffff' : '#303030');
-            card.append('text').attr('x', nx + 8).attr('y', ny + 16).attr('fill', '#e5e5e5').attr('font-size', 11)
-              .text(n.label.slice(0, 24));
-          });
-        });
-
-        g.append('g').selectAll('path').data(data.links.slice(0, 250)).join('path')
-          .attr('fill', 'none').attr('stroke', 'rgba(56,189,248,0.22)').attr('stroke-width', 1)
-          .attr('d', l => {
-            const a = pos.get(l.source);
-            const b = pos.get(l.target);
-            if (!a || !b) return '';
-            const mx = (a.x + b.x) / 2;
-            return `M${a.x},${a.y} C${mx},${a.y} ${mx},${b.y} ${b.x},${b.y}`;
-          });
-        return;
-      }
-
-      // Hierarchy modes: tree | treemap | sunburst
-      const hierData = buildHierarchy(data.nodes);
-      const root = d3.hierarchy(hierData).sum(d => d.value || 1).sort((a, b) => (b.value || 0) - (a.value || 0));
-
-      if (state.mode === 'tree') {
-        const svg = d3.select(stage).append('svg').attr('width', W).attr('height', H);
-        const g = svg.append('g').attr('transform', 'translate(60,30)');
-        svg.call(d3.zoom().scaleExtent([0.15, 6]).on('zoom', e => g.attr('transform', e.transform)));
-        const treeLayout = d3.tree().nodeSize([18, 190]);
-        treeLayout(root);
-        g.selectAll('path').data(root.links()).join('path')
-          .attr('fill', 'none').attr('stroke', '#333333').attr('stroke-width', 1.2)
-          .attr('d', d3.linkHorizontal().x(d => d.y).y(d => d.x));
-        const nd = g.selectAll('g').data(root.descendants()).join('g')
-          .attr('transform', d => `translate(${d.y},${d.x})`)
-          .style('cursor', 'pointer')
-          .on('click', (_, d) => { if (d.data.nodeRef) openInspector(d.data.nodeRef); });
-        nd.append('circle').attr('r', 4).attr('fill', d => d.data.color || '#38bdf8');
-        nd.append('text').attr('x', 8).attr('dy', '0.32em').attr('fill', '#e5e5e5').attr('font-size', 11).text(d => d.data.name);
-        return;
-      }
-
-      if (state.mode === 'treemap') {
-        d3.treemap().size([W, H]).paddingOuter(4).paddingTop(18).paddingInner(2)(root);
-        const svg = d3.select(stage).append('svg').attr('width', W).attr('height', H);
-        const cell = svg.selectAll('g').data(root.leaves()).join('g')
-          .attr('transform', d => `translate(${d.x0},${d.y0})`)
-          .style('cursor', 'pointer')
-          .on('click', (_, d) => { if (d.data.nodeRef) openInspector(d.data.nodeRef); });
-        cell.append('rect')
-          .attr('width', d => Math.max(0, d.x1 - d.x0))
-          .attr('height', d => Math.max(0, d.y1 - d.y0))
-          .attr('rx', 3)
-          .attr('fill', d => d.data.color || '#38bdf8')
-          .attr('fill-opacity', 0.72)
-          .attr('stroke', '#0f0f0f');
-        cell.append('text').attr('x', 4).attr('y', 13).attr('fill', '#0f0f0f').attr('font-size', 10).attr('font-weight', 600)
-          .text(d => (d.x1 - d.x0) > 45 && (d.y1 - d.y0) > 16 ? d.data.name.slice(0, 18) : '');
-        return;
-      }
-
-      if (state.mode === 'sunburst') {
-        const radius = Math.min(W, H) * 0.44;
-        d3.partition().size([2 * Math.PI, radius])(root);
-        const svg = d3.select(stage).append('svg').attr('width', W).attr('height', H);
-        const g = svg.append('g').attr('transform', `translate(${W / 2},${H / 2})`);
-        svg.call(d3.zoom().scaleExtent([0.2, 20]).on('zoom', e => g.attr('transform', `translate(${W / 2 + e.transform.x},${H / 2 + e.transform.y}) scale(${e.transform.k})`)));
-        const arc = d3.arc().startAngle(d => d.x0).endAngle(d => d.x1).innerRadius(d => d.y0).outerRadius(d => Math.max(d.y0, d.y1 - 1));
-        g.selectAll('path').data(root.descendants().filter(d => d.depth > 0)).join('path')
-          .attr('d', arc)
-          .attr('fill', d => d.data.color || PALETTE[d.depth % PALETTE.length])
-          .attr('fill-opacity', d => Math.max(0.35, 0.92 - d.depth * 0.1))
-          .attr('stroke', '#0f0f0f')
-          .style('cursor', 'pointer')
-          .on('click', (_, d) => { if (d.data.nodeRef) openInspector(d.data.nodeRef); })
-          .append('title').text(d => d.ancestors().map(a => a.data.name).reverse().slice(1).join('/'));
-        return;
-      }
+      currentFile = spec.file;
+      const targetUrl = spec.sub ? `${spec.file}?mode=${encodeURIComponent(spec.sub)}` : spec.file;
+      frame.src = targetUrl;
     }
 
+    window.setStudioMode = activateMode;
+
     document.querySelectorAll('.gs-btn[data-mode]').forEach(btn => {
-      btn.addEventListener('click', () => {
-        state.mode = btn.dataset.mode;
-        renderMode();
-      });
+      btn.addEventListener('click', () => activateMode(btn.dataset.mode));
     });
 
-    searchInput.addEventListener('input', () => {
-      state.query = searchInput.value;
-      renderMode();
-    });
-
-    commSelect.addEventListener('change', () => {
-      state.community = commSelect.value;
-      renderMode();
-    });
-
-    window.addEventListener('resize', () => renderMode());
-    renderMode();
+    const initial = new URLSearchParams(window.location.search).get('mode') || 'graph';
+    activateMode(initial);
   })();
   </script>
 </body>

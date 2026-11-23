@@ -977,13 +977,6 @@
         <option value="" disabled selected>Viste (21) ▾</option>
         <optgroup label="Grafi &amp; 3D">
           <option value="graph-studio">★ Graph Studio (All 10 Modes)</option>
-          <option value="graph">2D Network Graph</option>
-          <option value="graph_3d">3D WebGL Graph</option>
-          <option value="canvas">2D Whiteboard Canvas</option>
-          <option value="canvas_3d">3D WebGL Canvas</option>
-          <option value="tree">2D Directory Tree</option>
-          <option value="tree_3d">3D Top-Down DAG Tree</option>
-          <option value="graph_full">️ Full Organic Network</option>
         </optgroup>
         <optgroup label="️ Architettura &amp; Flussi">
           <option value="floorplan">️ Floorplan SVG (ADR-053)</option>
@@ -1011,9 +1004,9 @@
         <button class="tab-button active" data-tab="home" onclick="switchTab('home')">Home</button>
         <button class="tab-button" data-tab="reader" onclick="switchTab('reader')">Reader</button>
         <button class="tab-button" data-tab="graph-studio" onclick="switchTab('graph-studio')">Graph Studio</button>
-        <button class="tab-button" data-tab="graph" onclick="switchTab('graph')">Graph</button>
-        <button class="tab-button" data-tab="canvas" onclick="switchTab('canvas')">Canvas</button>
-        <button class="tab-button" data-tab="tree" onclick="switchTab('tree')">Tree</button>
+        <button class="tab-button" data-tab="graph" style="display:none" onclick="switchTab('graph')">Graph</button>
+        <button class="tab-button" data-tab="canvas" style="display:none" onclick="switchTab('canvas')">Canvas</button>
+        <button class="tab-button" data-tab="tree" style="display:none" onclick="switchTab('tree')">Tree</button>
         <button class="tab-button" data-tab="floorplan" onclick="switchTab('floorplan')">Floorplan</button>
         <button class="tab-button" data-tab="stack-ecosystem" onclick="switchTab('stack-ecosystem')">Stack &amp; Deps</button>
         <button class="tab-button" data-tab="data-explorer" onclick="switchTab('data-explorer')">Pivot Explorer</button>
@@ -1085,62 +1078,6 @@
                 <div class="hub-card-desc">Tutte le 10 viste (2D/3D Galaxy, Particle Flow, Chord, Z-Planes, Board, Tree, Treemap, Sunburst, 3D Tree) con stato condiviso.</div>
               </div>
               <span class="hub-card-badge">10 Modes</span>
-            </div>
-            <div class="view-hub-card" data-view-id="graph" onclick="switchTab('graph')">
-              <div class="hub-card-icon">🔗</div>
-              <div class="hub-card-content">
-                <div class="hub-card-title">2D Network Graph</div>
-                <div class="hub-card-desc">Grafo organico interattivo Vis.js con nodi, community e filtri.</div>
-              </div>
-              <span class="hub-card-badge">2D Vis.js</span>
-            </div>
-            <div class="view-hub-card" data-view-id="graph_3d" onclick="switchTab('graph_3d')">
-              <div class="hub-card-icon">🌐</div>
-              <div class="hub-card-content">
-                <div class="hub-card-title">3D WebGL Force Graph</div>
-                <div class="hub-card-desc">Rete tridimensionale immersiva Three.js con cluster e orbite.</div>
-              </div>
-              <span class="hub-card-badge">3D WebGL</span>
-            </div>
-            <div class="view-hub-card" data-view-id="canvas" onclick="switchTab('canvas')">
-              <div class="hub-card-icon">🎨</div>
-              <div class="hub-card-content">
-                <div class="hub-card-title">Whiteboard Canvas 2D</div>
-                <div class="hub-card-desc">Lavagna concettuale libera con nodi e raggruppamenti logici.</div>
-              </div>
-              <span class="hub-card-badge">Canvas 2D</span>
-            </div>
-            <div class="view-hub-card" data-view-id="canvas_3d" onclick="switchTab('canvas_3d')">
-              <div class="hub-card-icon">🧊</div>
-              <div class="hub-card-content">
-                <div class="hub-card-title">3D WebGL Canvas</div>
-                <div class="hub-card-desc">Visualizzazione volumetrica 3D dello spazio canvas.</div>
-              </div>
-              <span class="hub-card-badge">Canvas 3D</span>
-            </div>
-            <div class="view-hub-card" data-view-id="tree" onclick="switchTab('tree')">
-              <div class="hub-card-icon">🌳</div>
-              <div class="hub-card-content">
-                <div class="hub-card-title">Directory Tree Gerarchico</div>
-                <div class="hub-card-desc">Albero gerarchico collassabile di moduli, classi e funzioni.</div>
-              </div>
-              <span class="hub-card-badge">Tree 2D</span>
-            </div>
-            <div class="view-hub-card" data-view-id="tree_3d" onclick="switchTab('tree_3d')">
-              <div class="hub-card-icon">🌲</div>
-              <div class="hub-card-content">
-                <div class="hub-card-title">3D DAG Tree</div>
-                <div class="hub-card-desc">Albero volumetrico 3D con layout discendente top-down.</div>
-              </div>
-              <span class="hub-card-badge">Tree 3D</span>
-            </div>
-            <div class="view-hub-card" data-view-id="graph_full" onclick="switchTab('graph_full')">
-              <div class="hub-card-icon">🗺️</div>
-              <div class="hub-card-content">
-                <div class="hub-card-title">Full Organic Network</div>
-                <div class="hub-card-desc">Visualizzatore a schermo intero con ricerca integrata e legende.</div>
-              </div>
-              <span class="hub-card-badge">Full Net</span>
             </div>
           </div>
 
@@ -1337,7 +1274,7 @@
     <!-- Tab 2: Interactive Graph -->
     <div class="tab-pane" id="pane-graph-studio">
       <button class="fullscreen-btn" onclick="toggleFullscreen('pane-graph-studio')" title="Fullscreen">⛶</button>
-      <iframe id="graph-studio-iframe" data-src="views/graph-studio.html?mode=2d-galaxy" title="Unified Graph Studio" style="width:100%; height:100%; border:none; background:#0f0f0f;"></iframe>
+      <iframe id="graph-studio-iframe" data-src="views/graph-studio.html?mode=graph" title="Unified Graph Studio" style="width:100%; height:100%; border:none; background:#0f0f0f;"></iframe>
     </div>
 
     <div class="tab-pane" id="pane-graph">
@@ -2257,6 +2194,29 @@
     }
 
     function switchTab(tabId) {
+      const _studioRedirectMap = {
+        'graph': 'graph',
+        'graph_3d': 'graph_3d',
+        'graph_full': 'particle-flow',
+        'canvas': 'canvas',
+        'canvas_3d': 'canvas_3d',
+        'tree': 'tree',
+        'tree_3d': 'tree_3d'
+      };
+      if (_studioRedirectMap[tabId]) {
+        const mode = _studioRedirectMap[tabId];
+        switchTab('graph-studio');
+        const sf = document.getElementById('graph-studio-iframe');
+        if (sf) {
+          if (sf.contentWindow && typeof sf.contentWindow.setStudioMode === 'function') {
+            sf.contentWindow.setStudioMode(mode);
+          } else {
+            sf.dataset.src = 'views/graph-studio.html?mode=' + mode;
+            sf.src = 'views/graph-studio.html?mode=' + mode;
+          }
+        }
+        return;
+      }
       if (tabId === 'graph_3d') {
         switchTab('graph');
         if (!is3DGraph) toggleGraphDimension();
@@ -3043,6 +3003,7 @@
       available.add('reader');
       available.add('console');
       available.add('graph-studio');
+      ['graph','graph_3d','canvas','canvas_3d','tree','tree_3d','graph_full'].forEach(k => available.delete(k));
 
       // Top bar tabs
       document.querySelectorAll('.tabs-left .tab-button[data-tab]').forEach(btn => {

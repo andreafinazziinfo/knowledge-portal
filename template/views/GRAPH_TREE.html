@@ -344,6 +344,13 @@
 
     renderTreeMode();
   });
+
+  (function() {
+    const m = new URLSearchParams(window.location.search).get('mode');
+    if ((m === 'treemap' || m === 'sunburst' || m === 'tree') && typeof window.setTreeMode === 'function') {
+      setTimeout(() => window.setTreeMode(m), 120);
+    }
+  })();
 </script>
 </body>
 </html>
