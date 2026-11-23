@@ -118,11 +118,24 @@
     const svg = d3.select("#tree-svg");
     const container = d3.select("#container-group");
 
-    // Add D3 Zoom & Pan capability!
-    const zoom = d3.zoom().scaleExtent([0.1, 4]).on("zoom", (event) => {
+    // Add D3 Zoom & Pan capability (up to 20x zoom for deep Sunburst/Tree inspection)!
+    const zoom = d3.zoom().scaleExtent([0.1, 20]).on("zoom", (event) => {
       container.attr("transform", event.transform);
     });
     svg.call(zoom);
+
+    const BRANCH_PALETTE = ['#3b82f6','#10b981','#f59e0b','#a855f7','#06b6d4','#ec4899','#ef4444','#84cc16','#f97316','#6366f1'];
+    function getBranchColor(d) {
+      if (d.data && d.data.color) return d.data.color;
+      if (d._branchColor) return d._branchColor;
+      let cur = d;
+      while (cur.depth > 1 && cur.parent) cur = cur.parent;
+      const idx = cur.parent && cur.parent.children ? cur.parent.children.indexOf(cur) : 0;
+      const leaf = d.leaves ? d.leaves().find(l => l.data && l.data.color) : null;
+      const c = (leaf && leaf.data.color) || BRANCH_PALETTE[Math.abs(idx) % BRANCH_PALETTE.length];
+      d._branchColor = c;
+      return c;
+    }
 
     const width = window.innerWidth;
     const height = window.innerHeight;
@@ -206,28 +219,118 @@
 
     function renderSunburstMode() {
       container.selectAll("*").remove();
-      document.getElementById('hud-label').textContent = '☀️ D3 Radial Hierarchy Sunburst';
+      document.getElementById('hud-label').textContent = '☀️ D3 Zoomable Sunburst (Click arc to drill-down, center to go up, scroll/pinch to zoom 20x)';
       svg.call(zoom.transform, d3.zoomIdentity);
-      const radius = Math.min(width - 260, height - 80) / 2;
+      const isNarrow = width < 768;
+      const radius = Math.max(120, Math.min(isNarrow ? width - 24 : width - 260, height - 100) / 2);
       const root = d3.hierarchy(treeData).sum(d => (d.children && d.children.length) ? 0 : 1);
-      d3.partition().size([2 * Math.PI, radius])(root);
+      d3.partition().size([2 * Math.PI, root.height + 1])(root);
+      root.each(d => { d.current = d; });
+
+      const cx = isNarrow ? width / 2 : (width - 210) / 2;
+      const cy = height / 2 + 10;
+      const ringStep = radius / Math.max(2, Math.min(6, root.height + 1));
 
       const arc = d3.arc()
         .startAngle(d => d.x0)
         .endAngle(d => d.x1)
-        .innerRadius(d => d.y0)
-        .outerRadius(d => Math.max(d.y0, d.y1 - 1));
+        .padAngle(d => Math.min((d.x1 - d.x0) / 2, 0.005))
+        .padRadius(ringStep * 1.5)
+        .innerRadius(d => Math.max(0, d.y0 * ringStep))
+        .outerRadius(d => Math.max(d.y0 * ringStep, d.y1 * ringStep - 1.5));
 
-      const g = container.append("g").attr("transform", `translate(${(width - 210) / 2},${height / 2})`);
-      const path = g.selectAll("path")
-        .data(root.descendants().filter(d => d.depth > 0 && (d.x1 - d.x0) > 0.004))
-        .enter().append("path")
-        .attr("d", arc)
-        .attr("fill", d => d.data.color || (d.children ? "#2b2b2b" : "#8b8b8b"))
-        .attr("fill-opacity", d => Math.max(0.25, 0.9 - d.depth * 0.12))
+      const g = container.append("g").attr("transform", `translate(${cx},${cy})`);
+
+      const path = g.append("g").selectAll("path")
+        .data(root.descendants().slice(1))
+        .join("path")
+        .attr("fill", d => getBranchColor(d))
+        .attr("fill-opacity", d => d.children ? 0.78 : 0.92)
         .attr("stroke", "#0f0f0f")
-        .attr("stroke-width", 0.8);
-      path.append("title").text(d => `${d.data.name} (${d.value} files)`);
+        .attr("stroke-width", 0.9)
+        .style("cursor", "pointer")
+        .attr("d", d => arc(d.current))
+        .on("mouseenter", (_, d) => {
+          document.getElementById('hud-label').textContent = `☀️ ${d.ancestors().map(a => a.data.name).reverse().slice(1).join(' / ')} (${d.value} files)`;
+        })
+        .on("click", (_, p) => {
+          if (p.children) clicked(p);
+          else if (p.data.path && window.parent && typeof window.parent.loadFile === 'function') {
+            window.parent.loadFile(p.data.path);
+          }
+        });
+
+      path.append("title").text(d => `${d.ancestors().map(a => a.data.name).reverse().slice(1).join('/')} (${d.value})`);
+
+      const label = g.append("g")
+        .attr("pointer-events", "none")
+        .attr("text-anchor", "middle")
+        .style("user-select", "none")
+        .selectAll("text")
+        .data(root.descendants().slice(1))
+        .join("text")
+        .attr("dy", "0.35em")
+        .attr("fill", "#ececec")
+        .attr("font-size", "10px")
+        .attr("fill-opacity", d => labelVisible(d.current) ? 0.95 : 0)
+        .attr("transform", d => labelTransform(d.current))
+        .text(d => {
+          const nm = d.data.name.replace('.md', '');
+          return nm.length > 14 ? nm.slice(0, 13) + '…' : nm;
+        });
+
+      const parentCircle = g.append("circle")
+        .datum(root)
+        .attr("r", ringStep)
+        .attr("fill", "rgba(255,255,255,0.04)")
+        .attr("stroke", "rgba(255,255,255,0.16)")
+        .attr("pointer-events", "all")
+        .style("cursor", "pointer")
+        .on("click", (_, p) => clicked(p));
+
+      const centerText = g.append("text")
+        .attr("text-anchor", "middle")
+        .attr("dy", "0.35em")
+        .attr("fill", "#ececec")
+        .attr("font-size", "11px")
+        .attr("pointer-events", "none")
+        .text("ROOT");
+
+      function labelVisible(d) {
+        return d.y1 <= 6 && d.y0 >= 1 && (d.y1 - d.y0) * (d.x1 - d.x0) > 0.06;
+      }
+
+      function labelTransform(d) {
+        const x = (d.x0 + d.x1) / 2 * 180 / Math.PI;
+        const y = (d.y0 + d.y1) / 2 * ringStep;
+        return `rotate(${x - 90}) translate(${y},0) rotate(${x < 180 ? 0 : 180})`;
+      }
+
+      function clicked(p) {
+        parentCircle.datum(p.parent || root);
+        centerText.text(p === root ? "ROOT" : `↑ ${p.data.name.slice(0, 10)}`);
+        root.each(d => {
+          d.target = {
+            x0: Math.max(0, Math.min(1, (d.x0 - p.x0) / (p.x1 - p.x0))) * 2 * Math.PI,
+            x1: Math.max(0, Math.min(1, (d.x1 - p.x0) / (p.x1 - p.x0))) * 2 * Math.PI,
+            y0: Math.max(0, d.y0 - p.depth),
+            y1: Math.max(0, d.y1 - p.depth),
+          };
+        });
+        const t = g.transition().duration(500);
+        path.transition(t)
+          .tween("data", d => {
+            const i = d3.interpolate(d.current, d.target);
+            return tt => { d.current = i(tt); };
+          })
+          .attr("fill-opacity", d => d.target.x1 > d.target.x0 ? (d.children ? 0.78 : 0.92) : 0)
+          .attr("pointer-events", d => d.target.x1 > d.target.x0 ? "auto" : "none")
+          .attrTween("d", d => () => arc(d.current));
+
+        label.transition(t)
+          .attr("fill-opacity", d => +labelVisible(d.target))
+          .attrTween("transform", d => () => labelTransform(d.current));
+      }
     }
 
     window.setTreeMode = function (mode) {

@@ -153,7 +153,9 @@
       .nodeColor('color')
       .nodeVal('val')
       .linkColor(() => 'rgba(255, 255, 255, 0.14)')
-      .linkOpacity(0.18);
+      .linkDirectionalParticles(1)
+      .linkDirectionalParticleSpeed(0.005)
+      .linkOpacity(0.22);
 
     fg.cameraPosition({ x: 420, y: 240, z: 620 }, { x: 0, y: 0, z: 0 });
   });
