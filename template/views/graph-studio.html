@@ -263,7 +263,7 @@
       { id: 4, name: 'Infra / Tests', z: -180, color: '#f472b6', hints: ['test', 'docker', 'script', 'config', 'util', 'exporter', 'deploy'] }
     ];
 
-    const raw = window.GRAPH_DATA || window.graphData || { nodes: [], links: [] };
+    const raw = window.GRAPH_VIZ || window.GRAPH_DATA || window.graphData || { nodes: [], links: [] };
     const rawNodes = Array.isArray(raw.nodes) ? raw.nodes : [];
     const rawEdges = Array.isArray(raw.links) ? raw.links : (Array.isArray(raw.edges) ? raw.edges : []);
 
@@ -283,8 +283,10 @@
     const adj = new Map();
     const baseLinks = [];
     for (const e of rawEdges) {
-      const s = String(typeof e.source === 'object' ? e.source.id : e.source);
-      const t = String(typeof e.target === 'object' ? e.target.id : e.target);
+      const rawS = e.source ?? e.from;
+      const s = String(rawS && typeof rawS === 'object' ? rawS.id : rawS);
+      const rawT = e.target ?? e.to;
+      const t = String(rawT && typeof rawT === 'object' ? rawT.id : rawT);
       if (!nodeMap.has(s) || !nodeMap.has(t) || s === t) continue;
       baseLinks.push({ source: s, target: t, relation: e.relation || e.type || 'link' });
       if (!adj.has(s)) adj.set(s, new Set());
