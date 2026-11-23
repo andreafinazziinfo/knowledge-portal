@@ -242,7 +242,9 @@
   });
 
   (function() {
-    const m = new URLSearchParams(window.location.search).get('mode');
+    const _qs = new URLSearchParams(window.location.search);
+    if (_qs.get('embed') === '1') { const bf = document.getElementById('btn-flow'); const bc = document.getElementById('btn-chord'); if (bf) bf.style.display='none'; if (bc) bc.style.display='none'; }
+    const m = _qs.get('mode');
     if (m === 'chord' && typeof setMode === 'function') setTimeout(() => setMode('chord'), 80);
   })();
 </script>

@@ -213,3 +213,15 @@ Il Knowledge Portal include un gate di verifica continuo:
 ---
 
 *Knowledge Portal v2.7 — Floorplan Carbon-Black & Production Hardened Edition — Realizzato per massimizzare la sinergia tra intelligenza umana e intelligenza artificiale.*
+
+## ADR-069 — Unified Graph Studio, AI Intelligence & Code Mode MCP
+
+- **Graph Studio (`views/graph-studio.html`)**: unica vista unificata per esplorare tutte le 10 visualizzazioni del grafo (`2D Graph`, `3D Sphere`, `Particle Flow`, `Chord Matrix`, `2D Canvas`, `3D Z-Planes`, `Tree`, `Treemap`, `Sunburst`, `3D Tree`).
+- **Nuovi endpoint AI read-only**:
+  - `/api/context-pack?q=<topic>&max_tokens=4000`
+  - `/api/impact?target=<symbol_or_file>&depth=3`
+  - `/api/health-audit` (`data/arch-health.json`)
+  - `/llms.txt` e `/llms-full.txt`
+- **Cloudflare-Style Code Mode MCP**:
+  - Avvio compatto (2 tool, ~1k token di schema): `knowledge-portal mcp --dir . --code-mode`
+  - Espone `portal_discover` e `portal_codemode` (interprete AST Python read-only senza `eval`/`exec`, senza `import` e senza I/O).

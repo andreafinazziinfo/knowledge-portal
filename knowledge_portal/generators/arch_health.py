@@ -92,6 +92,30 @@ def compute_arch_health(graph_data: dict[str, Any]) -> dict[str, Any]:
             continue
         nodes[nid] = n
 
+    path_to_id: dict[str, str] = {}
+    stem_to_id: dict[str, str] = {}
+    label_to_id: dict[str, str] = {}
+    for nid, n in nodes.items():
+        p = str(n.get("path") or "").replace("\\", "/").lower()
+        if p:
+            path_to_id.setdefault(p, nid)
+            stem = p.rsplit(".", 1)[0] if "." in p.rsplit("/", 1)[-1] else p
+            stem_to_id.setdefault(stem, nid)
+        lbl = str(n.get("label") or "").lower().rstrip("()")
+        if lbl:
+            label_to_id.setdefault(lbl, nid)
+
+    def _resolve_ref(ref: str) -> str | None:
+        if ref in nodes:
+            return ref
+        norm = ref.replace("\\", "/").lower()
+        if norm in path_to_id:
+            return path_to_id[norm]
+        stem = norm.rsplit(".", 1)[0] if "." in norm.rsplit("/", 1)[-1] else norm
+        if stem in stem_to_id:
+            return stem_to_id[stem]
+        return label_to_id.get(norm)
+
     adj: dict[str, set[str]] = {nid: set() for nid in nodes}
     in_deg: dict[str, int] = defaultdict(int)
     out_deg: dict[str, int] = defaultdict(int)
@@ -100,9 +124,9 @@ def compute_arch_health(graph_data: dict[str, Any]) -> dict[str, Any]:
     for e in raw_edges:
         if not isinstance(e, dict):
             continue
-        s = str(e.get("source", ""))
-        t = str(e.get("target", ""))
-        if s not in nodes or t not in nodes or s == t:
+        s = _resolve_ref(str(e.get("source", "")))
+        t = _resolve_ref(str(e.get("target", "")))
+        if not s or not t or s == t:
             continue
         if t not in adj[s]:
             adj[s].add(t)

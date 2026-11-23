@@ -330,3 +330,17 @@ Please ensure all tests and `verify_sanitization.py` pass before opening PRs.
 ## 📄 License
 
 This project is licensed under the **Apache License, Version 2.0**. See the [LICENSE](LICENSE) file for details.
+
+## 🧭 Unified Graph Studio, AI Intelligence & Code Mode MCP (ADR-069)
+
+- **Unified Graph Studio (`views/graph-studio.html`)**: Consolidates all 10 interactive graph, architecture, and hierarchy visualizations (`2D Graph`, `3D Sphere`, `Particle Flow`, `Chord Matrix`, `2D Canvas`, `3D Z-Planes`, `Tree`, `Treemap`, `Sunburst`, `3D Tree`) into a single studio shell with clean WebGL disposal and 100% legacy URL compatibility.
+- **AI Intelligence Endpoints & Generators**:
+  - `GET /api/context-pack?q=<topic>&max_tokens=4000` — single-call compressed Markdown briefing fusing FTS5 BM25 search, blast radius, process flows, and architectural health.
+  - `GET /api/impact?target=<symbol>&depth=3` — native reverse-dependency blast radius (`d=1`, `d=2`, `d=3`).
+  - `GET /api/health-audit` (`data/arch-health.json`) — Tarjan SCC dependency cycles, orphans, god-files, and UI→DB layer violations.
+  - `GET /llms.txt` & `GET /llms-full.txt` — auto-generated AI discovery manifests.
+- **Cloudflare-Style Code Mode MCP (`--code-mode`)**:
+  ```bash
+  # Compact 2-tool MCP (~1k token schema): portal_discover + read-only AST-sandboxed portal_codemode
+  knowledge-portal mcp --dir . --code-mode
+  ```

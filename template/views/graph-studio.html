@@ -193,7 +193,7 @@
       }
 
       currentFile = spec.file;
-      const targetUrl = spec.sub ? `${spec.file}?mode=${encodeURIComponent(spec.sub)}` : spec.file;
+      const targetUrl = spec.sub ? `${spec.file}?mode=${encodeURIComponent(spec.sub)}&embed=1` : spec.file;
       frame.src = targetUrl;
     }
 

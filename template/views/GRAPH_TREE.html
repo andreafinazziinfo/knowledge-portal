@@ -346,7 +346,9 @@
   });
 
   (function() {
-    const m = new URLSearchParams(window.location.search).get('mode');
+    const _qs = new URLSearchParams(window.location.search);
+    if (_qs.get('embed') === '1') { ['mode-tree','mode-treemap','mode-sunburst'].forEach(id => { const el = document.getElementById(id); if (el) el.style.display='none'; }); }
+    const m = _qs.get('mode');
     if ((m === 'treemap' || m === 'sunburst' || m === 'tree') && typeof window.setTreeMode === 'function') {
       setTimeout(() => window.setTreeMode(m), 120);
     }
