@@ -990,6 +990,10 @@
       <div class="search-hint">Omni-Search su 70 formule, 453 utility, 193 API, 17 store, task e note</div>
     </div>
 
+    <div style="display:flex;gap:6px;padding:0 12px 8px;">
+      <button id="tree-scope-docs" class="action-btn" style="flex:1;font-size:11px;background:#ffffff;color:#0f0f0f;font-weight:600;" onclick="setTreeScope('docs')">📚 Docs</button>
+      <button id="tree-scope-code" class="action-btn" style="flex:1;font-size:11px;" onclick="setTreeScope('code')">💻 Source Code</button>
+    </div>
     <div class="tree-container" id="tree-root">Loading file tree...</div>
     <div id="search-results"></div>
   </div>
@@ -1759,9 +1763,24 @@
       });
     }
 
+    let currentTreeScope = 'docs';
+    function setTreeScope(scope) {
+      currentTreeScope = scope === 'code' ? 'code' : 'docs';
+      const bd = document.getElementById('tree-scope-docs');
+      const bc = document.getElementById('tree-scope-code');
+      if (bd && bc) {
+        const isDocs = currentTreeScope === 'docs';
+        bd.style.background = isDocs ? '#ffffff' : '';
+        bd.style.color = isDocs ? '#0f0f0f' : '';
+        bc.style.background = isDocs ? '' : '#ffffff';
+        bc.style.color = isDocs ? '' : '#0f0f0f';
+      }
+      fetchTree();
+    }
+
     function fetchTree() {
       if (window.location.protocol !== "file:" && API_BASE) {
-        fetch(API_BASE + "/api/tree")
+        fetch(API_BASE + "/api/tree?scope=" + encodeURIComponent(currentTreeScope))
           .then(r => r.json())
           .then(data => renderTree(data))
           .catch(() => loadTreeFromLocalFiles());

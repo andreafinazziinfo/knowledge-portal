@@ -123,6 +123,11 @@
 
     <!-- TAB 3: Complexity & Git Crime Scene -->
     <div class="ah-panel" id="p-git">
+      <section class="ah-card" style="margin-bottom:16px;">
+        <h2>Hotspot Bubble Map (Git Churn 90d × McCabe Complexity) <span class="ah-badge">Bubble</span></h2>
+        <div class="ah-hint">In alto a destra = file complessi modificati spesso (rischio massimo di bug). Clicca un punto per aprirlo nel Reader.</div>
+        <div class="ah-svg-box" id="chart-hotspots"></div>
+      </section>
       <div class="ah-grid">
         <section class="ah-card">
           <h2>Git Churn × Complexity Hotspots (90d) <span class="ah-badge" id="cnt-hot">0</span></h2>
@@ -350,23 +355,56 @@
       ? hubs.map(h => `<div class="ah-bar-row"><div class="ah-bar-head"><span class="ah-bar-path">${h.path || h.id}</span><span class="ah-bar-meta">in:${h.in_degree} · out:${h.out_degree}</span></div><div class="ah-bar-track"><div class="ah-bar-fill" style="width:${Math.max(6, Math.round(100*(h.total_degree||1)/maxDeg))}%"></div></div></div>`).join('')
       : '<div class="ah-empty">No high-coupling god-files detected.</div>';
 
-    // Tab 3: Git Hotspots & Complexity
+    function openInReader(filePath) {
+      if (!filePath) return;
+      try { window.parent.postMessage({ action: 'openFile', path: filePath }, '*'); } catch (_) {}
+    }
+    window.openInReader = openInReader;
+
+    // Tab 3: Git Hotspot Bubble Chart (Churn vs McCabe)
     const hots = git.hotspots || [];
+    const cfiles = comp.top_complex_files || [];
+    if (typeof d3 !== 'undefined' && (hots.length || cfiles.length)) {
+      const compByPath = new Map(cfiles.map(f => [f.path, f]));
+      const pts = hots.map(h => {
+        const cf = compByPath.get(h.path) || {};
+        return { path: h.path, commits: h.commits || 1, mccabe: cf.mccabe || Math.max(2, Math.round(h.lines_churned / 40)), loc: cf.loc || Math.max(30, h.lines_churned), score: h.hotspot_score || 1 };
+      });
+      if (pts.length) {
+        const W = 620, H = 230, pad = 38;
+        const svg = d3.select('#chart-hotspots').append('svg').attr('width', '100%').attr('viewBox', `0 0 ${W} ${H}`);
+        const x = d3.scaleLinear().domain([0, Math.max(5, d3.max(pts, d => d.commits) * 1.1)]).range([pad, W - 20]);
+        const y = d3.scaleLinear().domain([0, Math.max(10, d3.max(pts, d => d.mccabe) * 1.15)]).range([H - pad, 16]);
+        svg.append('g').attr('transform', `translate(0,${H - pad})`).call(d3.axisBottom(x).ticks(6)).attr('color', '#737373');
+        svg.append('g').attr('transform', `translate(${pad},0)`).call(d3.axisLeft(y).ticks(5)).attr('color', '#737373');
+        svg.append('text').attr('x', W/2).attr('y', H - 4).attr('fill', '#9ca3af').attr('font-size', 10).attr('text-anchor', 'middle').text('Git Commits (Last 90d)');
+        svg.append('text').attr('x', 12).attr('y', H/2).attr('fill', '#9ca3af').attr('font-size', 10).attr('transform', `rotate(-90,12,${H/2})`).attr('text-anchor', 'middle').text('McCabe Complexity');
+        svg.selectAll('circle.hb').data(pts).join('circle').attr('class', 'hb')
+          .attr('cx', d => x(d.commits)).attr('cy', d => y(d.mccabe))
+          .attr('r', d => Math.min(18, Math.max(5, Math.sqrt(d.loc) * 0.45)))
+          .attr('fill', d => d.mccabe >= 25 ? '#ef4444' : (d.commits >= 6 ? '#f59e0b' : '#38bdf8'))
+          .attr('fill-opacity', 0.72).attr('stroke', '#fff').attr('stroke-width', 0.8)
+          .style('cursor', 'pointer')
+          .on('mousemove', (ev, d) => showTip(ev, `<strong>${d.path}</strong><br>Commits: ${d.commits} · McCabe: ${d.mccabe} · LOC: ${d.loc}<br><em>Click to open in Reader</em>`))
+          .on('mouseleave', hideTip)
+          .on('click', (_, d) => openInReader(d.path));
+      }
+    }
+
     document.getElementById('cnt-hot').textContent = hots.length;
     document.getElementById('list-hotspots').innerHTML = hots.length
-      ? hots.map(h => `<div class="ah-row"><strong>${h.path}</strong> — ${h.commits} commits · ${h.lines_churned} LOC churned · ${h.authors} author(s) · score <strong>${h.hotspot_score}</strong></div>`).join('')
+      ? hots.map(h => `<div class="ah-row" style="cursor:pointer;" onclick="openInReader('${h.path.replace(/'/g, "\\'")}')"><strong>${h.path}</strong> — ${h.commits} commits · ${h.lines_churned} LOC churned · ${h.authors} author(s) · score <strong>${h.hotspot_score}</strong></div>`).join('')
       : '<div class="ah-empty">Git history not available in this environment.</div>';
 
     const tcs = git.temporal_coupling || [];
     document.getElementById('cnt-tc').textContent = tcs.length;
     document.getElementById('list-tc').innerHTML = tcs.length
-      ? tcs.map(t => `<div class="ah-row"><strong>${t.co_changes}×</strong> co-changed: <code>${t.file_a}</code> ↔ <code>${t.file_b}</code></div>`).join('')
+      ? tcs.map(t => `<div class="ah-row"><strong>${t.co_changes}×</strong> co-changed: <code style="cursor:pointer;color:#38bdf8;" onclick="openInReader('${t.file_a.replace(/'/g, "\\'")}')">${t.file_a}</code> ↔ <code style="cursor:pointer;color:#38bdf8;" onclick="openInReader('${t.file_b.replace(/'/g, "\\'")}')">${t.file_b}</code></div>`).join('')
       : '<div class="ah-empty">No strong temporal coupling pairs (>=3 co-changes) detected.</div>';
 
-    const cfiles = comp.top_complex_files || [];
     document.getElementById('cnt-cc').textContent = cfiles.length;
     document.getElementById('list-complex').innerHTML = cfiles.length
-      ? cfiles.map(f => `<div class="ah-row"><strong>${f.path}</strong> — McCabe: <strong>${f.mccabe}</strong> · Cognitive: ${f.cognitive} · MI: <strong>${f.maintainability_index}/100</strong> · LOC: ${f.loc}${f.worst_fn ? ` · worst fn: <code>${f.worst_fn.name}()</code> (cc=${f.worst_fn.mccabe})` : ''}</div>`).join('')
+      ? cfiles.map(f => `<div class="ah-row" style="cursor:pointer;" onclick="openInReader('${f.path.replace(/'/g, "\\'")}')"><strong>${f.path}</strong> — McCabe: <strong>${f.mccabe}</strong> · Cognitive: ${f.cognitive} · MI: <strong>${f.maintainability_index}/100</strong> · LOC: ${f.loc}${f.worst_fn ? ` · worst fn: <code>${f.worst_fn.name}()</code> (cc=${f.worst_fn.mccabe})` : ''}</div>`).join('')
       : '<div class="ah-empty">No complexity metrics computed yet.</div>';
 
     // Tab 4: Coverage

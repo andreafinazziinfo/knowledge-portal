@@ -125,6 +125,9 @@ class FtsSearchEngine:
                 for item in items:
                     if not isinstance(item, dict):
                         continue
+                    item_path = str(item.get("path") or "")
+                    if any(seg.startswith(".") or seg == "frozen" for seg in item_path.replace("\\", "/").split("/") if seg):
+                        continue
                     title = str(item.get("title") or item.get("name") or "")
                     subtitle = str(item.get("subtitle") or "")
                     stext = str(item.get("search_text") or item.get("summary") or item.get("tags") or "")

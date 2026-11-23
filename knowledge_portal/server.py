@@ -207,20 +207,26 @@ class PortalRequestHandler(SimpleHTTPRequestHandler):
             })
 
         elif path == "/api/tree":
+            scope = query.get("scope", ["docs"])[0]
+            allowed_exts = {".py", ".ts", ".tsx", ".js", ".jsx", ".vue", ".sql", ".yml", ".yaml", ".json", ".md"} if scope == "code" else {".md"}
             tree = []
-            for item in self.project_dir.iterdir():
-                if item.name.startswith(".") or item.name in ("venv", "__pycache__", "node_modules"):
+            for item in sorted(self.project_dir.iterdir(), key=lambda x: x.name):
+                if item.name.startswith(".") or item.name in ("venv", "__pycache__", "node_modules", "dist", "build", "frozen"):
                     continue
                 if item.is_dir():
                     children = []
-                    for child in item.rglob("*.md"):
+                    for child in sorted(item.rglob("*")):
+                        if not child.is_file() or child.suffix.lower() not in allowed_exts:
+                            continue
                         if any(p in _DENY_PARTS or p.startswith(".") for p in child.parts):
                             continue
                         children.append({
-                            "name": child.name,
+                            "name": str(child.relative_to(item)).replace("\\", "/") if scope == "code" else child.name,
                             "type": "file",
                             "path": str(child.relative_to(self.project_dir)).replace("\\", "/"),
                         })
+                        if len(children) >= 300:
+                            break
                     if children:
                         tree.append({"name": item.name, "type": "directory", "children": children})
             self.send_json(tree)

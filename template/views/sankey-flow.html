@@ -126,7 +126,7 @@
         .on('click', () => {
           document.getElementById('sk-dr-title').textContent = `${r.name} (${r.count} files)`;
           document.getElementById('sk-dr-body').innerHTML = layerFiles[idx].slice(0, 40)
-            .map(f => `<div style="padding:4px 7px;background:#141414;border:1px solid #262626;border-radius:5px;word-break:break-all;">${f}</div>`).join('');
+            .map(f => `<div style="padding:4px 7px;background:#141414;border:1px solid #262626;border-radius:5px;word-break:break-all;cursor:pointer;" onclick="try{window.parent.postMessage({action:'openFile',path:'${f.replace(/'/g, "\\'")}'},'*')}catch(_){}">${f}</div>`).join('');
           document.getElementById('sk-drawer').style.display = 'block';
         });
       svg.append('text').attr('x', r.x + nodeW / 2).attr('y', r.y - 10).attr('text-anchor', 'middle').attr('fill', '#ffffff').attr('font-size', 12).attr('font-weight', 700).text(r.name);

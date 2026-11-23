@@ -227,24 +227,54 @@ class PortalMcpEngine:
         if not isinstance(graph, dict):
             return {"target": target, "risk": "UNKNOWN", "counts": {"d1": 0, "d2": 0, "d3": 0, "total": 0}, "by_depth": {}, "affected_flows": []}
 
-        nodes = {str(n.get("id")): n for n in graph.get("nodes", []) if isinstance(n, dict) and n.get("id") is not None}
+        # Collapse to file-level modules + path/stem/label resolver so file-level edges match accurately
         edges = graph.get("edges") or graph.get("links") or []
+        modules: dict[str, dict[str, Any]] = {}
+        id_to_mod: dict[str, str] = {}
+        path_to_mod: dict[str, str] = {}
+        stem_to_mod: dict[str, str] = {}
+        for n in graph.get("nodes", []):
+            if not isinstance(n, dict) or n.get("id") is None:
+                continue
+            nid = str(n["id"])
+            raw_p = str(n.get("path") or n.get("label") or nid).replace("\\", "/")
+            if any(seg.startswith(".") or seg == "frozen" for seg in raw_p.split("/") if seg):
+                continue
+            mk = raw_p if ("/" in raw_p or "." in raw_p) else nid
+            if mk not in modules:
+                modules[mk] = {"id": nid, "label": n.get("label") or Path(raw_p).name or nid, "path": raw_p, "type": n.get("type") or "file"}
+            id_to_mod[nid] = mk
+            p_low = raw_p.lower()
+            path_to_mod.setdefault(p_low, mk)
+            stem = p_low.rsplit(".", 1)[0] if "." in p_low.rsplit("/", 1)[-1] else p_low
+            stem_to_mod.setdefault(stem, mk)
+            parts = stem.split("/")
+            if len(parts) >= 2 and parts[0] in ("backend", "frontend", "src"):
+                stem_to_mod.setdefault("/".join(parts[1:]), mk)
 
-        # Reverse adjacency: target -> list of callers/importers (sources)
+        def _res(ref: str) -> str | None:
+            if ref in modules:
+                return ref
+            if ref in id_to_mod:
+                return id_to_mod[ref]
+            norm = ref.replace("\\", "/").lower()
+            if norm in path_to_mod:
+                return path_to_mod[norm]
+            stem = norm.rsplit(".", 1)[0] if "." in norm.rsplit("/", 1)[-1] else norm
+            return stem_to_mod.get(stem)
+
         rev_adj: dict[str, set[str]] = {}
         for e in edges:
             if not isinstance(e, dict):
                 continue
-            s = str(e.get("source", ""))
-            t = str(e.get("target", ""))
-            if s in nodes and t in nodes and s != t:
+            s = _res(str(e.get("source", "")))
+            t = _res(str(e.get("target", "")))
+            if s and t and s != t:
                 rev_adj.setdefault(t, set()).add(s)
 
         matched_ids = [
-            nid for nid, n in nodes.items()
-            if q in nid.lower()
-            or q in str(n.get("path") or "").lower()
-            or q in str(n.get("label") or n.get("name") or "").lower()
+            mk for mk, m in modules.items()
+            if q in mk.lower() or q in m["id"].lower() or q in m["path"].lower() or q in str(m["label"]).lower()
         ][:5]
 
         visited = set(matched_ids)
@@ -252,18 +282,13 @@ class PortalMcpEngine:
         by_depth: dict[str, list[dict[str, Any]]] = {}
         for d in range(1, hops + 1):
             next_frontier: set[str] = set()
-            for nid in frontier:
-                for caller in rev_adj.get(nid, ()):
+            for mk in frontier:
+                for caller in rev_adj.get(mk, ()):
                     if caller not in visited:
                         visited.add(caller)
                         next_frontier.add(caller)
             by_depth[f"d{d}"] = [
-                {
-                    "id": cid,
-                    "label": nodes[cid].get("label") or cid,
-                    "path": nodes[cid].get("path") or "",
-                    "type": nodes[cid].get("type") or "",
-                }
+                {"id": modules[cid]["id"], "label": modules[cid]["label"], "path": modules[cid]["path"], "type": modules[cid]["type"]}
                 for cid in sorted(next_frontier)[:40]
             ]
             frontier = next_frontier
@@ -286,13 +311,12 @@ class PortalMcpEngine:
         else:
             risk = "LOW"
 
-        # Cross-check process flows
         flows_res = self.process_flow(query=target, limit=10)
         affected_flows = flows_res.get("flows", []) if isinstance(flows_res, dict) else []
 
         return {
             "target": target,
-            "matched_nodes": [{"id": i, "label": nodes[i].get("label") or i, "path": nodes[i].get("path") or ""} for i in matched_ids],
+            "matched_nodes": [{"id": modules[i]["id"], "label": modules[i]["label"], "path": modules[i]["path"]} for i in matched_ids],
             "risk": risk,
             "counts": {"d1": d1, "d2": d2, "d3": d3, "total": total},
             "by_depth": by_depth,
