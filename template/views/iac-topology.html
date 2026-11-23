@@ -1,0 +1,117 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>IaC, Runtime &amp; CI/CD Topology</title>
+  <link rel="stylesheet" href="portal-theme.css?v=fp3">
+  <script src="../assets/d3.v7.min.js"></script>
+  <script src="../data/iac_topology.js" onerror="void(0)"></script>
+  <script src="live-reload.js"></script>
+  <script defer src="portal-ui.js?v=fp4"></script>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body { background: #0f0f0f; color: #f3f4f6; font-family: 'Inter', system-ui, sans-serif; min-height: 100vh; }
+    .wrap { max-width: 1340px; margin: 0 auto; padding: 18px 24px 54px; }
+    .head { border-bottom: 1px solid #262626; padding-bottom: 14px; margin-bottom: 16px; }
+    .kpis { display: grid; grid-template-columns: repeat(auto-fit, minmax(145px, 1fr)); gap: 12px; margin-bottom: 16px; }
+    .kpi { background: #191919; border: 1px solid #262626; border-radius: 10px; padding: 12px 15px; }
+    .kpi-v { font-size: 22px; font-weight: 700; color: #fff; }
+    .kpi-l { font-size: 10px; text-transform: uppercase; letter-spacing: 0.06em; color: #9ca3af; margin-top: 3px; }
+    .card { background: #191919; border: 1px solid #262626; border-radius: 10px; padding: 16px; margin-bottom: 16px; }
+    .card h2 { font-size: 12px; text-transform: uppercase; letter-spacing: 0.06em; color: #e5e7eb; margin-bottom: 10px; display: flex; justify-content: space-between; }
+    .grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(340px, 1fr)); gap: 16px; }
+    .row { font-size: 12px; padding: 8px 10px; background: #141414; border: 1px solid #242424; border-radius: 6px; margin-bottom: 6px; cursor: pointer; word-break: break-word; }
+    .row:hover { border-color: #38bdf8; }
+    .pill { padding: 1px 6px; border-radius: 4px; font-size: 10px; font-weight: 700; margin-right: 6px; }
+    .p-HIGH { background: #ef4444; color: #fff; }
+    .p-MEDIUM { background: #f59e0b; color: #0f0f0f; }
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <div class="head">
+      <h1 style="font-size:19px;">🐳 IaC, Runtime &amp; CI/CD Topology</h1>
+      <p style="font-size:12px;color:#9ca3af;margin-top:3px;">4-Lane Swimlane: Ingress/Nginx → Docker Compose Services → Dockerfiles → GitHub Actions CI/CD + Misconfig Audit</p>
+    </div>
+
+    <div class="kpis" id="iac-kpis"></div>
+
+    <section class="card">
+      <h2>4-Lane Runtime &amp; Deploy Swimlane (D3/SVG)</h2>
+      <div id="iac-svg" style="overflow-x:auto;min-height:220px;"></div>
+    </section>
+
+    <div class="grid">
+      <section class="card">
+        <h2>IaC &amp; Supply-Chain Misconfigurations <span id="cnt-mis" style="color:#f59e0b;">0</span></h2>
+        <div id="list-mis" style="max-height:320px;overflow-y:auto;"></div>
+      </section>
+      <section class="card">
+        <h2>Compose Services, Dockerfiles &amp; CI Workflows</h2>
+        <div id="list-inv" style="max-height:320px;overflow-y:auto;"></div>
+      </section>
+    </div>
+  </div>
+
+  <script>
+    function esc(s) { return String(s ?? '').replace(/[&<>"']/g, m => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m])); }
+    function openInReader(p) { if (p) try { window.parent.postMessage({ action: 'openFile', path: p }, '*'); } catch (_) {} }
+
+    (async function init() {
+      let d = window.IAC_TOPOLOGY || null;
+      if (!d) {
+        for (const u of ['/api/iac-topology', '../data/iac-topology.json', 'data/iac-topology.json']) {
+          try { const r = await fetch(u); if (r.ok) { const j = await r.json(); if (j && j.summary) { d = j; break; } } } catch (_) {}
+        }
+      }
+      if (!d) return;
+      const s = d.summary || {};
+      document.getElementById('iac-kpis').innerHTML = [
+        { v: s.dockerfiles ?? 0, l: 'Dockerfiles' },
+        { v: s.compose_services ?? 0, l: 'Compose Services' },
+        { v: s.nginx_configs ?? 0, l: 'Nginx / Ingress' },
+        { v: s.ci_workflows ?? 0, l: 'CI/CD Workflows' },
+        { v: (s.terraform_resources ?? 0) + (s.k8s_workloads ?? 0), l: 'Terraform / K8s' },
+        { v: s.misconfigs_count ?? 0, l: 'Misconfigurations', col: (s.misconfigs_count || 0) > 0 ? '#f59e0b' : '#34d399' },
+      ].map(k => `<div class="kpi"><div class="kpi-v" style="${k.col ? 'color:' + k.col : ''}">${k.v}</div><div class="kpi-l">${k.l}</div></div>`).join('');
+
+      // 4-Lane Swimlane D3/SVG
+      if (typeof d3 !== 'undefined') {
+        const lanes = [
+          { title: '1. Ingress / Nginx', color: '#38bdf8', items: (d.nginx_proxies || []).map(x => ({ lbl: x.file.split('/').pop(), file: x.file })) },
+          { title: '2. Compose Services', color: '#34d399', items: (d.compose_services || []).slice(0, 10).map(x => ({ lbl: x.name, file: x.file })) },
+          { title: '3. Dockerfiles', color: '#fbbf24', items: (d.dockerfiles || []).slice(0, 10).map(x => ({ lbl: x.file, file: x.file })) },
+          { title: '4. CI/CD Workflows', color: '#c084fc', items: (d.ci_workflows || []).slice(0, 10).map(x => ({ lbl: x.name, file: x.file })) },
+        ];
+        const maxRows = Math.max(2, ...lanes.map(l => l.items.length));
+        const W = 980, H = 56 + maxRows * 34;
+        const svg = d3.select('#iac-svg').append('svg').attr('width', '100%').attr('viewBox', `0 0 ${W} ${H}`);
+        lanes.forEach((lane, li) => {
+          const lx = 12 + li * 242;
+          svg.append('rect').attr('x', lx).attr('y', 8).attr('width', 228).attr('height', H - 16).attr('rx', 8).attr('fill', '#141414').attr('stroke', '#262626');
+          svg.append('text').attr('x', lx + 12).attr('y', 28).attr('fill', lane.color).attr('font-size', 11).attr('font-weight', 700).text(`${lane.title} (${lane.items.length})`);
+          lane.items.forEach((it, idx) => {
+            const y = 40 + idx * 32;
+            const g = svg.append('g').attr('transform', `translate(${lx + 10},${y})`).style('cursor', 'pointer').on('click', () => openInReader(it.file));
+            g.append('rect').attr('width', 208).attr('height', 24).attr('rx', 5).attr('fill', '#1e1e1e').attr('stroke', lane.color).attr('stroke-opacity', 0.45);
+            g.append('text').attr('x', 8).attr('y', 16).attr('fill', '#e5e7eb').attr('font-size', 10).text(it.lbl.slice(0, 30));
+          });
+        });
+      }
+
+      const mis = d.misconfigs || [];
+      document.getElementById('cnt-mis').textContent = mis.length;
+      document.getElementById('list-mis').innerHTML = mis.length
+        ? mis.map(m => `<div class="row" onclick="openInReader('${esc(m.file)}')"><span class="pill p-${esc(m.severity)}">${esc(m.severity)}</span><strong>[${esc(m.rule)}]</strong> <code>${esc(m.file)}:${m.line}</code> — ${esc(m.detail)}</div>`).join('')
+        : '<div style="color:#737373;font-size:12px;">Zero IaC / Docker / CI misconfigurations detected!</div>';
+
+      const invRows = []
+        .concat((d.compose_services || []).map(c => `<div class="row" onclick="openInReader('${esc(c.file)}')"><strong>[COMPOSE]</strong> <code>${esc(c.name)}</code> (${esc(c.image)}) ${(c.ports || []).length ? `· ports: <code>${esc(c.ports.join(', '))}</code>` : ''}</div>`))
+        .concat((d.dockerfiles || []).map(df => `<div class="row" onclick="openInReader('${esc(df.file)}')"><strong>[DOCKER]</strong> <code>${esc(df.file)}</code> · non-root: ${df.non_root ? '✅' : '❌'} · multi-stage: ${df.multi_stage ? '✅' : '—'}</div>`))
+        .concat((d.ci_workflows || []).map(w => `<div class="row" onclick="openInReader('${esc(w.file)}')"><strong>[CI]</strong> <code>${esc(w.name)}</code> (${w.actions_count} actions, ${w.unpinned_actions} unpinned)</div>`));
+      document.getElementById('list-inv').innerHTML = invRows.length ? invRows.join('') : '<div style="color:#737373;font-size:12px;">No IaC files detected.</div>';
+    })();
+  </script>
+</body>
+</html>

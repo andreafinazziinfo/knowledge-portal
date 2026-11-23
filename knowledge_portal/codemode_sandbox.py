@@ -80,6 +80,10 @@ class PortalReadOnlySDK:
         "validate_change",
         "mission_pack",
         "pr_context",
+        "config_matrix",
+        "iac_topology",
+        "ai_registry",
+        "compliance",
         "telemetry",
         "context_pack",
         "read_doc",
@@ -132,6 +136,18 @@ class PortalReadOnlySDK:
 
     def pr_context(self, base: str = "main") -> dict[str, Any]:
         return self._engine.pr_context(base=base)
+
+    def config_matrix(self, drift_only: bool = False) -> dict[str, Any]:
+        return self._engine.config_matrix(drift_only=drift_only)
+
+    def iac_topology(self) -> dict[str, Any]:
+        return self._engine.iac_topology()
+
+    def ai_registry(self) -> dict[str, Any]:
+        return self._engine.ai_registry()
+
+    def compliance(self, framework: str = "all") -> dict[str, Any]:
+        return self._engine.compliance_posture(framework=framework)
 
     def telemetry(self) -> dict[str, Any]:
         return self._engine.telemetry()

@@ -15,6 +15,10 @@ from knowledge_portal.generators.arch_health import generate_arch_health
 from knowledge_portal.generators.api_catalog import generate_api_catalog
 from knowledge_portal.generators.call_graph import generate_call_graph
 from knowledge_portal.generators.ownership import generate_ownership_map
+from knowledge_portal.generators.config_matrix import generate_config_matrix
+from knowledge_portal.generators.iac_topology import generate_iac_topology
+from knowledge_portal.generators.ai_registry import generate_ai_registry
+from knowledge_portal.generators.compliance_evidence import generate_compliance_evidence
 from knowledge_portal.generators.stack_inventory import generate_stack_inventory
 from knowledge_portal.generators.llms_txt import generate_llms_manifests
 
@@ -52,7 +56,11 @@ def export_static_portal(source_dir: Path, output_dir: Path, project_name: Optio
     generate_api_catalog(source_dir, data_dir)
     generate_call_graph(source_dir, data_dir)
     generate_ownership_map(source_dir, data_dir)
+    generate_config_matrix(source_dir, data_dir)
+    generate_iac_topology(source_dir, data_dir)
+    generate_ai_registry(source_dir, data_dir)
     generate_stack_inventory(source_dir, data_dir)
+    generate_compliance_evidence(source_dir, data_dir)
     generate_llms_manifests(source_dir, data_dir, output_dir, project_name=project_name)
 
     # 3. Generate Search Index into output_dir/views/data/omni-search-index.json

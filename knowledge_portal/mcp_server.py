@@ -518,6 +518,33 @@ class PortalMcpEngine:
         health = self.health_audit()
         return {**drift, "pr_comment_markdown": render_pr_comment_markdown(drift, health_report=health)}
 
+    def config_matrix(self, drift_only: bool = False) -> dict[str, Any]:
+        from knowledge_portal.generators.config_matrix import generate_config_matrix
+        f = self.data_dir / "config-matrix.json"
+        data = json.loads(f.read_text(encoding="utf-8")) if f.exists() else generate_config_matrix(self.project_dir, self.data_dir)
+        if drift_only:
+            data = {**data, "variables": [v for v in (data.get("variables") or []) if v.get("status") != "OK"]}
+        return data
+
+    def iac_topology(self) -> dict[str, Any]:
+        from knowledge_portal.generators.iac_topology import generate_iac_topology
+        f = self.data_dir / "iac-topology.json"
+        return json.loads(f.read_text(encoding="utf-8")) if f.exists() else generate_iac_topology(self.project_dir, self.data_dir)
+
+    def ai_registry(self) -> dict[str, Any]:
+        from knowledge_portal.generators.ai_registry import generate_ai_registry
+        f = self.data_dir / "ai-registry.json"
+        return json.loads(f.read_text(encoding="utf-8")) if f.exists() else generate_ai_registry(self.project_dir, self.data_dir)
+
+    def compliance_posture(self, framework: str = "all") -> dict[str, Any]:
+        from knowledge_portal.generators.compliance_evidence import generate_compliance_evidence
+        f = self.data_dir / "compliance-evidence.json"
+        data = json.loads(f.read_text(encoding="utf-8")) if f.exists() else generate_compliance_evidence(self.project_dir, self.data_dir)
+        fw = (framework or "all").strip().upper()
+        if fw != "ALL":
+            data = {**data, "controls": [c for c in (data.get("controls") or []) if c.get("framework") == fw]}
+        return data
+
     def codemode_discover(self, topic: str = "") -> dict[str, Any]:
         return get_codemode_sdk_reference(topic=topic)
 
@@ -700,6 +727,36 @@ TOOLS_SPEC: list[dict[str, Any]] = [
         },
     },
     {
+        "name": "portal_config_matrix",
+        "description": "Inspect environment variable drift (code vs .env.example vs docker-compose) and feature flags (never reads real .env).",
+        "inputSchema": {
+            "type": "object",
+            "properties": {
+                "drift_only": {"type": "boolean", "default": False},
+            },
+        },
+    },
+    {
+        "name": "portal_iac_topology",
+        "description": "Inspect Dockerfiles, docker-compose services, Nginx proxies, Terraform/K8s resources, GitHub Actions, and IaC misconfigurations.",
+        "inputSchema": {"type": "object", "properties": {}},
+    },
+    {
+        "name": "portal_ai_registry",
+        "description": "Inspect AI/LLM SDK usages, hardcoded Model IDs, Prompt templates, and prompt-injection/guardrail findings.",
+        "inputSchema": {"type": "object", "properties": {}},
+    },
+    {
+        "name": "portal_compliance",
+        "description": "Inspect deterministic SOC2, ISO 27001, and EU AI Act readiness controls and audit evidence.",
+        "inputSchema": {
+            "type": "object",
+            "properties": {
+                "framework": {"type": "string", "default": "all"},
+            },
+        },
+    },
+    {
         "name": "portal_discover",
         "description": "Code Mode SDK discovery: returns the compact typed read-only `portal.*` API reference for writing multi-step query pipelines.",
         "inputSchema": {
@@ -762,6 +819,7 @@ def handle_jsonrpc_request(engine: PortalMcpEngine, req: dict[str, Any], code_mo
                     {"uri": "portal://sbom", "name": "CycloneDX 1.5 SBOM", "description": "Software Bill of Materials & licenses", "mimeType": "application/json"},
                     {"uri": "portal://invariants", "name": "Architecture Invariants", "description": "Machine-readable architectural rules & P4 gates", "mimeType": "application/json"},
                     {"uri": "portal://ownership", "name": "Ownership & Conway Map", "description": "CODEOWNERS and contributor bus-factor map", "mimeType": "application/json"},
+                    {"uri": "portal://compliance", "name": "Compliance & Audit Evidence Pack", "description": "SOC2, ISO 27001 & EU AI Act controls", "mimeType": "application/json"},
                 ]
             },
         }
@@ -786,6 +844,8 @@ def handle_jsonrpc_request(engine: PortalMcpEngine, req: dict[str, Any], code_mo
             return {"jsonrpc": "2.0", "id": req_id, "result": {"contents": [{"uri": uri, "mimeType": "application/json", "text": json.dumps(engine.invariants(), indent=2)}]}}
         if uri == "portal://ownership":
             return {"jsonrpc": "2.0", "id": req_id, "result": {"contents": [{"uri": uri, "mimeType": "application/json", "text": json.dumps(engine.ownership(), indent=2)}]}}
+        if uri == "portal://compliance":
+            return {"jsonrpc": "2.0", "id": req_id, "result": {"contents": [{"uri": uri, "mimeType": "application/json", "text": json.dumps(engine.compliance_posture(), indent=2)}]}}
         return {"jsonrpc": "2.0", "id": req_id, "error": {"code": -32602, "message": f"Unknown resource URI: {uri}"}}
 
     if method == "prompts/list":
@@ -835,6 +895,10 @@ def handle_jsonrpc_request(engine: PortalMcpEngine, req: dict[str, Any], code_mo
             "portal_mission_pack": lambda a: engine.mission_pack(a.get("task", ""), a.get("max_tokens", 6000)),
             "portal_validate_change": lambda a: engine.validate_change(a.get("paths") or []),
             "portal_pr_context": lambda a: engine.pr_context(a.get("base", "main")),
+            "portal_config_matrix": lambda a: engine.config_matrix(bool(a.get("drift_only", False))),
+            "portal_iac_topology": lambda _a: engine.iac_topology(),
+            "portal_ai_registry": lambda _a: engine.ai_registry(),
+            "portal_compliance": lambda a: engine.compliance_posture(a.get("framework", "all")),
             "portal_discover": lambda a: engine.codemode_discover(a.get("topic", "")),
             "portal_codemode": lambda a: engine.codemode_execute(a.get("code", "")),
         }

@@ -1,0 +1,120 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>AI / LLM &amp; Prompt Governance Registry</title>
+  <link rel="stylesheet" href="portal-theme.css?v=fp3">
+  <script src="../assets/d3.v7.min.js"></script>
+  <script src="../data/ai_registry.js" onerror="void(0)"></script>
+  <script src="live-reload.js"></script>
+  <script defer src="portal-ui.js?v=fp4"></script>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body { background: #0f0f0f; color: #f3f4f6; font-family: 'Inter', system-ui, sans-serif; min-height: 100vh; }
+    .wrap { max-width: 1340px; margin: 0 auto; padding: 18px 24px 54px; }
+    .head { border-bottom: 1px solid #262626; padding-bottom: 14px; margin-bottom: 16px; }
+    .kpis { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 12px; margin-bottom: 16px; }
+    .kpi { background: #191919; border: 1px solid #262626; border-radius: 10px; padding: 12px 15px; }
+    .kpi-v { font-size: 22px; font-weight: 700; color: #fff; }
+    .kpi-l { font-size: 10px; text-transform: uppercase; letter-spacing: 0.06em; color: #9ca3af; margin-top: 3px; }
+    .card { background: #191919; border: 1px solid #262626; border-radius: 10px; padding: 16px; margin-bottom: 16px; }
+    .card h2 { font-size: 12px; text-transform: uppercase; letter-spacing: 0.06em; color: #e5e7eb; margin-bottom: 10px; display: flex; justify-content: space-between; }
+    .grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(340px, 1fr)); gap: 16px; }
+    .row { font-size: 12px; padding: 8px 10px; background: #141414; border: 1px solid #242424; border-radius: 6px; margin-bottom: 6px; cursor: pointer; word-break: break-word; }
+    .row:hover { border-color: #38bdf8; }
+    .pill { padding: 1px 6px; border-radius: 4px; font-size: 10px; font-weight: 700; margin-right: 6px; }
+    .p-HIGH { background: #ef4444; color: #fff; }
+    .p-MEDIUM { background: #f59e0b; color: #0f0f0f; }
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <div class="head">
+      <h1 style="font-size:19px;">🤖 AI / LLM &amp; Prompt Governance Registry (LLMOps)</h1>
+      <p style="font-size:12px;color:#9ca3af;margin-top:3px;">Auto-discovered LLM SDKs, Model IDs, Prompt Templates &amp; Prompt-Injection Guardrail Audit</p>
+    </div>
+
+    <div class="kpis" id="ai-kpis"></div>
+
+    <section class="card">
+      <h2>Code Module → LLM SDK → Model ID Bipartite Flow (D3)</h2>
+      <div id="ai-svg" style="overflow-x:auto;min-height:190px;"></div>
+    </section>
+
+    <div class="grid">
+      <section class="card">
+        <h2>Prompt &amp; System Instruction Catalog <span id="cnt-pr" style="color:#38bdf8;">0</span></h2>
+        <div id="list-pr" style="max-height:320px;overflow-y:auto;"></div>
+      </section>
+      <section class="card">
+        <h2>LLM Guardrail &amp; Injection Findings <span id="cnt-gr" style="color:#ef4444;">0</span></h2>
+        <div id="list-gr" style="max-height:320px;overflow-y:auto;"></div>
+      </section>
+    </div>
+  </div>
+
+  <script>
+    function esc(s) { return String(s ?? '').replace(/[&<>"']/g, m => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m])); }
+    function openInReader(p) { if (p) try { window.parent.postMessage({ action: 'openFile', path: p }, '*'); } catch (_) {} }
+
+    (async function init() {
+      let d = window.AI_REGISTRY || null;
+      if (!d) {
+        for (const u of ['/api/ai-registry', '../data/ai-registry.json', 'data/ai-registry.json']) {
+          try { const r = await fetch(u); if (r.ok) { const j = await r.json(); if (j && j.summary) { d = j; break; } } } catch (_) {}
+        }
+      }
+      if (!d) return;
+      const s = d.summary || {};
+      const sdks = Object.keys(s.sdks_detected || {});
+      document.getElementById('ai-kpis').innerHTML = [
+        { v: sdks.length, l: 'AI / LLM SDKs' },
+        { v: s.unique_models_count ?? 0, l: 'Unique Model IDs' },
+        { v: s.prompts_cataloged ?? 0, l: 'Cataloged Prompts' },
+        { v: s.guardrail_findings_count ?? 0, l: 'Guardrail Findings', col: (s.guardrail_findings_count || 0) > 0 ? '#ef4444' : '#34d399' },
+      ].map(k => `<div class="kpi"><div class="kpi-v" style="${k.col ? 'color:' + k.col : ''}">${k.v}</div><div class="kpi-l">${k.l}</div></div>`).join('');
+
+      // Bipartite Flow: SDK -> Models
+      if (typeof d3 !== 'undefined') {
+        const models = Array.from(new Set((d.model_refs || []).map(m => m.model))).slice(0, 12);
+        const left = sdks.length ? sdks : ['No LLM SDK'];
+        const right = models.length ? models : ['No Hardcoded Model ID'];
+        const H = Math.max(170, Math.max(left.length, right.length) * 32 + 30), W = 820;
+        const svg = d3.select('#ai-svg').append('svg').attr('width', '100%').attr('viewBox', `0 0 ${W} ${H}`);
+        const lPos = {}, rPos = {};
+        left.forEach((k, i) => {
+          const y = 24 + i * 32; lPos[k] = y + 11;
+          svg.append('rect').attr('x', 20).attr('y', y).attr('width', 180).attr('height', 22).attr('rx', 5).attr('fill', '#17202a').attr('stroke', '#38bdf8');
+          svg.append('text').attr('x', 30).attr('y', y + 15).attr('fill', '#fff').attr('font-size', 11).text(`${k} (${(s.sdks_detected || {})[k] || 0})`);
+        });
+        right.forEach((m, i) => {
+          const y = 24 + i * 32; rPos[m] = y + 11;
+          svg.append('rect').attr('x', 540).attr('y', y).attr('width', 250).attr('height', 22).attr('rx', 5).attr('fill', '#1e1b2e').attr('stroke', '#c084fc');
+          svg.append('text').attr('x', 550).attr('y', y + 15).attr('fill', '#e5e7eb').attr('font-size', 11).text(m.slice(0, 32));
+        });
+        const drawn = new Set();
+        (d.model_refs || []).forEach(mr => {
+          const k = `${mr.sdk}|${mr.model}`;
+          if (drawn.has(k) || lPos[mr.sdk] == null || rPos[mr.model] == null) return;
+          drawn.add(k);
+          svg.append('path').attr('d', `M200,${lPos[mr.sdk]} C370,${lPos[mr.sdk]} 370,${rPos[mr.model]} 540,${rPos[mr.model]}`)
+            .attr('fill', 'none').attr('stroke', '#38bdf8').attr('stroke-opacity', 0.45).attr('stroke-width', 1.6);
+        });
+      }
+
+      const prs = d.prompts || [];
+      document.getElementById('cnt-pr').textContent = prs.length;
+      document.getElementById('list-pr').innerHTML = prs.length
+        ? prs.map(p => `<div class="row" onclick="openInReader('${esc(p.file)}')"><strong>${esc(p.name)}</strong> (~${p.est_tokens} tokens · ${esc(p.kind)}) — <code>${esc(p.file)}:${p.line}</code></div>`).join('')
+        : '<div style="color:#737373;font-size:12px;">No prompt templates or SYSTEM_PROMPT constants detected.</div>';
+
+      const grs = d.guardrails || [];
+      document.getElementById('cnt-gr').textContent = grs.length;
+      document.getElementById('list-gr').innerHTML = grs.length
+        ? grs.map(g => `<div class="row" onclick="openInReader('${esc(g.file)}')"><span class="pill p-${esc(g.severity)}">${esc(g.severity)}</span><strong>[${esc(g.rule)}]</strong> <code>${esc(g.file)}:${g.line}</code> — ${esc(g.detail)}</div>`).join('')
+        : '<div style="color:#737373;font-size:12px;">Zero LLM guardrail or prompt-injection risks detected!</div>';
+    })();
+  </script>
+</body>
+</html>

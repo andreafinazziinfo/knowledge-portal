@@ -1,0 +1,127 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Config, Environment &amp; Feature Flag Matrix</title>
+  <link rel="stylesheet" href="portal-theme.css?v=fp3">
+  <script src="../data/config_matrix.js" onerror="void(0)"></script>
+  <script src="live-reload.js"></script>
+  <script defer src="portal-ui.js?v=fp4"></script>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body { background: #0f0f0f; color: #f3f4f6; font-family: 'Inter', system-ui, sans-serif; min-height: 100vh; }
+    .wrap { max-width: 1340px; margin: 0 auto; padding: 18px 24px 54px; }
+    .head { display: flex; justify-content: space-between; align-items: flex-end; gap: 12px; flex-wrap: wrap; border-bottom: 1px solid #262626; padding-bottom: 14px; margin-bottom: 16px; }
+    .kpis { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 12px; margin-bottom: 16px; }
+    .kpi { background: #191919; border: 1px solid #262626; border-radius: 10px; padding: 12px 15px; }
+    .kpi-v { font-size: 22px; font-weight: 700; color: #fff; }
+    .kpi-l { font-size: 10px; text-transform: uppercase; letter-spacing: 0.06em; color: #9ca3af; margin-top: 3px; }
+    .controls { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; margin-bottom: 14px; }
+    .inp { background: #141414; border: 1px solid #333; color: #fff; padding: 7px 12px; border-radius: 7px; font-size: 12px; width: 280px; }
+    .chip { background: #191919; border: 1px solid #2e2e2e; color: #a3a3a3; padding: 6px 12px; border-radius: 999px; font-size: 11px; font-weight: 600; cursor: pointer; }
+    .chip.active { background: #fff; color: #0f0f0f; border-color: #fff; }
+    .btn { background: #38bdf8; color: #0f0f0f; border: none; border-radius: 7px; padding: 7px 12px; font-size: 12px; font-weight: 700; cursor: pointer; }
+    table { width: 100%; border-collapse: collapse; background: #141414; border: 1px solid #262626; border-radius: 10px; overflow: hidden; font-size: 12px; }
+    th, td { text-align: left; padding: 9px 12px; border-bottom: 1px solid #222; }
+    th { background: #191919; font-size: 10px; text-transform: uppercase; letter-spacing: 0.06em; color: #9ca3af; }
+    .st { padding: 2px 7px; border-radius: 4px; font-size: 10px; font-weight: 700; }
+    .st-UNDOCUMENTED { background: #ef4444; color: #fff; }
+    .st-UNUSED { background: #f59e0b; color: #0f0f0f; }
+    .st-OK { background: #34d399; color: #0f0f0f; }
+    .ff { background: #818cf8; color: #0f0f0f; padding: 1px 6px; border-radius: 4px; font-size: 10px; font-weight: 700; margin-left: 6px; }
+    .link { color: #38bdf8; cursor: pointer; font-family: ui-monospace, monospace; text-decoration: underline; }
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <div class="head">
+      <div>
+        <h1 style="font-size:19px;">⚙️ Config, Environment &amp; Feature Flag Matrix</h1>
+        <p style="font-size:12px;color:#9ca3af;margin-top:3px;">Zero-secret drift audit: Source Code × <code>.env.example</code> × <code>docker-compose</code> (never reads real <code>.env</code> files)</p>
+      </div>
+      <button class="btn" onclick="downloadEnvExample()">⬇ Generate .env.example</button>
+    </div>
+
+    <div class="kpis" id="cm-kpis"></div>
+    <div class="controls">
+      <input id="cm-q" class="inp" type="search" placeholder="Filter variable name or file..." oninput="render()">
+      <button class="chip active" onclick="setMode('all', this)">All</button>
+      <button class="chip" onclick="setMode('drift', this)">Drift Only</button>
+      <button class="chip" onclick="setMode('flags', this)">Feature Flags</button>
+    </div>
+
+    <table>
+      <thead>
+        <tr>
+          <th>Variable / Flag</th>
+          <th>Status</th>
+          <th>In Code</th>
+          <th>In .env.example</th>
+          <th>In Compose</th>
+          <th>Referenced Files</th>
+        </tr>
+      </thead>
+      <tbody id="cm-body"></tbody>
+    </table>
+  </div>
+
+  <script>
+    let DATA = { summary: {}, variables: [], sdk_feature_flags: [] };
+    let mode = 'all';
+    function esc(s) { return String(s ?? '').replace(/[&<>"']/g, m => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m])); }
+    function openInReader(p) { if (p) try { window.parent.postMessage({ action: 'openFile', path: p }, '*'); } catch (_) {} }
+    function setMode(m, el) {
+      mode = m;
+      document.querySelectorAll('.chip').forEach(c => c.classList.remove('active'));
+      if (el) el.classList.add('active');
+      render();
+    }
+    function downloadEnvExample() {
+      const vars = (DATA.variables || []).filter(v => v.in_code || v.in_compose);
+      const txt = '# Auto-generated clean .env.example (values intentionally blank)\n' + vars.map(v => `${v.name}=`).join('\n') + '\n';
+      const a = document.createElement('a');
+      a.href = URL.createObjectURL(new Blob([txt], { type: 'text/plain' }));
+      a.download = '.env.example';
+      a.click();
+    }
+    function render() {
+      const q = (document.getElementById('cm-q').value || '').trim().toLowerCase();
+      const rows = (DATA.variables || []).filter(v => {
+        if (mode === 'drift' && v.status === 'OK') return false;
+        if (mode === 'flags' && !v.is_feature_flag) return false;
+        if (!q) return true;
+        return `${v.name} ${(v.files || []).join(' ')}`.toLowerCase().includes(q);
+      });
+      const tb = document.getElementById('cm-body');
+      tb.innerHTML = rows.length ? rows.slice(0, 300).map(v => `
+        <tr>
+          <td><code>${esc(v.name)}</code>${v.is_feature_flag ? '<span class="ff">FLAG</span>' : ''}</td>
+          <td><span class="st st-${esc(v.status)}">${esc(v.status)}</span></td>
+          <td>${v.in_code ? `✅ (${v.usage_count})` : '—'}</td>
+          <td>${v.in_example ? '✅' : '❌'}</td>
+          <td>${v.in_compose ? '✅' : '—'}</td>
+          <td>${(v.files || []).slice(0, 3).map(f => `<span class="link" onclick="openInReader('${esc(f)}')">${esc(f)}</span>`).join(', ') || '—'}</td>
+        </tr>
+      `).join('') : '<tr><td colspan="6" style="text-align:center;color:#737373;padding:20px;">No matching variables.</td></tr>';
+    }
+    (async function init() {
+      let loaded = window.CONFIG_MATRIX || null;
+      if (!loaded) {
+        for (const u of ['/api/config-matrix', '../data/config-matrix.json', 'data/config-matrix.json']) {
+          try { const r = await fetch(u); if (r.ok) { const j = await r.json(); if (j && Array.isArray(j.variables)) { loaded = j; break; } } } catch (_) {}
+        }
+      }
+      if (loaded) DATA = loaded;
+      const s = DATA.summary || {};
+      document.getElementById('cm-kpis').innerHTML = [
+        { v: s.total_variables ?? 0, l: 'Total Env Vars' },
+        { v: s.undocumented_count ?? 0, l: 'Undocumented (Drift)', col: (s.undocumented_count || 0) > 0 ? '#ef4444' : '#34d399' },
+        { v: s.unused_count ?? 0, l: 'Unused in .env.example', col: '#f59e0b' },
+        { v: s.feature_flags_count ?? 0, l: 'Feature Flags', col: '#818cf8' },
+      ].map(k => `<div class="kpi"><div class="kpi-v" style="${k.col ? 'color:' + k.col : ''}">${k.v}</div><div class="kpi-l">${k.l}</div></div>`).join('');
+      render();
+    })();
+  </script>
+</body>
+</html>

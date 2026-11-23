@@ -49,7 +49,7 @@ class TestMcpAndCliQuery(unittest.TestCase):
             tool_names = [t["name"] for t in list_resp["result"]["tools"]]
             self.assertEqual(
                 tool_names,
-                ["portal_search", "portal_process_flow", "portal_db_schema", "portal_stack", "portal_telemetry", "portal_read_doc", "portal_graph_neighbors", "portal_context_pack", "portal_impact", "portal_health_audit", "portal_api_catalog", "portal_arch_diff", "portal_call_chain", "portal_mission_pack", "portal_validate_change", "portal_pr_context", "portal_discover", "portal_codemode"],
+                ["portal_search", "portal_process_flow", "portal_db_schema", "portal_stack", "portal_telemetry", "portal_read_doc", "portal_graph_neighbors", "portal_context_pack", "portal_impact", "portal_health_audit", "portal_api_catalog", "portal_arch_diff", "portal_call_chain", "portal_mission_pack", "portal_validate_change", "portal_pr_context", "portal_config_matrix", "portal_iac_topology", "portal_ai_registry", "portal_compliance", "portal_discover", "portal_codemode"],
             )
 
             for tool, args, expected_key in [

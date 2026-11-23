@@ -91,6 +91,7 @@
       <button class="ah-tab" data-panel="p-perf">5. Security, SRE, API &amp; DB</button>
       <button class="ah-tab" data-panel="p-ai">6. AI Readiness &amp; Orphans</button>
       <button class="ah-tab" data-panel="p-diff">7. Architecture Diff &amp; Evolution</button>
+      <button class="ah-tab" data-panel="p-comp">8. Compliance &amp; Evidence Pack</button>
     </div>
 
     <!-- TAB 1: Overview, Radar, Trend & Fix Queue -->
@@ -308,6 +309,19 @@
     <div class="ah-panel" id="p-diff">
       <section class="ah-card" style="padding:0;overflow:hidden;">
         <iframe id="ah-diff-frame" data-src="arch-diff.html" title="Architecture Diff &amp; Evolution" style="width:100%;height:78vh;border:none;display:block;background:#0f0f0f;"></iframe>
+      </section>
+    </div>
+
+    <!-- TAB 8: Compliance & Audit Evidence Pack (SOC2 / ISO 27001 / EU AI Act) -->
+    <div class="ah-panel" id="p-comp">
+      <div class="ah-kpis" id="comp-kpis"></div>
+      <section class="ah-card">
+        <h2>
+          Compliance Control Matrix (SOC2 · ISO 27001 · EU AI Act)
+          <button class="ah-exp-btn" id="btn-exp-evidence">⬇ Export Evidence Pack (JSON)</button>
+        </h2>
+        <div class="ah-hint">Mappa deterministicamente OWASP, CycloneDX SBOM, IaC, AI Registry, CODEOWNERS e CI sui controlli di audit.</div>
+        <div class="ah-list" id="list-comp" style="max-height:460px;"></div>
       </section>
     </div>
   </div>
@@ -850,6 +864,33 @@
         downloadBlob('health-audit.sarif.json', JSON.stringify(sarif, null, 2), 'application/json');
       });
     }
+
+    // Tab 8: Compliance & Audit Evidence Pack (ADR-078)
+    (async function loadCompliance() {
+      let ce = null;
+      for (const u of ['/api/compliance', '../data/compliance-evidence.json', 'data/compliance-evidence.json']) {
+        try { const r = await fetch(u); if (r.ok) { const j = await r.json(); if (j && Array.isArray(j.controls)) { ce = j; break; } } } catch (_) {}
+      }
+      if (!ce) {
+        document.getElementById('list-comp').innerHTML = '<div class="ah-empty">Run portal scan to generate compliance-evidence.json.</div>';
+        return;
+      }
+      const fw = ce.frameworks || {};
+      const cs = ce.summary || {};
+      document.getElementById('comp-kpis').innerHTML = [
+        { lbl: 'Overall Readiness', val: `${cs.overall_readiness_pct ?? 0}%` },
+        { lbl: 'SOC2 Type II', val: `${(fw.SOC2 || {}).readiness_pct ?? 0}%` },
+        { lbl: 'ISO 27001:2022', val: `${(fw.ISO27001 || {}).readiness_pct ?? 0}%` },
+        { lbl: 'EU AI Act', val: `${(fw.EU_AI_ACT || {}).readiness_pct ?? 0}%` },
+        { lbl: 'Controls PASS / WARN / FAIL', val: `${cs.pass_count ?? 0} / ${cs.warn_count ?? 0} / ${cs.fail_count ?? 0}` },
+      ].map(k => `<div class="ah-kpi"><div class="ah-kpi-val">${k.val}</div><div class="ah-kpi-lbl">${k.lbl}</div></div>`).join('');
+      document.getElementById('list-comp').innerHTML = (ce.controls || []).map(c => {
+        const col = c.status === 'PASS' ? '#34d399' : (c.status === 'WARN' ? '#f59e0b' : '#ef4444');
+        return `<div class="ah-row"><span class="ah-prio" style="background:${col};color:#0f0f0f;">${c.status}</span><strong>[${c.framework} ${c.control_id}]</strong> ${c.title} — <span style="color:#9ca3af;">${c.evidence}</span></div>`;
+      }).join('');
+      const evBtn = document.getElementById('btn-exp-evidence');
+      if (evBtn) evBtn.addEventListener('click', () => downloadBlob('compliance-evidence-pack.json', JSON.stringify(ce, null, 2), 'application/json'));
+    })();
   })();
   </script>
 </body>

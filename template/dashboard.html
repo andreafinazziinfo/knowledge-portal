@@ -1078,6 +1078,7 @@
           <div class="nav-dd-menu">
             <button class="nav-dd-item tab-button" data-tab="sequence-tracer" onclick="switchTabFromMenu('sequence-tracer')">⚡ Sequence Tracer</button>
             <button class="nav-dd-item tab-button" data-tab="impact-simulator" onclick="switchTabFromMenu('impact-simulator')">💥 Impact Simulator</button>
+            <button class="nav-dd-item tab-button" data-tab="config-matrix" onclick="switchTabFromMenu('config-matrix')">⚙️ Config &amp; Flags</button>
             <button class="nav-dd-item tab-button" data-tab="floorplan" onclick="switchTabFromMenu('floorplan')">Floorplan SVG</button>
             <button class="nav-dd-item tab-button" data-tab="stack-ecosystem" onclick="switchTabFromMenu('stack-ecosystem')">Stack &amp; SBOM</button>
             <button class="nav-dd-item tab-button" data-tab="data-explorer" onclick="switchTabFromMenu('data-explorer')">Pivot Explorer</button>
@@ -1088,6 +1089,7 @@
         <div class="nav-dd" data-group="runtime">
           <button class="nav-dd-btn" type="button" onclick="toggleNavDropdown(this)">Runtime &amp; Flows ▾</button>
           <div class="nav-dd-menu">
+            <button class="nav-dd-item tab-button" data-tab="iac-topology" onclick="switchTabFromMenu('iac-topology')">🐳 IaC &amp; Runtime</button>
             <button class="nav-dd-item tab-button" data-tab="async-topology" onclick="switchTabFromMenu('async-topology')">Async &amp; WS</button>
             <button class="nav-dd-item tab-button" data-tab="frontend-state" onclick="switchTabFromMenu('frontend-state')">UI Stores</button>
             <button class="nav-dd-item tab-button" data-tab="worker-tasks" onclick="switchTabFromMenu('worker-tasks')">Worker Tasks</button>
@@ -1100,6 +1102,7 @@
           <button class="nav-dd-btn" type="button" onclick="toggleNavDropdown(this)">Governance &amp; Ops ▾</button>
           <div class="nav-dd-menu">
             <button class="nav-dd-item tab-button" data-tab="arch-health" onclick="switchTabFromMenu('arch-health')">★ Health &amp; Audit</button>
+            <button class="nav-dd-item tab-button" data-tab="ai-registry" onclick="switchTabFromMenu('ai-registry')">🤖 AI &amp; Prompt Registry</button>
             <button class="nav-dd-item tab-button" data-tab="api-catalog" onclick="switchTabFromMenu('api-catalog')">API Catalog</button>
             <button class="nav-dd-item tab-button" data-tab="adr-governance" onclick="switchTabFromMenu('adr-governance')">ADR Governance</button>
             <button class="nav-dd-item tab-button" data-tab="quant-codex" onclick="switchTabFromMenu('quant-codex')">Quant Codex</button>
@@ -1402,6 +1405,21 @@
     <div class="tab-pane" id="pane-impact-simulator">
       <button class="fullscreen-btn" onclick="toggleFullscreen('pane-impact-simulator')" title="Fullscreen">⛶</button>
       <iframe id="impact-simulator-iframe" data-src="views/impact-simulator.html" title="What-If Blast-Radius Impact Simulator" style="width:100%; height:100%; border:none; background:#0f0f0f;"></iframe>
+    </div>
+
+    <div class="tab-pane" id="pane-config-matrix">
+      <button class="fullscreen-btn" onclick="toggleFullscreen('pane-config-matrix')" title="Fullscreen">⛶</button>
+      <iframe id="config-matrix-iframe" data-src="views/config-matrix.html" title="Config &amp; Feature Flag Matrix" style="width:100%; height:100%; border:none; background:#0f0f0f;"></iframe>
+    </div>
+
+    <div class="tab-pane" id="pane-iac-topology">
+      <button class="fullscreen-btn" onclick="toggleFullscreen('pane-iac-topology')" title="Fullscreen">⛶</button>
+      <iframe id="iac-topology-iframe" data-src="views/iac-topology.html" title="IaC, Runtime &amp; CI/CD Topology" style="width:100%; height:100%; border:none; background:#0f0f0f;"></iframe>
+    </div>
+
+    <div class="tab-pane" id="pane-ai-registry">
+      <button class="fullscreen-btn" onclick="toggleFullscreen('pane-ai-registry')" title="Fullscreen">⛶</button>
+      <iframe id="ai-registry-iframe" data-src="views/ai-registry.html" title="AI / LLM &amp; Prompt Governance Registry" style="width:100%; height:100%; border:none; background:#0f0f0f;"></iframe>
     </div>
 
     <div class="tab-pane" id="pane-graph-studio">
@@ -1873,7 +1891,7 @@
     let currentFileName = null;
     let isEditing = false;
     let activeTab = 'home';
-    const TAB_IDS = ['home', 'reader', 'graph', 'canvas', 'tree', 'graph-studio', 'arch-health', 'sequence-tracer', 'impact-simulator', 'floorplan', 'stack-ecosystem', 'data-explorer', 'db-lineage', 'async-topology', 'visual-explainer', 'api-catalog', 'adr-governance', 'quant-codex', 'runbook-ops', 'framework-constitution', 'frontend-state', 'worker-tasks', 'threat-matrix', 'data-ingestion', 'live-telemetry', 'console'];
+    const TAB_IDS = ['home', 'reader', 'graph', 'canvas', 'tree', 'graph-studio', 'arch-health', 'sequence-tracer', 'impact-simulator', 'config-matrix', 'iac-topology', 'ai-registry', 'floorplan', 'stack-ecosystem', 'data-explorer', 'db-lineage', 'async-topology', 'visual-explainer', 'api-catalog', 'adr-governance', 'quant-codex', 'runbook-ops', 'framework-constitution', 'frontend-state', 'worker-tasks', 'threat-matrix', 'data-ingestion', 'live-telemetry', 'console'];
 
     // ── Load File (Reader) ──
     function loadFile(filePath) {
@@ -3311,6 +3329,9 @@
       available.add('arch-health');
       available.add('sequence-tracer');
       available.add('impact-simulator');
+      available.add('config-matrix');
+      available.add('iac-topology');
+      available.add('ai-registry');
       ['graph','graph_3d','canvas','canvas_3d','tree','tree_3d','graph_full'].forEach(k => available.delete(k));
 
       // Top bar tabs

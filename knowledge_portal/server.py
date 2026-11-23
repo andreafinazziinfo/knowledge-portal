@@ -464,6 +464,28 @@ class PortalRequestHandler(SimpleHTTPRequestHandler):
             eng = PortalMcpEngine(self.project_dir, self.template_dir / "data")
             self.send_json(eng.pr_context(base=base))
 
+        elif path == "/api/config-matrix":
+            from knowledge_portal.mcp_server import PortalMcpEngine
+            drift = query.get("drift_only", ["0"])[0] in ("1", "true")
+            eng = PortalMcpEngine(self.project_dir, self.template_dir / "data")
+            self.send_json(eng.config_matrix(drift_only=drift))
+
+        elif path == "/api/iac-topology":
+            from knowledge_portal.mcp_server import PortalMcpEngine
+            eng = PortalMcpEngine(self.project_dir, self.template_dir / "data")
+            self.send_json(eng.iac_topology())
+
+        elif path == "/api/ai-registry":
+            from knowledge_portal.mcp_server import PortalMcpEngine
+            eng = PortalMcpEngine(self.project_dir, self.template_dir / "data")
+            self.send_json(eng.ai_registry())
+
+        elif path == "/api/compliance":
+            from knowledge_portal.mcp_server import PortalMcpEngine
+            fw = query.get("framework", ["all"])[0]
+            eng = PortalMcpEngine(self.project_dir, self.template_dir / "data")
+            self.send_json(eng.compliance_posture(framework=fw))
+
         elif path == "/api/file":
             filepath = query.get("path", [""])[0]
             target = safe_resolve_under(self.project_dir, filepath)

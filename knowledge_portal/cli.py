@@ -103,12 +103,20 @@ def main():
         from knowledge_portal.generators.api_catalog import generate_api_catalog
         from knowledge_portal.generators.call_graph import generate_call_graph
         from knowledge_portal.generators.ownership import generate_ownership_map
+        from knowledge_portal.generators.config_matrix import generate_config_matrix
+        from knowledge_portal.generators.iac_topology import generate_iac_topology
+        from knowledge_portal.generators.ai_registry import generate_ai_registry
+        from knowledge_portal.generators.compliance_evidence import generate_compliance_evidence
         from knowledge_portal.generators.llms_txt import generate_llms_manifests
         generate_stack_inventory(target, out)
         generate_api_catalog(target, out)
         generate_call_graph(target, out)
         generate_ownership_map(target, out)
+        generate_config_matrix(target, out)
+        generate_iac_topology(target, out)
+        generate_ai_registry(target, out)
         generate_arch_health(out, project_dir=target)
+        generate_compliance_evidence(target, out)
         generate_llms_manifests(target, out, template_dir)
 
         from knowledge_portal.indexer.search_index import generate_search_index
