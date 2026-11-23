@@ -3,159 +3,59 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Architectural Health Audit 2.0</title>
+  <title>Health & Audit Center — 8-Pillar Enterprise Diagnostics</title>
   <link rel="stylesheet" href="portal-theme.css?v=fp3">
   <script src="../assets/d3.v7.min.js"></script>
   <style>
     * { box-sizing: border-box; }
-    html, body {
-      margin: 0;
-      padding: 0;
-      background: #0f0f0f;
-      color: #f3f4f6;
-      font-family: 'Inter', system-ui, sans-serif;
-      min-height: 100%;
-    }
-    .ah-wrap {
-      max-width: 1360px;
-      margin: 0 auto;
-      padding: 20px 24px 56px;
-    }
-    .ah-header {
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
-      flex-wrap: wrap;
-      gap: 14px;
-      margin-bottom: 18px;
-      padding-bottom: 14px;
-      border-bottom: 1px solid #262626;
-    }
+    html, body { margin: 0; padding: 0; background: #0f0f0f; color: #f3f4f6; font-family: 'Inter', system-ui, sans-serif; min-height: 100%; }
+    .ah-wrap { max-width: 1380px; margin: 0 auto; padding: 20px 24px 64px; }
+    .ah-header { display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 14px; margin-bottom: 14px; padding-bottom: 14px; border-bottom: 1px solid #262626; }
     .ah-title { font-size: 20px; font-weight: 700; color: #ffffff; margin: 0; }
     .ah-sub { font-size: 12px; color: #9ca3af; margin-top: 4px; }
-    .ah-grade {
-      display: inline-flex;
-      align-items: center;
-      gap: 10px;
-      padding: 8px 16px;
-      border-radius: 10px;
-      background: #191919;
-      border: 1px solid #333333;
-      font-size: 14px;
-      font-weight: 700;
-    }
-    .ah-grade-pill {
-      padding: 2px 10px;
-      border-radius: 6px;
-      font-size: 15px;
-      font-weight: 800;
-      color: #0f0f0f;
-    }
-    .ah-kpis {
-      display: grid;
-      grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
-      gap: 12px;
-      margin-bottom: 20px;
-    }
-    .ah-kpi {
-      background: #191919;
-      border: 1px solid #262626;
-      border-radius: 10px;
-      padding: 13px 15px;
-    }
+    .ah-grade { display: inline-flex; align-items: center; gap: 10px; padding: 8px 16px; border-radius: 10px; background: #191919; border: 1px solid #333333; font-size: 14px; font-weight: 700; }
+    .ah-grade-pill { padding: 2px 10px; border-radius: 6px; font-size: 15px; font-weight: 800; color: #0f0f0f; }
+    .ah-tabs { display: flex; gap: 6px; overflow-x: auto; padding-bottom: 12px; margin-bottom: 16px; border-bottom: 1px solid #222222; scrollbar-width: none; }
+    .ah-tabs::-webkit-scrollbar { display: none; }
+    .ah-tab { background: #171717; color: #a3a3a3; border: 1px solid #262626; border-radius: 8px; padding: 7px 13px; font-size: 12px; font-weight: 600; cursor: pointer; white-space: nowrap; }
+    .ah-tab:hover { color: #ffffff; border-color: #404040; }
+    .ah-tab.active { background: #ffffff; color: #0f0f0f; border-color: #ffffff; }
+    .ah-panel { display: none; }
+    .ah-panel.active { display: block; }
+    .ah-kpis { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 12px; margin-bottom: 18px; }
+    .ah-kpi { background: #191919; border: 1px solid #262626; border-radius: 10px; padding: 13px 15px; }
     .ah-kpi-val { font-size: 22px; font-weight: 700; color: #ffffff; }
     .ah-kpi-lbl { font-size: 10px; text-transform: uppercase; letter-spacing: 0.06em; color: #9ca3af; margin-top: 4px; }
-    .ah-charts {
-      display: grid;
-      grid-template-columns: repeat(auto-fit, minmax(360px, 1fr));
-      gap: 16px;
-      margin-bottom: 20px;
-    }
-    .ah-grid {
-      display: grid;
-      grid-template-columns: repeat(auto-fit, minmax(360px, 1fr));
-      gap: 16px;
-    }
-    .ah-card {
-      background: #191919;
-      border: 1px solid #262626;
-      border-radius: 10px;
-      padding: 16px;
-      display: flex;
-      flex-direction: column;
-      gap: 10px;
-    }
-    .ah-card h2 {
-      margin: 0;
-      font-size: 12px;
-      text-transform: uppercase;
-      letter-spacing: 0.06em;
-      color: #e5e7eb;
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-    }
+    .ah-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(360px, 1fr)); gap: 16px; margin-bottom: 18px; }
+    .ah-card { background: #191919; border: 1px solid #262626; border-radius: 10px; padding: 16px; display: flex; flex-direction: column; gap: 10px; }
+    .ah-card h2 { margin: 0; font-size: 12px; text-transform: uppercase; letter-spacing: 0.06em; color: #e5e7eb; display: flex; justify-content: space-between; align-items: center; }
     .ah-hint { font-size: 11px; color: #8b8b8b; margin-top: -4px; }
-    .ah-badge {
-      font-size: 11px;
-      padding: 2px 8px;
-      border-radius: 999px;
-      background: #262626;
-      color: #d4d4d8;
-    }
-    .ah-svg-box {
-      width: 100%;
-      min-height: 280px;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      position: relative;
-    }
-    .ah-cycle {
-      background: #141414;
-      border: 1px solid rgba(248, 113, 113, 0.35);
-      border-radius: 8px;
-      padding: 10px 12px;
-      font-size: 12px;
-      color: #fca5a5;
-      word-break: break-word;
-      line-height: 1.5;
-    }
-    .ah-bar-row {
-      display: flex;
-      flex-direction: column;
-      gap: 4px;
-      padding: 6px 0;
-      border-bottom: 1px solid #222222;
-    }
+    .ah-badge { font-size: 11px; padding: 2px 8px; border-radius: 999px; background: #262626; color: #d4d4d8; }
+    .ah-svg-box { width: 100%; min-height: 270px; display: flex; align-items: center; justify-content: center; position: relative; }
+    .ah-cycle { background: #141414; border: 1px solid rgba(248, 113, 113, 0.35); border-radius: 8px; padding: 10px 12px; font-size: 12px; color: #fca5a5; word-break: break-word; line-height: 1.5; }
+    .ah-bar-row { display: flex; flex-direction: column; gap: 4px; padding: 6px 0; border-bottom: 1px solid #222222; }
     .ah-bar-head { display: flex; justify-content: space-between; gap: 8px; font-size: 12px; }
     .ah-bar-path { color: #e5e7eb; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
     .ah-bar-meta { color: #9ca3af; font-size: 11px; white-space: nowrap; }
     .ah-bar-track { height: 5px; background: #262626; border-radius: 999px; overflow: hidden; }
     .ah-bar-fill { height: 100%; background: linear-gradient(90deg, #38bdf8, #818cf8); border-radius: 999px; }
-    .ah-list { max-height: 300px; overflow-y: auto; display: flex; flex-direction: column; gap: 6px; }
-    .ah-row {
-      font-size: 12px; padding: 6px 10px; background: #141414; border: 1px solid #242424;
-      border-radius: 6px; color: #d4d4d8; word-break: break-all;
-    }
-    .ah-search {
-      background: #141414; border: 1px solid #303030; border-radius: 6px;
-      padding: 6px 10px; color: #ffffff; font-size: 12px; width: 100%;
-    }
+    .ah-list { max-height: 340px; overflow-y: auto; display: flex; flex-direction: column; gap: 6px; }
+    .ah-row { font-size: 12px; padding: 8px 10px; background: #141414; border: 1px solid #242424; border-radius: 6px; color: #d4d4d8; word-break: break-word; line-height: 1.4; }
+    .ah-prio { display: inline-block; padding: 1px 6px; border-radius: 4px; font-size: 10px; font-weight: 700; margin-right: 6px; }
+    .ah-p0 { background: #ef4444; color: #fff; }
+    .ah-p1 { background: #f59e0b; color: #0f0f0f; }
+    .ah-p2 { background: #38bdf8; color: #0f0f0f; }
+    .ah-search { background: #141414; border: 1px solid #303030; border-radius: 6px; padding: 6px 10px; color: #ffffff; font-size: 12px; width: 100%; }
     .ah-empty { color: #737373; font-size: 12px; padding: 8px 0; }
-    .ah-tip {
-      position: fixed; pointer-events: none; z-index: 99; display: none;
-      background: #171717; border: 1px solid #404040; border-radius: 6px;
-      padding: 6px 10px; font-size: 11px; color: #fff; box-shadow: 0 8px 20px rgba(0,0,0,0.6);
-    }
+    .ah-tip { position: fixed; pointer-events: none; z-index: 99; display: none; background: #171717; border: 1px solid #404040; border-radius: 6px; padding: 6px 10px; font-size: 11px; color: #fff; box-shadow: 0 8px 20px rgba(0,0,0,0.6); }
   </style>
 </head>
 <body>
   <div class="ah-wrap">
     <div class="ah-header">
       <div>
-        <h1 class="ah-title">Architectural Health Audit 2.0</h1>
-        <div class="ah-sub">File-level Tarjan SCC cycles · Robert C. Martin Main Sequence (I vs A) · Domain DSM Heatmap · 6-Axis Radar</div>
+        <h1 class="ah-title">Health &amp; Audit Center (8 Pillars)</h1>
+        <div class="ah-sub">Architecture · Complexity &amp; MI · Git Crime Scene Hotspots · Coverage · Perf/SQL · DB Health · AI Readiness · Historical Trend</div>
       </div>
       <div class="ah-grade">
         <span>Health Score:</span>
@@ -166,47 +66,121 @@
 
     <div class="ah-kpis" id="ah-kpis"></div>
 
-    <div class="ah-charts">
-      <section class="ah-card">
-        <h2>6-Axis Health Radar <span class="ah-badge">Polar</span></h2>
-        <div class="ah-hint">Higher area = cleaner architecture across cycles, layers, orphans, stability &amp; modularity.</div>
-        <div class="ah-svg-box" id="chart-radar"></div>
-      </section>
+    <div class="ah-tabs" role="tablist">
+      <button class="ah-tab active" data-panel="p-overview">1. Overview &amp; Fix Queue</button>
+      <button class="ah-tab" data-panel="p-arch">2. Architecture (Martin &amp; DSM)</button>
+      <button class="ah-tab" data-panel="p-git">3. Complexity &amp; Git Hotspots</button>
+      <button class="ah-tab" data-panel="p-tests">4. Tests &amp; Coverage</button>
+      <button class="ah-tab" data-panel="p-perf">5. Perf, SQL &amp; DB Health</button>
+      <button class="ah-tab" data-panel="p-ai">6. AI Readiness &amp; Orphans</button>
+    </div>
 
+    <!-- TAB 1: Overview, Radar, Trend & Fix Queue -->
+    <div class="ah-panel active" id="p-overview">
+      <div class="ah-grid">
+        <section class="ah-card">
+          <h2>6-Axis Health Radar <span class="ah-badge">Polar</span></h2>
+          <div class="ah-hint">Area più ampia = architettura più pulita su cicli, layer, orfani, Main Sequence e coupling.</div>
+          <div class="ah-svg-box" id="chart-radar"></div>
+        </section>
+        <section class="ah-card">
+          <h2>Historical Health Trend <span class="ah-badge" id="cnt-hist">0 scans</span></h2>
+          <div class="ah-hint">Andamento Health Score nel tempo (arch-health-history.json).</div>
+          <div class="ah-svg-box" id="chart-trend"></div>
+        </section>
+      </div>
       <section class="ah-card">
-        <h2>Martin Main Sequence (I vs A) <span class="ah-badge">Scatter</span></h2>
-        <div class="ah-hint">Diagonal = ideal balance. Bottom-left = Zone of Pain (rigid); Top-right = Zone of Uselessness.</div>
-        <div class="ah-svg-box" id="chart-martin"></div>
-      </section>
-
-      <section class="ah-card">
-        <h2>Domain DSM Heatmap <span class="ah-badge">N×N Matrix</span></h2>
-        <div class="ah-hint">Row imports Column. Symmetric pairs (above &amp; below diagonal) reveal cross-domain cycles.</div>
-        <div class="ah-svg-box" id="chart-dsm"></div>
+        <h2>Top 10 Actionable Fix Queue (Prioritized by ROI) <span class="ah-badge" id="cnt-fix">0</span></h2>
+        <div class="ah-list" id="list-fix"></div>
       </section>
     </div>
 
-    <div class="ah-grid">
-      <section class="ah-card">
-        <h2>Dependency Cycles (Tarjan SCC) <span class="ah-badge" id="cnt-cycles">0</span></h2>
-        <div class="ah-list" id="list-cycles"></div>
-      </section>
+    <!-- TAB 2: Architecture (Martin Scatter, DSM, Cycles, Hubs) -->
+    <div class="ah-panel" id="p-arch">
+      <div class="ah-grid">
+        <section class="ah-card">
+          <h2>Martin Main Sequence (I vs A) <span class="ah-badge">Scatter</span></h2>
+          <div class="ah-hint">Diagonale verde = equilibrio ideale. Basso-sinistra = Zone of Pain; Alto-destra = Zone of Uselessness.</div>
+          <div class="ah-svg-box" id="chart-martin"></div>
+        </section>
+        <section class="ah-card">
+          <h2>Domain DSM Heatmap <span class="ah-badge">N×N Matrix</span></h2>
+          <div class="ah-hint">Riga importa Colonna. Celle rosse = cicli bidirezionali tra domini.</div>
+          <div class="ah-svg-box" id="chart-dsm"></div>
+        </section>
+      </div>
+      <div class="ah-grid">
+        <section class="ah-card">
+          <h2>Dependency Cycles (Tarjan SCC) <span class="ah-badge" id="cnt-cycles">0</span></h2>
+          <div class="ah-list" id="list-cycles"></div>
+        </section>
+        <section class="ah-card">
+          <h2>Top Architectural Hubs / God-Files <span class="ah-badge" id="cnt-hubs">0</span></h2>
+          <div class="ah-list" id="list-hubs"></div>
+        </section>
+      </div>
+    </div>
 
+    <!-- TAB 3: Complexity & Git Crime Scene -->
+    <div class="ah-panel" id="p-git">
+      <div class="ah-grid">
+        <section class="ah-card">
+          <h2>Git Churn × Complexity Hotspots (90d) <span class="ah-badge" id="cnt-hot">0</span></h2>
+          <div class="ah-hint">File toccati spesso nei commit recenti: miglior predittore empirico di regressioni.</div>
+          <div class="ah-list" id="list-hotspots"></div>
+        </section>
+        <section class="ah-card">
+          <h2>Temporal / Logical Coupling <span class="ah-badge" id="cnt-tc">0</span></h2>
+          <div class="ah-hint">Coppie di file che cambiano insieme negli stessi commit (accoppiamento nascosto).</div>
+          <div class="ah-list" id="list-tc"></div>
+        </section>
+      </div>
       <section class="ah-card">
-        <h2>Top Architectural Hubs / God-Files <span class="ah-badge" id="cnt-hubs">0</span></h2>
-        <div class="ah-list" id="list-hubs"></div>
+        <h2>Most Complex Files (McCabe Cyclomatic, Cognitive &amp; Maintainability Index) <span class="ah-badge" id="cnt-cc">0</span></h2>
+        <div class="ah-list" id="list-complex"></div>
       </section>
+    </div>
 
+    <!-- TAB 4: Tests & Coverage -->
+    <div class="ah-panel" id="p-tests">
       <section class="ah-card">
-        <h2>Layer Violations (UI → DB) <span class="ah-badge" id="cnt-viol">0</span></h2>
-        <div class="ah-list" id="list-viol"></div>
+        <h2>Coverage Report Ingestion (coverage.xml / lcov.info) <span class="ah-badge" id="cov-badge">N/A</span></h2>
+        <div class="ah-hint">Rileva automaticamente report pytest-cov / Vitest se generati nella repo.</div>
+        <div class="ah-list" id="list-cov"></div>
       </section>
+    </div>
 
-      <section class="ah-card">
-        <h2>Orphan / Unconnected Files <span class="ah-badge" id="cnt-orphans">0</span></h2>
-        <input id="orphan-filter" class="ah-search" type="search" placeholder="Filter orphan paths...">
-        <div class="ah-list" id="list-orphans"></div>
-      </section>
+    <!-- TAB 5: Perf, SQL & DB Health -->
+    <div class="ah-panel" id="p-perf">
+      <div class="ah-grid">
+        <section class="ah-card">
+          <h2>Layer Violations (UI → DB) <span class="ah-badge" id="cnt-viol">0</span></h2>
+          <div class="ah-list" id="list-viol"></div>
+        </section>
+        <section class="ah-card">
+          <h2>SQL &amp; Asset Performance Smells <span class="ah-badge" id="cnt-sql">0</span></h2>
+          <div class="ah-list" id="list-sql"></div>
+        </section>
+        <section class="ah-card">
+          <h2>Database Schema Health <span class="ah-badge" id="cnt-db">0</span></h2>
+          <div class="ah-list" id="list-db"></div>
+        </section>
+      </div>
+    </div>
+
+    <!-- TAB 6: AI Readiness & Orphans -->
+    <div class="ah-panel" id="p-ai">
+      <div class="ah-grid">
+        <section class="ah-card">
+          <h2>AI Readiness Metrics <span class="ah-badge" id="ai-score-badge">--</span></h2>
+          <div class="ah-list" id="list-ai"></div>
+        </section>
+        <section class="ah-card">
+          <h2>Orphan / Unconnected Files <span class="ah-badge" id="cnt-orphans">0</span></h2>
+          <input id="orphan-filter" class="ah-search" type="search" placeholder="Filter orphan paths...">
+          <div class="ah-list" id="list-orphans"></div>
+        </section>
+      </div>
     </div>
   </div>
 
@@ -215,12 +189,20 @@
   <script src="live-reload.js"></script>
   <script>
   (async function () {
+    document.querySelectorAll('.ah-tab').forEach(btn => {
+      btn.addEventListener('click', () => {
+        document.querySelectorAll('.ah-tab').forEach(b => b.classList.remove('active'));
+        document.querySelectorAll('.ah-panel').forEach(p => p.classList.remove('active'));
+        btn.classList.add('active');
+        const p = document.getElementById(btn.dataset.panel);
+        if (p) p.classList.add('active');
+      });
+    });
+
     const tip = document.getElementById('ah-tip');
     function showTip(ev, html) {
-      tip.innerHTML = html;
-      tip.style.display = 'block';
-      tip.style.left = (ev.clientX + 12) + 'px';
-      tip.style.top = (ev.clientY - 10) + 'px';
+      tip.innerHTML = html; tip.style.display = 'block';
+      tip.style.left = (ev.clientX + 12) + 'px'; tip.style.top = (ev.clientY - 10) + 'px';
     }
     function hideTip() { tip.style.display = 'none'; }
 
@@ -228,10 +210,7 @@
     for (const url of ['/api/health-audit', '../data/arch-health.json']) {
       try {
         const res = await fetch(url);
-        if (res.ok) {
-          const json = await res.json();
-          if (json && json.summary) { data = json; break; }
-        }
+        if (res.ok) { const j = await res.json(); if (j && j.summary) { data = j; break; } }
       } catch (_) {}
     }
     if (!data) {
@@ -240,6 +219,11 @@
     }
 
     const s = data.summary || {};
+    const comp = data.complexity || {};
+    const ai = comp.ai_readiness || {};
+    const git = data.git_crime_scene || {};
+    const cov = data.coverage || {};
+    const dbh = data.db_health || {};
     const gradeColor = s.grade === 'A' ? '#34d399' : (s.grade === 'B' ? '#38bdf8' : (s.grade === 'C' ? '#fbbf24' : '#f87171'));
     document.getElementById('ah-score').textContent = `${s.health_score ?? '--'}/100`;
     const gEl = document.getElementById('ah-grade');
@@ -248,113 +232,111 @@
 
     const kpis = [
       { lbl: 'File Modules', val: (s.total_modules || s.total_nodes || 0).toLocaleString() },
-      { lbl: 'AST Symbols', val: (s.total_nodes || 0).toLocaleString() },
       { lbl: 'Module Edges', val: (s.total_edges || 0).toLocaleString() },
       { lbl: 'Cycles (SCC)', val: s.cycle_count || 0 },
-      { lbl: 'God-Files', val: s.god_file_count || 0 },
-      { lbl: 'Layer Violations', val: s.layer_violation_count || 0 },
+      { lbl: 'Avg Maintainability', val: comp.avg_maintainability_index != null ? `${comp.avg_maintainability_index}/100` : 'N/A' },
+      { lbl: 'Git Hotspots (90d)', val: (git.hotspots || []).length },
+      { lbl: 'AI Readiness', val: ai.score != null ? `${ai.score}/100` : 'N/A' },
       { lbl: 'Orphan Files', val: (s.orphan_count || 0).toLocaleString() },
     ];
     document.getElementById('ah-kpis').innerHTML = kpis.map(k =>
       `<div class="ah-kpi"><div class="ah-kpi-val">${k.val}</div><div class="ah-kpi-lbl">${k.lbl}</div></div>`
     ).join('');
 
-    // 1. 6-Axis Health Radar (D3)
+    // 1. Radar
     if (typeof d3 !== 'undefined' && data.radar) {
       const entries = Object.entries(data.radar);
-      const size = 270, r = 92;
+      const size = 260, r = 88;
       const svg = d3.select('#chart-radar').append('svg').attr('width', size).attr('height', size);
       const g = svg.append('g').attr('transform', `translate(${size/2},${size/2})`);
       const step = (2 * Math.PI) / entries.length;
-
       [0.25, 0.5, 0.75, 1].forEach(lvl => {
         const pts = entries.map((_, i) => [Math.cos(i*step - Math.PI/2)*r*lvl, Math.sin(i*step - Math.PI/2)*r*lvl]);
-        g.append('polygon').attr('points', pts.map(p => p.join(',')).join(' '))
-          .attr('fill', 'none').attr('stroke', '#2a2a2a');
+        g.append('polygon').attr('points', pts.map(p => p.join(',')).join(' ')).attr('fill', 'none').attr('stroke', '#2a2a2a');
       });
-      entries.forEach(([k, v], i) => {
+      entries.forEach(([k], i) => {
         const ang = i*step - Math.PI/2;
         g.append('line').attr('x1', 0).attr('y1', 0).attr('x2', Math.cos(ang)*r).attr('y2', Math.sin(ang)*r).attr('stroke', '#2a2a2a');
-        g.append('text').attr('x', Math.cos(ang)*(r+18)).attr('y', Math.sin(ang)*(r+14))
-          .attr('text-anchor', 'middle').attr('fill', '#b4b4b4').attr('font-size', 10).text(k);
+        g.append('text').attr('x', Math.cos(ang)*(r+18)).attr('y', Math.sin(ang)*(r+14)).attr('text-anchor', 'middle').attr('fill', '#b4b4b4').attr('font-size', 10).text(k);
       });
       const polyPts = entries.map(([, v], i) => {
         const ang = i*step - Math.PI/2;
         const dist = (Math.max(0, Math.min(100, v)) / 100) * r;
         return [Math.cos(ang)*dist, Math.sin(ang)*dist];
       });
-      g.append('polygon').attr('points', polyPts.map(p => p.join(',')).join(' '))
-        .attr('fill', 'rgba(56, 189, 248, 0.28)').attr('stroke', '#38bdf8').attr('stroke-width', 2);
+      g.append('polygon').attr('points', polyPts.map(p => p.join(',')).join(' ')).attr('fill', 'rgba(56,189,248,0.28)').attr('stroke', '#38bdf8').attr('stroke-width', 2);
       entries.forEach(([k, v], i) => {
-        g.append('circle').attr('cx', polyPts[i][0]).attr('cy', polyPts[i][1]).attr('r', 4).attr('fill', '#ffffff')
+        g.append('circle').attr('cx', polyPts[i][0]).attr('cy', polyPts[i][1]).attr('r', 4).attr('fill', '#fff')
           .on('mousemove', ev => showTip(ev, `<strong>${k}</strong>: ${v}/100`)).on('mouseleave', hideTip);
       });
     }
 
-    // 2. Robert C. Martin Main Sequence Scatter (I vs A)
+    // 2. Trend Line
+    const hist = data.history || [];
+    document.getElementById('cnt-hist').textContent = `${hist.length} scans`;
+    if (typeof d3 !== 'undefined' && hist.length) {
+      const W = 340, H = 220, pad = 32;
+      const svg = d3.select('#chart-trend').append('svg').attr('width', W).attr('height', H);
+      const x = d3.scaleLinear().domain([0, Math.max(1, hist.length - 1)]).range([pad, W - 16]);
+      const y = d3.scaleLinear().domain([0, 100]).range([H - pad, 16]);
+      svg.append('g').attr('transform', `translate(${pad},0)`).call(d3.axisLeft(y).ticks(4)).attr('color', '#737373');
+      const line = d3.line().x((_, i) => x(i)).y(d => y(d.health_score || 0));
+      svg.append('path').datum(hist).attr('fill', 'none').attr('stroke', '#34d399').attr('stroke-width', 2.2).attr('d', line);
+      svg.selectAll('circle').data(hist).join('circle').attr('cx', (_, i) => x(i)).attr('cy', d => y(d.health_score || 0))
+        .attr('r', 4).attr('fill', '#ffffff')
+        .on('mousemove', (ev, d) => showTip(ev, `Score: <strong>${d.health_score}/100</strong> (${d.grade}) · Cycles: ${d.cycle_count}`))
+        .on('mouseleave', hideTip);
+    }
+
+    // 3. Fix Queue
+    const fq = data.fix_queue || [];
+    document.getElementById('cnt-fix').textContent = fq.length;
+    document.getElementById('list-fix').innerHTML = fq.length
+      ? fq.map(f => `<div class="ah-row"><span class="ah-prio ${f.priority === 'P0' ? 'ah-p0' : (f.priority === 'P1' ? 'ah-p1' : 'ah-p2')}">${f.priority}</span><strong>[${f.category}]</strong> <code>${f.target}</code> — ${f.action}</div>`).join('')
+      : '<div class="ah-empty">Zero critical architectural issues in fix queue!</div>';
+
+    // 4. Martin Scatter
     if (typeof d3 !== 'undefined' && Array.isArray(data.martin_metrics) && data.martin_metrics.length) {
-      const W = 330, H = 265, pad = 34;
+      const W = 330, H = 260, pad = 34;
       const svg = d3.select('#chart-martin').append('svg').attr('width', W).attr('height', H);
       const x = d3.scaleLinear().domain([0, 1]).range([pad, W - 16]);
       const y = d3.scaleLinear().domain([0, 1]).range([H - pad, 16]);
-
-      // Shaded Zone of Pain (bottom-left) & Zone of Uselessness (top-right)
-      svg.append('polygon').attr('points', `${x(0)},${y(0)} ${x(0.45)},${y(0)} ${x(0)},${y(0.45)}`)
-        .attr('fill', 'rgba(248, 113, 113, 0.12)');
-      svg.append('polygon').attr('points', `${x(1)},${y(1)} ${x(0.55)},${y(1)} ${x(1)},${y(0.55)}`)
-        .attr('fill', 'rgba(251, 191, 36, 0.12)');
-      // Ideal Main Sequence line A + I = 1
-      svg.append('line').attr('x1', x(0)).attr('y1', y(1)).attr('x2', x(1)).attr('y2', y(0))
-        .attr('stroke', '#34d399').attr('stroke-dasharray', '4,4').attr('stroke-width', 1.5);
-
+      svg.append('polygon').attr('points', `${x(0)},${y(0)} ${x(0.45)},${y(0)} ${x(0)},${y(0.45)}`).attr('fill', 'rgba(248,113,113,0.12)');
+      svg.append('polygon').attr('points', `${x(1)},${y(1)} ${x(0.55)},${y(1)} ${x(1)},${y(0.55)}`).attr('fill', 'rgba(251,191,36,0.12)');
+      svg.append('line').attr('x1', x(0)).attr('y1', y(1)).attr('x2', x(1)).attr('y2', y(0)).attr('stroke', '#34d399').attr('stroke-dasharray', '4,4').attr('stroke-width', 1.5);
       svg.append('g').attr('transform', `translate(0,${H - pad})`).call(d3.axisBottom(x).ticks(4)).attr('color', '#737373');
       svg.append('g').attr('transform', `translate(${pad},0)`).call(d3.axisLeft(y).ticks(4)).attr('color', '#737373');
-      svg.append('text').attr('x', W/2).attr('y', H - 4).attr('fill', '#9ca3af').attr('font-size', 10).attr('text-anchor', 'middle').text('Instability (I = Ce / (Ca + Ce))');
-      svg.append('text').attr('x', 11).attr('y', H/2).attr('fill', '#9ca3af').attr('font-size', 10).attr('transform', `rotate(-90,11,${H/2})`).attr('text-anchor', 'middle').text('Abstractness (A)');
-
       svg.selectAll('circle.mod').data(data.martin_metrics).join('circle').attr('class', 'mod')
         .attr('cx', d => x(d.instability)).attr('cy', d => y(d.abstractness))
         .attr('r', d => Math.min(13, Math.max(4, Math.sqrt(d.files))))
         .attr('fill', d => d.zone === 'Balanced' ? '#34d399' : (d.zone === 'Zone of Pain' ? '#f87171' : '#fbbf24'))
-        .attr('fill-opacity', 0.78).attr('stroke', '#ffffff').attr('stroke-width', 0.8)
-        .on('mousemove', (ev, d) => showTip(ev, `<strong>${d.domain}</strong><br>Files: ${d.files} · Ca:${d.ca} · Ce:${d.ce}<br>I=${d.instability} · A=${d.abstractness} · D=${d.distance} (${d.zone})`))
+        .attr('fill-opacity', 0.78).attr('stroke', '#fff').attr('stroke-width', 0.8)
+        .on('mousemove', (ev, d) => showTip(ev, `<strong>${d.domain}</strong><br>Files:${d.files} · Ca:${d.ca} · Ce:${d.ce}<br>I=${d.instability} · A=${d.abstractness} · D=${d.distance} (${d.zone})`))
         .on('mouseleave', hideTip);
     }
 
-    // 3. Domain DSM Heatmap
+    // 5. DSM Heatmap
     if (typeof d3 !== 'undefined' && data.dsm && data.dsm.domains && data.dsm.domains.length) {
-      const doms = data.dsm.domains;
-      const mat = data.dsm.matrix;
-      const n = doms.length;
-      const labelPad = 88;
-      const cell = Math.max(11, Math.min(18, Math.floor(210 / n)));
-      const W = labelPad + n * cell + 12;
-      const H = labelPad + n * cell + 12;
-      const maxVal = Math.max(1, ...mat.flat());
-      const color = d3.scaleSequential(d3.interpolateBlues).domain([0, maxVal]);
+      const doms = data.dsm.domains, mat = data.dsm.matrix, n = doms.length, lp = 88;
+      const cell = Math.max(11, Math.min(17, Math.floor(205 / n)));
+      const W = lp + n * cell + 12, H = lp + n * cell + 12;
+      const color = d3.scaleSequential(d3.interpolateBlues).domain([0, Math.max(1, ...mat.flat())]);
       const svg = d3.select('#chart-dsm').append('svg').attr('width', W).attr('height', H);
-
       for (let i = 0; i < n; i++) {
-        svg.append('text').attr('x', labelPad - 5).attr('y', labelPad + i*cell + cell*0.75)
-          .attr('text-anchor', 'end').attr('fill', '#9ca3af').attr('font-size', 9)
-          .text(doms[i].length > 14 ? doms[i].slice(0, 13) + '…' : doms[i]);
-        svg.append('text').attr('transform', `translate(${labelPad + i*cell + cell*0.7},${labelPad - 5}) rotate(-55)`)
-          .attr('fill', '#9ca3af').attr('font-size', 9)
-          .text(doms[i].length > 14 ? doms[i].slice(0, 13) + '…' : doms[i]);
+        svg.append('text').attr('x', lp - 5).attr('y', lp + i*cell + cell*0.75).attr('text-anchor', 'end').attr('fill', '#9ca3af').attr('font-size', 9).text(doms[i].slice(0, 14));
+        svg.append('text').attr('transform', `translate(${lp + i*cell + cell*0.7},${lp - 5}) rotate(-55)`).attr('fill', '#9ca3af').attr('font-size', 9).text(doms[i].slice(0, 14));
         for (let j = 0; j < n; j++) {
           const v = mat[i][j] || 0;
-          const isSymCycle = i !== j && v > 0 && (mat[j][i] || 0) > 0;
-          svg.append('rect')
-            .attr('x', labelPad + j*cell).attr('y', labelPad + i*cell)
-            .attr('width', cell - 1).attr('height', cell - 1).attr('rx', 2)
-            .attr('fill', v === 0 ? '#161616' : (isSymCycle ? '#ef4444' : color(v)))
-            .on('mousemove', ev => showTip(ev, `<strong>${doms[i]}</strong> → <strong>${doms[j]}</strong>: ${v} imports${isSymCycle ? ' (bidirectional cycle!)' : ''}`))
+          const cyc = i !== j && v > 0 && (mat[j][i] || 0) > 0;
+          svg.append('rect').attr('x', lp + j*cell).attr('y', lp + i*cell).attr('width', cell - 1).attr('height', cell - 1).attr('rx', 2)
+            .attr('fill', v === 0 ? '#161616' : (cyc ? '#ef4444' : color(v)))
+            .on('mousemove', ev => showTip(ev, `<strong>${doms[i]}</strong> → <strong>${doms[j]}</strong>: ${v}${cyc ? ' (cycle!)' : ''}`))
             .on('mouseleave', hideTip);
         }
       }
     }
 
-    // Lists
+    // Cycles & Hubs
     const cycles = data.cycles || [];
     document.getElementById('cnt-cycles').textContent = cycles.length;
     document.getElementById('list-cycles').innerHTML = cycles.length
@@ -365,23 +347,61 @@
     document.getElementById('cnt-hubs').textContent = hubs.length;
     const maxDeg = Math.max(1, ...hubs.map(h => h.total_degree || 1));
     document.getElementById('list-hubs').innerHTML = hubs.length
-      ? hubs.map(h => {
-          const pct = Math.max(6, Math.round(100 * (h.total_degree || 1) / maxDeg));
-          return `<div class="ah-bar-row">
-            <div class="ah-bar-head">
-              <span class="ah-bar-path" title="${h.path || h.id}">${h.path || h.label || h.id}</span>
-              <span class="ah-bar-meta">in:${h.in_degree} · out:${h.out_degree} · sym:${h.symbols || 0}</span>
-            </div>
-            <div class="ah-bar-track"><div class="ah-bar-fill" style="width:${pct}%"></div></div>
-          </div>`;
-        }).join('')
+      ? hubs.map(h => `<div class="ah-bar-row"><div class="ah-bar-head"><span class="ah-bar-path">${h.path || h.id}</span><span class="ah-bar-meta">in:${h.in_degree} · out:${h.out_degree}</span></div><div class="ah-bar-track"><div class="ah-bar-fill" style="width:${Math.max(6, Math.round(100*(h.total_degree||1)/maxDeg))}%"></div></div></div>`).join('')
       : '<div class="ah-empty">No high-coupling god-files detected.</div>';
 
+    // Tab 3: Git Hotspots & Complexity
+    const hots = git.hotspots || [];
+    document.getElementById('cnt-hot').textContent = hots.length;
+    document.getElementById('list-hotspots').innerHTML = hots.length
+      ? hots.map(h => `<div class="ah-row"><strong>${h.path}</strong> — ${h.commits} commits · ${h.lines_churned} LOC churned · ${h.authors} author(s) · score <strong>${h.hotspot_score}</strong></div>`).join('')
+      : '<div class="ah-empty">Git history not available in this environment.</div>';
+
+    const tcs = git.temporal_coupling || [];
+    document.getElementById('cnt-tc').textContent = tcs.length;
+    document.getElementById('list-tc').innerHTML = tcs.length
+      ? tcs.map(t => `<div class="ah-row"><strong>${t.co_changes}×</strong> co-changed: <code>${t.file_a}</code> ↔ <code>${t.file_b}</code></div>`).join('')
+      : '<div class="ah-empty">No strong temporal coupling pairs (>=3 co-changes) detected.</div>';
+
+    const cfiles = comp.top_complex_files || [];
+    document.getElementById('cnt-cc').textContent = cfiles.length;
+    document.getElementById('list-complex').innerHTML = cfiles.length
+      ? cfiles.map(f => `<div class="ah-row"><strong>${f.path}</strong> — McCabe: <strong>${f.mccabe}</strong> · Cognitive: ${f.cognitive} · MI: <strong>${f.maintainability_index}/100</strong> · LOC: ${f.loc}${f.worst_fn ? ` · worst fn: <code>${f.worst_fn.name}()</code> (cc=${f.worst_fn.mccabe})` : ''}</div>`).join('')
+      : '<div class="ah-empty">No complexity metrics computed yet.</div>';
+
+    // Tab 4: Coverage
+    document.getElementById('cov-badge').textContent = cov.available ? `${cov.overall_pct}% (${cov.files_measured} files)` : 'No report';
+    document.getElementById('list-cov').innerHTML = cov.available
+      ? (cov.lowest_covered || []).map(c => `<div class="ah-row"><strong>${c.coverage_pct}%</strong> — <code>${c.path}</code></div>`).join('')
+      : '<div class="ah-empty">No coverage.xml or lcov.info found in workspace root. Run pytest --cov-report=xml or vitest --coverage to populate automatically.</div>';
+
+    // Tab 5: Layer Violations, SQL/Perf & DB Health
     const viols = data.layer_violations || [];
     document.getElementById('cnt-viol').textContent = viols.length;
     document.getElementById('list-viol').innerHTML = viols.length
       ? viols.map(v => `<div class="ah-row"><strong>${v.rule}</strong><br>${v.detail}</div>`).join('')
       : '<div class="ah-empty">Zero UI → DB layer violations.</div>';
+
+    const perf = comp.perf_bloat || {};
+    const smells = (perf.sql_smells || []).map(x => `<div class="ah-row"><strong>SQL SELECT * (${x.select_star_count}×)</strong> — <code>${x.path}</code></div>`)
+      .concat((perf.large_files || []).map(x => `<div class="ah-row"><strong>Large File (${x.size_kb} KB)</strong> — <code>${x.path}</code></div>`));
+    document.getElementById('cnt-sql').textContent = smells.length;
+    document.getElementById('list-sql').innerHTML = smells.length ? smells.join('') : '<div class="ah-empty">No large files (>500KB) or SELECT * smells detected.</div>';
+
+    document.getElementById('cnt-db').textContent = `${dbh.total_tables || 0} tables`;
+    document.getElementById('list-db').innerHTML = dbh.available
+      ? ((dbh.tables_without_pk || []).length
+          ? dbh.tables_without_pk.map(t => `<div class="ah-row">Table missing explicit PK: <code>${t}</code></div>`).join('')
+          : '<div class="ah-empty">All indexed DB tables have primary keys.</div>')
+      : '<div class="ah-empty">No db-schema.json indexed.</div>';
+
+    // Tab 6: AI Readiness & Orphans
+    document.getElementById('ai-score-badge').textContent = ai.score != null ? `${ai.score}/100` : 'N/A';
+    document.getElementById('list-ai').innerHTML = [
+      `<div class="ah-row"><strong>Python Docstring Coverage:</strong> ${ai.docstring_coverage_pct ?? 0}% (${ai.python_functions_analyzed ?? 0} functions analyzed)</div>`,
+      `<div class="ah-row"><strong>Python Type-Hint Coverage:</strong> ${ai.type_hint_coverage_pct ?? 0}%</div>`,
+      `<div class="ah-row"><strong>Machine-Readable Manifests:</strong> <a href="/llms.txt" target="_blank" style="color:#38bdf8;">/llms.txt</a> · <a href="/llms-full.txt" target="_blank" style="color:#38bdf8;">/llms-full.txt</a> · <code>/api/context-pack</code> · <code>MCP --code-mode</code></div>`,
+    ].join('');
 
     const orphans = data.orphans || [];
     document.getElementById('cnt-orphans').textContent = s.orphan_count || orphans.length;

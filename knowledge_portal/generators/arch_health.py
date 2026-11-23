@@ -315,8 +315,17 @@ def compute_arch_health(graph_data: dict[str, Any]) -> dict[str, Any]:
     }
 
 
-def generate_arch_health(data_dir: Path) -> dict[str, Any]:
-    """Read graph.json from data_dir and write arch-health.json."""
+def generate_arch_health(data_dir: Path, project_dir: Path | None = None) -> dict[str, Any]:
+    """Read graph.json from data_dir, run 8-pillar audit analyzers, and write arch-health.json."""
+    from knowledge_portal.generators.audit_analyzers import (
+        analyze_code_complexity_and_ai_readiness,
+        analyze_coverage_reports,
+        analyze_db_health,
+        analyze_git_crime_scene,
+        build_actionable_fix_queue,
+        record_health_history,
+    )
+
     data_dir = Path(data_dir)
     graph_file = data_dir / "graph.json"
     graph_data: dict[str, Any] = {}
@@ -327,6 +336,20 @@ def generate_arch_health(data_dir: Path) -> dict[str, Any]:
             graph_data = {}
 
     report = compute_arch_health(graph_data)
+    if project_dir is not None and Path(project_dir).exists():
+        pdir = Path(project_dir).resolve()
+        report["complexity"] = analyze_code_complexity_and_ai_readiness(pdir)
+        report["git_crime_scene"] = analyze_git_crime_scene(pdir, days=90)
+        report["coverage"] = analyze_coverage_reports(pdir)
+    else:
+        report["complexity"] = {"files_analyzed": 0, "avg_maintainability_index": None, "avg_mccabe": None, "top_complex_files": [], "perf_bloat": {"large_files_count": 0, "large_files": [], "sql_select_star_files": 0, "sql_smells": []}, "ai_readiness": {"score": None, "docstring_coverage_pct": 0.0, "type_hint_coverage_pct": 0.0, "python_functions_analyzed": 0}}
+        report["git_crime_scene"] = {"available": False, "hotspots": [], "temporal_coupling": [], "bus_factor_risks": []}
+        report["coverage"] = {"available": False, "overall_pct": None, "files_measured": 0, "lowest_covered": []}
+
+    report["db_health"] = analyze_db_health(data_dir)
+    report["history"] = record_health_history(data_dir, report["summary"])
+    report["fix_queue"] = build_actionable_fix_queue(report)
+
     data_dir.mkdir(parents=True, exist_ok=True)
     out_file = data_dir / "arch-health.json"
     out_file.write_text(json.dumps(report, indent=2), encoding="utf-8")

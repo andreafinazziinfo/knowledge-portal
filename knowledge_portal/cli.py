@@ -81,7 +81,7 @@ def main():
         from knowledge_portal.generators.arch_health import generate_arch_health
         from knowledge_portal.generators.llms_txt import generate_llms_manifests
         generate_stack_inventory(target, out)
-        generate_arch_health(out)
+        generate_arch_health(out, project_dir=target)
         generate_llms_manifests(target, out, template_dir)
 
         from knowledge_portal.indexer.search_index import generate_search_index

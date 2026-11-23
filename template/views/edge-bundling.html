@@ -1,0 +1,110 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Hierarchical Edge Bundling</title>
+  <link rel="stylesheet" href="portal-theme.css?v=fp3">
+  <script src="../assets/d3.v7.min.js"></script>
+  <script src="../data/config.js"></script>
+  <script src="../data/graph_viz.js"></script>
+  <script src="../data/graph_labels.js"></script>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    html, body { width: 100%; height: 100%; overflow: hidden; background: #0f0f0f; color: #f3f4f6; font-family: 'Inter', system-ui, sans-serif; display: flex; align-items: center; justify-content: center; }
+    #eb-hud {
+      position: absolute; top: 14px; left: 14px; z-index: 20;
+      background: rgba(20, 20, 20, 0.92); border: 1px solid #2b2b2b; border-radius: 10px;
+      padding: 10px 14px; font-size: 12px; color: #d4d4d8; max-width: 340px;
+    }
+    #eb-hud strong { color: #ffffff; }
+    svg { overflow: visible; }
+  </style>
+</head>
+<body>
+  <div id="eb-hud">
+    <strong>Hierarchical Edge Bundling</strong><br>
+    <span style="font-size:11px; color:#9ca3af;">Top connected modules · Hover any label: <span style="color:#38bdf8;">Cyan = imports</span> · <span style="color:#34d399;">Green = imported by</span></span>
+  </div>
+  <div id="eb-stage"></div>
+  <script src="portal-ui.js?v=fp4"></script>
+  <script src="live-reload.js"></script>
+  <script>
+  (function () {
+    const raw = window.GRAPH_VIZ || window.GRAPH_DATA || { nodes: [], edges: [] };
+    const fileMap = new Map();
+    const idToFile = new Map(), pathToFile = new Map(), stemToFile = new Map();
+    for (const n of (raw.nodes || [])) {
+      const p = String(n.path || n.label || n.id).replace(/\\/g, '/');
+      const key = p.includes('/') || p.includes('.') ? p : String(n.id);
+      if (!fileMap.has(key)) {
+        const parts = p.split('/').filter(Boolean);
+        fileMap.set(key, { id: key, name: parts[parts.length - 1] || key, group: parts.length >= 2 ? parts.slice(0, 2).join('/') : 'root', deg: 0 });
+      }
+      idToFile.set(String(n.id), key);
+      const low = p.toLowerCase();
+      pathToFile.set(low, key);
+      stemToFile.set(low.replace(/\.[^/.]+$/, ''), key);
+    }
+    function res(r) {
+      const s = String(r || '');
+      if (fileMap.has(s)) return s;
+      if (idToFile.has(s)) return idToFile.get(s);
+      const low = s.replace(/\\/g, '/').toLowerCase();
+      return pathToFile.get(low) || stemToFile.get(low.replace(/\.[^/.]+$/, '')) || null;
+    }
+    const edges = [];
+    for (const e of (raw.edges || raw.links || [])) {
+      const s = res(typeof e.source === 'object' ? e.source.id : e.source);
+      const t = res(typeof e.target === 'object' ? e.target.id : e.target);
+      if (s && t && s !== t) {
+        edges.push([s, t]);
+        fileMap.get(s).deg++;
+        fileMap.get(t).deg++;
+      }
+    }
+    const topFiles = Array.from(fileMap.values()).filter(f => f.deg > 0).sort((a, b) => b.deg - a.deg).slice(0, 110);
+    const topSet = new Set(topFiles.map(f => f.id));
+    const grouped = new Map();
+    for (const f of topFiles) {
+      if (!grouped.has(f.group)) grouped.set(f.group, []);
+      grouped.get(f.group).push(f);
+    }
+    const treeData = { name: 'root', children: Array.from(grouped.entries()).map(([g, arr]) => ({ name: g, children: arr })) };
+    const size = Math.min(window.innerWidth, window.innerHeight) - 30;
+    const radius = size * 0.36;
+
+    const root = d3.cluster().size([2 * Math.PI, radius])(d3.hierarchy(treeData).sort((a, b) => d3.ascending(a.data.name, b.data.name)));
+    const leafById = new Map(root.leaves().map(d => [d.data.id, d]));
+    const bundledLinks = edges.filter(([s, t]) => topSet.has(s) && topSet.has(t)).map(([s, t]) => ({ source: leafById.get(s), target: leafById.get(t) })).filter(l => l.source && l.target);
+
+    const line = d3.lineRadial().curve(d3.curveBundle.beta(0.85)).radius(d => d.y).angle(d => d.x);
+    const svg = d3.select('#eb-stage').append('svg').attr('width', size).attr('height', size).attr('viewBox', `${-size/2} ${-size/2} ${size} ${size}`);
+
+    const linkSel = svg.append('g').attr('fill', 'none').selectAll('path').data(bundledLinks).join('path')
+      .attr('d', d => line(d.source.path(d.target)))
+      .attr('stroke', 'rgba(255, 255, 255, 0.14)').attr('stroke-width', 1);
+
+    const nodeSel = svg.append('g').selectAll('g').data(root.leaves()).join('g')
+      .attr('transform', d => `rotate(${d.x * 180 / Math.PI - 90}) translate(${d.y},0)`);
+
+    nodeSel.append('text')
+      .attr('dy', '0.31em').attr('x', d => d.x < Math.PI ? 6 : -6)
+      .attr('text-anchor', d => d.x < Math.PI ? 'start' : 'end')
+      .attr('transform', d => d.x >= Math.PI ? 'rotate(180)' : null)
+      .attr('fill', '#b4b4b4').attr('font-size', '9.5px').style('cursor', 'pointer')
+      .text(d => d.data.name.length > 20 ? d.data.name.slice(0, 19) + '…' : d.data.name)
+      .on('mouseenter', function (_, d) {
+        d3.select(this).attr('fill', '#ffffff').attr('font-weight', '700');
+        linkSel
+          .attr('stroke', l => l.source === d ? '#38bdf8' : (l.target === d ? '#34d399' : 'rgba(255,255,255,0.04)'))
+          .attr('stroke-width', l => (l.source === d || l.target === d) ? 2.0 : 0.8);
+      })
+      .on('mouseleave', function () {
+        d3.select(this).attr('fill', '#b4b4b4').attr('font-weight', '400');
+        linkSel.attr('stroke', 'rgba(255,255,255,0.14)').attr('stroke-width', 1);
+      });
+  })();
+  </script>
+</body>
+</html>

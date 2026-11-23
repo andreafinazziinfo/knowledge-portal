@@ -44,7 +44,7 @@ def export_static_portal(source_dir: Path, output_dir: Path, project_name: Optio
     stats = scan_polyglot_codebase(source_dir, data_dir)
 
     # 2b. Generate Architectural Health & llms.txt manifests
-    generate_arch_health(data_dir)
+    generate_arch_health(data_dir, project_dir=source_dir)
     generate_llms_manifests(source_dir, data_dir, output_dir, project_name=project_name)
 
     # 3. Generate Search Index into output_dir/views/data/omni-search-index.json

@@ -113,12 +113,15 @@
         <button class="gs-btn" data-mode="graph_3d">3D Sphere</button>
         <button class="gs-btn" data-mode="particle-flow">Particle Flow</button>
         <button class="gs-btn" data-mode="chord">Chord Matrix</button>
+        <button class="gs-btn" data-mode="edge-bundling">Edge Bundling</button>
       </div>
 
       <div class="gs-group">
-        <span class="gs-group-label">Canvas</span>
+        <span class="gs-group-label">Arch</span>
         <button class="gs-btn" data-mode="canvas">2D Canvas</button>
         <button class="gs-btn" data-mode="canvas_3d">3D Z-Planes</button>
+        <button class="gs-btn" data-mode="codecity">CodeCity 3D</button>
+        <button class="gs-btn" data-mode="sankey">Sankey Flow</button>
       </div>
 
       <div class="gs-group">
@@ -148,9 +151,12 @@
       'graph':         { file: 'graph.html',      sub: null },
       'graph_3d':      { file: 'graph_3d.html',   sub: null },
       'particle-flow': { file: 'graph_full.html', sub: 'flow',     fn: 'setMode' },
-      'chord':         { file: 'graph_full.html', sub: 'chord',    fn: 'setMode' },
-      'canvas':        { file: 'canvas.html',     sub: null },
-      'canvas_3d':     { file: 'canvas_3d.html',  sub: null },
+      'chord':         { file: 'graph_full.html',    sub: 'chord',    fn: 'setMode' },
+      'edge-bundling': { file: 'edge-bundling.html', sub: null },
+      'canvas':        { file: 'canvas.html',        sub: null },
+      'canvas_3d':     { file: 'canvas_3d.html',     sub: null },
+      'codecity':      { file: 'codecity.html',      sub: null },
+      'sankey':        { file: 'sankey-flow.html',   sub: null },
       'tree':          { file: 'GRAPH_TREE.html', sub: 'tree',     fn: 'setTreeMode' },
       'treemap':       { file: 'GRAPH_TREE.html', sub: 'treemap',  fn: 'setTreeMode' },
       'sunburst':      { file: 'GRAPH_TREE.html', sub: 'sunburst', fn: 'setTreeMode' },

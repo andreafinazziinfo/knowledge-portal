@@ -197,11 +197,19 @@ def test_treesitter_helper_graceful_fallback():
 
 
 def test_arch_health_v2_martin_metrics_radar_and_dsm(tmp_path: Path):
-    _, data_dir = _make_sample_portal(tmp_path)
-    report = generate_arch_health(data_dir)
+    project_dir, data_dir = _make_sample_portal(tmp_path)
+    (project_dir / "demo.py").write_text(
+        'def complex_fn(x: int) -> int:\n    """Docstring."""\n    if x > 0:\n        for i in range(x):\n            if i % 2 == 0:\n                return i\n    return 0\n',
+        encoding="utf-8",
+    )
+    report = generate_arch_health(data_dir, project_dir=project_dir)
     assert "radar" in report and len(report["radar"]) == 6
     assert "martin_metrics" in report and len(report["martin_metrics"]) >= 1
     assert "dsm" in report and len(report["dsm"]["domains"]) >= 1
+    assert report["complexity"]["files_analyzed"] >= 1
+    assert report["complexity"]["ai_readiness"]["docstring_coverage_pct"] == 100.0
+    assert isinstance(report["history"], list) and len(report["history"]) >= 1
+    assert isinstance(report["fix_queue"], list)
     for m in report["martin_metrics"]:
         assert 0.0 <= m["instability"] <= 1.0
         assert 0.0 <= m["abstractness"] <= 1.0
