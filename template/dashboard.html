@@ -967,6 +967,40 @@
 <script>if (typeof mermaid === "undefined") { document.write('<script src="https://cdn.jsdelivr.net/npm/mermaid@10.9.1/dist/mermaid.min.js"><\/script>'); }</script>
   <link rel="stylesheet" href="views/portal-theme.css?v=fp3">
   <script defer src="views/portal-ui.js?v=fp3"></script>
+<style id="kp-light-theme">
+  [data-theme="light"], [data-theme="light"] body {
+    --bg-main: #f8fafc !important;
+    --bg-sidebar: #f1f5f9 !important;
+    --bg-surface: #ffffff !important;
+    --bg-card: #ffffff !important;
+    --bg-elevated: #e2e8f0 !important;
+    --border-color: #cbd5e1 !important;
+    --text-main: #0f172a !important;
+    --text-muted: #475569 !important;
+    --accent: #0284c7 !important;
+    background: #f8fafc !important;
+    color: #0f172a !important;
+  }
+  [data-theme="light"] #sidebar { background: #f1f5f9 !important; border-right-color: #cbd5e1 !important; color: #0f172a !important; }
+  [data-theme="light"] #main-content, [data-theme="light"] .tab-pane, [data-theme="light"] #pane-home { background: #f8fafc !important; color: #0f172a !important; }
+  [data-theme="light"] .tabs-nav { background: #ffffff !important; border-bottom-color: #cbd5e1 !important; }
+  [data-theme="light"] .tab-button, [data-theme="light"] .nav-dd-btn, [data-theme="light"] .action-btn {
+    background: #f1f5f9 !important; color: #0f172a !important; border-color: #cbd5e1 !important;
+  }
+  [data-theme="light"] .tab-button.active { background: #0f172a !important; color: #ffffff !important; border-color: #0f172a !important; }
+  [data-theme="light"] .nav-dd-menu { background: #ffffff !important; border-color: #cbd5e1 !important; box-shadow: 0 10px 25px rgba(15,23,42,0.12) !important; }
+  [data-theme="light"] .nav-dd-item { background: transparent !important; color: #0f172a !important; }
+  [data-theme="light"] .nav-dd-item:hover { background: #e2e8f0 !important; }
+  [data-theme="light"] .view-hub-card, [data-theme="light"] .kpi-card, [data-theme="light"] .home-section, [data-theme="light"] .card {
+    background: #ffffff !important; border-color: #cbd5e1 !important; color: #0f172a !important;
+  }
+  [data-theme="light"] .hub-card-title, [data-theme="light"] .kpi-val, [data-theme="light"] h1, [data-theme="light"] h2, [data-theme="light"] h3 { color: #0f172a !important; }
+  [data-theme="light"] .hub-card-desc, [data-theme="light"] .kpi-lbl, [data-theme="light"] .search-hint { color: #475569 !important; }
+  [data-theme="light"] .search-input, [data-theme="light"] #omniInput { background: #ffffff !important; color: #0f172a !important; border-color: #cbd5e1 !important; }
+  [data-theme="light"] .tree-container, [data-theme="light"] .tree-item, [data-theme="light"] .tree-folder { color: #1e293b !important; }
+  [data-theme="light"] #reader-content, [data-theme="light"] .markdown-body { background: #ffffff !important; color: #0f172a !important; }
+  [data-theme="light"] #scan-status, [data-theme="light"] #ast-scan-time, [data-theme="light"] #llm-scan-time { color: #334155 !important; }
+</style>
 </head>
 <body>
 
@@ -3163,12 +3197,14 @@
 
     // Theme Toggle (ADR-077 Dark / Light Presentation Mode)
     function togglePortalTheme() {
-      const root = document.documentElement;
-      const next = root.getAttribute('data-theme') === 'light' ? 'dark' : 'light';
-      root.setAttribute('data-theme', next);
+      const r = document.documentElement;
+      const next = r.getAttribute('data-theme') === 'light' ? 'dark' : 'light';
+      r.setAttribute('data-theme', next);
       try { localStorage.setItem('kp_theme', next); } catch (_) {}
-      const btn = document.getElementById('theme-toggle-btn');
-      if (btn) btn.textContent = next === 'light' ? '☀️' : '🌙';
+      const b = document.getElementById('theme-toggle-btn'); if (b) b.textContent = next === 'light' ? '☀️' : '🌙';
+      document.querySelectorAll('iframe').forEach(f => {
+        try { if (f.contentDocument && f.contentDocument.documentElement) f.contentDocument.documentElement.setAttribute('data-theme', next); } catch (_) {}
+      });
     }
     (function initTheme() {
       try {
