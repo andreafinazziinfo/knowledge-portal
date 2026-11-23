@@ -31,6 +31,35 @@
   --accent-glow: rgba(255, 255, 255, 0.06);
 }
 
+/* ADR-077: Light / Presentation Theme Mode */
+[data-theme="light"] {
+  --bg: #f8fafc;
+  --bg-main: #f8fafc;
+  --bg-sidebar: #f1f5f9;
+  --bg-surface: #ffffff;
+  --surface: #ffffff;
+  --bg-card: #ffffff;
+  --card-bg: #ffffff;
+  --card: #ffffff;
+  --bg-elevated: #e2e8f0;
+  --raise: #e2e8f0;
+  --border: rgba(15, 23, 42, 0.12);
+  --border-color: rgba(15, 23, 42, 0.12);
+  --border-strong: rgba(15, 23, 42, 0.24);
+  --text: #0f172a;
+  --text-main: #0f172a;
+  --text-2: #334155;
+  --text-muted: #64748b;
+  --muted: #64748b;
+  --accent: #0284c7;
+  --accent-color: #0284c7;
+  --primary: #0284c7;
+}
+[data-theme="light"] body, [data-theme="light"] html {
+  background-color: #f8fafc !important;
+  color: #0f172a !important;
+}
+
 html, body {
   background-color: #0f0f0f !important;
   color: #ececec !important;

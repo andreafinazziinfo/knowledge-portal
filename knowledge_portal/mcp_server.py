@@ -419,6 +419,105 @@ class PortalMcpEngine:
             return json.loads(diff_file.read_text(encoding="utf-8"))
         return generate_arch_diff(self.data_dir)
 
+    def call_graph(self, symbol: str = "", max_depth: int = 3) -> dict[str, Any]:
+        from knowledge_portal.generators.call_graph import generate_call_graph
+        cg_file = self.data_dir / "call-graph.json"
+        data = json.loads(cg_file.read_text(encoding="utf-8")) if cg_file.exists() else generate_call_graph(self.project_dir, self.data_dir)
+        q = (symbol or "").strip().lower()
+        if not q:
+            return {"summary": data.get("summary", {}), "chains": (data.get("chains") or [])[:25]}
+        syms = data.get("symbols") or {}
+        matches = [v for k, v in syms.items() if q in k.lower() or q in str(v.get("name", "")).lower() or q in str(v.get("route") or "").lower()][:15]
+        return {"query": symbol, "count": len(matches), "matches": matches}
+
+    def ownership(self) -> dict[str, Any]:
+        from knowledge_portal.generators.ownership import generate_ownership_map
+        ow_file = self.data_dir / "ownership.json"
+        if ow_file.exists():
+            return json.loads(ow_file.read_text(encoding="utf-8"))
+        return generate_ownership_map(self.project_dir, self.data_dir)
+
+    def invariants(self) -> dict[str, Any]:
+        rules_file = self.project_dir / "portal-rules.yaml"
+        custom_raw = rules_file.read_text(encoding="utf-8", errors="ignore")[:4000] if rules_file.is_file() else None
+        return {
+            "schema_version": "1.0",
+            "rules_file": "portal-rules.yaml" if custom_raw else None,
+            "custom_yaml": custom_raw,
+            "builtin_invariants": [
+                {"id": "P4_FROZEN_GATE", "severity": "CRITICAL", "rule": "Never modify or index files under any `frozen/` directory."},
+                {"id": "NO_UI_TO_DB", "severity": "HIGH", "rule": "Frontend/UI layers must not import database/storage repositories directly."},
+                {"id": "ZERO_CIRCULAR_DEPS", "severity": "HIGH", "rule": "No circular dependency cycles (Tarjan SCC) across modules."},
+                {"id": "AUTH_ON_MUTATING_API", "severity": "HIGH", "rule": "Mutating HTTP routes (POST/PUT/PATCH/DELETE) require explicit auth dependencies unless explicitly public."},
+            ],
+        }
+
+    def validate_change(self, paths: list[str]) -> dict[str, Any]:
+        violations: list[dict[str, str]] = []
+        warnings: list[dict[str, Any]] = []
+        for raw_p in paths:
+            p = str(raw_p).replace("\\", "/")
+            if "frozen/" in p.lower() or p.lower().startswith("frozen/"):
+                violations.append({"rule": "P4_FROZEN_GATE", "path": p, "detail": "Blocked: modifications inside frozen/ are forbidden."})
+                continue
+            imp = self.impact(p, max_depth=2)
+            if imp.get("risk") in ("HIGH", "CRITICAL"):
+                warnings.append({"rule": "HIGH_BLAST_RADIUS", "path": p, "risk": imp.get("risk"), "impacted": (imp.get("counts") or {}).get("total", 0)})
+        return {"allowed": len(violations) == 0, "violations": violations, "warnings": warnings}
+
+    def mission_pack(self, task: str, max_tokens: int = 6000) -> dict[str, Any]:
+        q = (task or "").strip()
+        budget_tokens = max(600, min(int(max_tokens or 6000), 16000))
+        budget_chars = budget_tokens * 4
+        from knowledge_portal.indexer.fts_engine import FtsSearchEngine
+        fts = FtsSearchEngine(self.data_dir)
+        hits = fts.search(q, limit=8, expand_graph=True)
+        top_paths = [str(h.get("path") or "") for h in hits if h.get("path")][:5]
+        primary = top_paths[0] if top_paths else q
+        imp = self.impact(primary, max_depth=2)
+        cg = self.call_graph(primary)
+        health = self.health_audit()
+        inv = self.invariants()
+        validation = self.validate_change(top_paths)
+
+        lines = [
+            f"# AI Mission Pack: {q}",
+            "",
+            "## 1. Key Target Files (Hybrid FTS5 + 1-Hop Graph)",
+            *[f"- `{h.get('path') or h.get('name')}` ({h.get('category', 'item')}){' [1-hop]' if h.get('graph_expanded') else ''}" for h in hits[:8]],
+            "",
+            f"## 2. Blast Radius for `{primary}` (Risk: {imp.get('risk', 'LOW')})",
+            f"- Direct callers (d=1): `{(imp.get('counts') or {}).get('d1', 0)}` · Indirect (d=2): `{(imp.get('counts') or {}).get('d2', 0)}`",
+            "",
+            "## 3. Symbol Call-Graph Matches",
+            *[f"- `{m.get('id')}` (`{m.get('signature')}`) → callees: `{len(m.get('callees') or [])}`, db: `{m.get('db_tables') or []}`" for m in (cg.get("matches") or [])[:5]],
+            "",
+            "## 4. Invariants & Pre-Flight Validation",
+            f"- Pre-flight allowed: `{validation['allowed']}` · Violations: `{len(validation['violations'])}` · High-Risk Warnings: `{len(validation['warnings'])}`",
+            *[f"- **{r['id']}**: {r['rule']}" for r in inv["builtin_invariants"]],
+            "",
+            "## 5. Architecture Health Snapshot",
+            f"- Score: `{(health.get('summary') or {}).get('health_score', 'N/A')}/100` (Grade `{(health.get('summary') or {}).get('grade', '-')}`)",
+        ]
+        md = "\n".join(lines)
+        truncated = len(md) > budget_chars
+        if truncated:
+            md = md[:budget_chars] + "\n... [TRUNCATED TO TOKEN BUDGET]"
+        return {
+            "task": q,
+            "target_files": top_paths,
+            "estimated_tokens": max(1, len(md) // 4),
+            "truncated": truncated,
+            "validation": validation,
+            "markdown": md,
+        }
+
+    def pr_context(self, base: str = "main") -> dict[str, Any]:
+        from knowledge_portal.generators.doc_drift import detect_doc_drift, render_pr_comment_markdown
+        drift = detect_doc_drift(self.project_dir, base=base)
+        health = self.health_audit()
+        return {**drift, "pr_comment_markdown": render_pr_comment_markdown(drift, health_report=health)}
+
     def codemode_discover(self, topic: str = "") -> dict[str, Any]:
         return get_codemode_sdk_reference(topic=topic)
 
@@ -557,6 +656,50 @@ TOOLS_SPEC: list[dict[str, Any]] = [
         },
     },
     {
+        "name": "portal_call_chain",
+        "description": "Inspect AST symbol-level callers, callees, typed signatures, and Route -> DB call chains.",
+        "inputSchema": {
+            "type": "object",
+            "properties": {
+                "symbol": {"type": "string", "default": "", "description": "Function/method name, route, or file filter"},
+                "max_depth": {"type": "integer", "default": 3},
+            },
+        },
+    },
+    {
+        "name": "portal_mission_pack",
+        "description": "Generate a single-call task-scoped AI Mission Pack combining hybrid graph search, blast radius, symbol call-graph, invariants, and health snapshot within a token budget.",
+        "inputSchema": {
+            "type": "object",
+            "properties": {
+                "task": {"type": "string", "description": "Engineering task or target feature"},
+                "max_tokens": {"type": "integer", "default": 6000},
+            },
+            "required": ["task"],
+        },
+    },
+    {
+        "name": "portal_validate_change",
+        "description": "Validate proposed file modifications against machine-readable architectural invariants (P4 frozen gate, blast radius).",
+        "inputSchema": {
+            "type": "object",
+            "properties": {
+                "paths": {"type": "array", "items": {"type": "string"}, "description": "Relative file paths to modify"},
+            },
+            "required": ["paths"],
+        },
+    },
+    {
+        "name": "portal_pr_context",
+        "description": "Analyze git diff against base ref to detect stale docs/ADRs (Doc-Drift), impacted tests, and generate a PR review summary.",
+        "inputSchema": {
+            "type": "object",
+            "properties": {
+                "base": {"type": "string", "default": "main"},
+            },
+        },
+    },
+    {
         "name": "portal_discover",
         "description": "Code Mode SDK discovery: returns the compact typed read-only `portal.*` API reference for writing multi-step query pipelines.",
         "inputSchema": {
@@ -617,6 +760,8 @@ def handle_jsonrpc_request(engine: PortalMcpEngine, req: dict[str, Any], code_mo
                     {"uri": "portal://api-catalog", "name": "Live API Catalog", "description": "Auto-discovered HTTP/WS endpoints & OpenAPI 3.1", "mimeType": "application/json"},
                     {"uri": "portal://arch-diff", "name": "Architecture Diff", "description": "Snapshot delta & historical trend", "mimeType": "application/json"},
                     {"uri": "portal://sbom", "name": "CycloneDX 1.5 SBOM", "description": "Software Bill of Materials & licenses", "mimeType": "application/json"},
+                    {"uri": "portal://invariants", "name": "Architecture Invariants", "description": "Machine-readable architectural rules & P4 gates", "mimeType": "application/json"},
+                    {"uri": "portal://ownership", "name": "Ownership & Conway Map", "description": "CODEOWNERS and contributor bus-factor map", "mimeType": "application/json"},
                 ]
             },
         }
@@ -637,6 +782,10 @@ def handle_jsonrpc_request(engine: PortalMcpEngine, req: dict[str, Any], code_mo
             sb = engine.data_dir / "sbom.cdx.json"
             txt = sb.read_text(encoding="utf-8") if sb.exists() else json.dumps({"bomFormat": "CycloneDX", "specVersion": "1.5", "components": []})
             return {"jsonrpc": "2.0", "id": req_id, "result": {"contents": [{"uri": uri, "mimeType": "application/json", "text": txt}]}}
+        if uri == "portal://invariants":
+            return {"jsonrpc": "2.0", "id": req_id, "result": {"contents": [{"uri": uri, "mimeType": "application/json", "text": json.dumps(engine.invariants(), indent=2)}]}}
+        if uri == "portal://ownership":
+            return {"jsonrpc": "2.0", "id": req_id, "result": {"contents": [{"uri": uri, "mimeType": "application/json", "text": json.dumps(engine.ownership(), indent=2)}]}}
         return {"jsonrpc": "2.0", "id": req_id, "error": {"code": -32602, "message": f"Unknown resource URI: {uri}"}}
 
     if method == "prompts/list":
@@ -682,6 +831,10 @@ def handle_jsonrpc_request(engine: PortalMcpEngine, req: dict[str, Any], code_mo
             "portal_health_audit": lambda _a: engine.health_audit(),
             "portal_api_catalog": lambda a: engine.api_catalog(a.get("query", "")),
             "portal_arch_diff": lambda _a: engine.arch_diff(),
+            "portal_call_chain": lambda a: engine.call_graph(a.get("symbol", ""), a.get("max_depth", 3)),
+            "portal_mission_pack": lambda a: engine.mission_pack(a.get("task", ""), a.get("max_tokens", 6000)),
+            "portal_validate_change": lambda a: engine.validate_change(a.get("paths") or []),
+            "portal_pr_context": lambda a: engine.pr_context(a.get("base", "main")),
             "portal_discover": lambda a: engine.codemode_discover(a.get("topic", "")),
             "portal_codemode": lambda a: engine.codemode_execute(a.get("code", "")),
         }

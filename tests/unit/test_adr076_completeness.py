@@ -151,7 +151,7 @@ def test_mcp_v2_resources_prompts_and_codemode_parity(tmp_path: Path):
     assert "resources" in caps and "prompts" in caps and "tools" in caps
 
     rlist = handle_jsonrpc_request(eng, {"jsonrpc": "2.0", "id": 2, "method": "resources/list"})
-    assert rlist is not None and len(rlist["result"]["resources"]) == 5
+    assert rlist is not None and len(rlist["result"]["resources"]) >= 7
 
     rread = handle_jsonrpc_request(eng, {"jsonrpc": "2.0", "id": 3, "method": "resources/read", "params": {"uri": "portal://api-catalog"}})
     assert rread is not None and "/ping" in rread["result"]["contents"][0]["text"]

@@ -76,6 +76,12 @@ def main():
     gate_p.add_argument("--data-dir", default=None, help="Portal data directory (default: template/data)")
     gate_p.add_argument("--dir", "-d", default=".", help="Project root directory")
 
+    # Command: pr-comment
+    pr_p = subparsers.add_parser("pr-comment", help="Generate Markdown PR review comment with Doc-Drift & impacted tests")
+    pr_p.add_argument("--base", "-b", default="main", help="Base git ref to diff against (default: main)")
+    pr_p.add_argument("--data-dir", default=None, help="Portal data directory (default: template/data)")
+    pr_p.add_argument("--dir", "-d", default=".", help="Project root directory")
+
     args = parser.parse_args()
 
     if args.command == "scan":
@@ -95,9 +101,13 @@ def main():
         from knowledge_portal.generators.stack_inventory import generate_stack_inventory
         from knowledge_portal.generators.arch_health import generate_arch_health
         from knowledge_portal.generators.api_catalog import generate_api_catalog
+        from knowledge_portal.generators.call_graph import generate_call_graph
+        from knowledge_portal.generators.ownership import generate_ownership_map
         from knowledge_portal.generators.llms_txt import generate_llms_manifests
         generate_stack_inventory(target, out)
         generate_api_catalog(target, out)
+        generate_call_graph(target, out)
+        generate_ownership_map(target, out)
         generate_arch_health(out, project_dir=target)
         generate_llms_manifests(target, out, template_dir)
 
@@ -218,6 +228,15 @@ def main():
             for r in reasons:
                 print(f"   - {r}")
             sys.exit(1)
+
+    elif args.command == "pr-comment":
+        from knowledge_portal.mcp_server import PortalMcpEngine
+        from knowledge_portal.server import get_template_dir
+        target = Path(args.dir).resolve()
+        data_dir = Path(args.data_dir).resolve() if args.data_dir else (get_template_dir() / "data")
+        engine = PortalMcpEngine(project_dir=target, data_dir=data_dir)
+        ctx = engine.pr_context(base=args.base)
+        print(ctx.get("pr_comment_markdown", ""))
     else:
         parser.print_help()
 

@@ -1,0 +1,143 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>What-If Blast-Radius Impact Simulator</title>
+  <link rel="stylesheet" href="portal-theme.css?v=fp3">
+  <script src="../assets/d3.v7.min.js"></script>
+  <script src="live-reload.js"></script>
+  <script defer src="portal-ui.js?v=fp4"></script>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body { background: #0f0f0f; color: #f3f4f6; font-family: 'Inter', system-ui, sans-serif; min-height: 100vh; }
+    .wrap { max-width: 1320px; margin: 0 auto; padding: 18px 24px 48px; }
+    .top { display: flex; justify-content: space-between; align-items: center; gap: 12px; flex-wrap: wrap; border-bottom: 1px solid #262626; padding-bottom: 14px; margin-bottom: 16px; }
+    .title { font-size: 18px; font-weight: 700; }
+    .bar { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; }
+    .inp { background: #141414; border: 1px solid #333; color: #fff; padding: 8px 12px; border-radius: 7px; font-size: 13px; width: 320px; }
+    .btn { background: #ffffff; color: #0f0f0f; border: none; border-radius: 7px; padding: 8px 14px; font-size: 12px; font-weight: 700; cursor: pointer; }
+    .btn:hover { background: #e5e7eb; }
+    .grid { display: grid; grid-template-columns: 1.2fr 1fr; gap: 16px; }
+    @media (max-width: 900px) { .grid { grid-template-columns: 1fr; } }
+    .card { background: #191919; border: 1px solid #262626; border-radius: 10px; padding: 16px; }
+    .card h2 { font-size: 12px; text-transform: uppercase; letter-spacing: 0.06em; color: #e5e7eb; margin-bottom: 10px; display: flex; justify-content: space-between; }
+    .risk-pill { padding: 2px 9px; border-radius: 999px; font-size: 11px; font-weight: 800; color: #0f0f0f; }
+    .row { font-size: 12px; padding: 7px 10px; background: #141414; border: 1px solid #242424; border-radius: 6px; margin-bottom: 6px; cursor: pointer; word-break: break-word; }
+    .row:hover { border-color: #38bdf8; }
+    .list { max-height: 360px; overflow-y: auto; }
+    .cmd-box { background: #0b1220; border: 1px solid #1e3a5f; border-radius: 8px; padding: 10px 12px; font-family: ui-monospace, monospace; font-size: 12px; color: #7dd3fc; margin-top: 10px; word-break: break-all; }
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <div class="top">
+      <div>
+        <div class="title">💥 What-If Blast-Radius Impact Simulator</div>
+        <div style="font-size:12px;color:#9ca3af;margin-top:3px;">Simulate modifying any file or symbol: visualize d=1 / d=2 / d=3 concentric reverse-dependencies &amp; impacted tests</div>
+      </div>
+      <div class="bar">
+        <input id="imp-target" class="inp" type="text" placeholder="File or symbol (e.g. config.py, server.py)...">
+        <button class="btn" onclick="runSimulation()">Simulate Impact</button>
+      </div>
+    </div>
+
+    <div class="grid">
+      <section class="card">
+        <h2>Concentric Blast-Radius Rings (d=1 · d=2 · d=3) <span id="risk-badge" class="risk-pill" style="background:#34d399;">READY</span></h2>
+        <div id="imp-svg" style="min-height:380px;display:flex;align-items:center;justify-content:center;">
+          <div style="color:#737373;font-size:13px;">Enter a file or symbol above and click Simulate Impact.</div>
+        </div>
+      </section>
+      <section class="card">
+        <h2>Impacted Callers, Flows &amp; Suggested Tests <span id="cnt-badge" style="color:#38bdf8;font-family:monospace;">0</span></h2>
+        <div class="list" id="imp-list"></div>
+        <div class="cmd-box" id="imp-cmd" style="display:none;"></div>
+      </section>
+    </div>
+  </div>
+
+  <script>
+    function esc(s) { return String(s ?? '').replace(/[&<>"']/g, m => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m])); }
+    function openInReader(p) { if (p) try { window.parent.postMessage({ action: 'openFile', path: p }, '*'); } catch (_) {} }
+
+    async function runSimulation(preset) {
+      const target = (preset || document.getElementById('imp-target').value || '').trim();
+      if (!target) return;
+      document.getElementById('imp-target').value = target;
+      const svgBox = document.getElementById('imp-svg');
+      svgBox.innerHTML = '<div style="color:#9ca3af;">Computing reverse-dependency blast radius...</div>';
+
+      let data = null;
+      try {
+        const res = await fetch(`/api/impact?target=${encodeURIComponent(target)}&depth=3`);
+        if (res.ok) data = await res.json();
+      } catch (_) {}
+
+      if (!data || data.error) {
+        svgBox.innerHTML = `<div style="color:#f87171;">${esc((data && data.error) || 'Could not reach /api/impact')}</div>`;
+        return;
+      }
+
+      const risk = data.risk || 'LOW';
+      const rb = document.getElementById('risk-badge');
+      rb.textContent = `${risk} (${(data.counts || {}).total || 0} impacted)`;
+      rb.style.background = risk === 'CRITICAL' ? '#ef4444' : (risk === 'HIGH' ? '#f59e0b' : (risk === 'MEDIUM' ? '#38bdf8' : '#34d399'));
+
+      const byDepth = data.by_depth || {};
+      const d1 = byDepth.d1 || [], d2 = byDepth.d2 || [], d3 = byDepth.d3 || [];
+      document.getElementById('cnt-badge').textContent = `d1:${d1.length} · d2:${d2.length} · d3:${d3.length}`;
+
+      // Draw D3 concentric rings
+      svgBox.innerHTML = '';
+      if (typeof d3 !== 'undefined') {
+        const W = 480, H = 380, cx = W / 2, cy = H / 2;
+        const svg = d3.select('#imp-svg').append('svg').attr('width', '100%').attr('viewBox', `0 0 ${W} ${H}`);
+        const rings = [
+          { r: 165, color: 'rgba(56,189,248,0.16)', stroke: '#38bdf8', label: 'd=3', items: d3.slice(0, 18) },
+          { r: 118, color: 'rgba(245,158,11,0.18)', stroke: '#f59e0b', label: 'd=2', items: d2.slice(0, 14) },
+          { r: 72,  color: 'rgba(239,68,68,0.22)',  stroke: '#ef4444', label: 'd=1', items: d1.slice(0, 12) },
+        ];
+        rings.forEach(rg => {
+          svg.append('circle').attr('cx', cx).attr('cy', cy).attr('r', rg.r).attr('fill', rg.color).attr('stroke', rg.stroke).attr('stroke-dasharray', '4,3');
+          svg.append('text').attr('x', cx).attr('y', cy - rg.r + 13).attr('text-anchor', 'middle').attr('fill', rg.stroke).attr('font-size', 10).attr('font-weight', 700).text(`${rg.label} (${rg.items.length})`);
+          rg.items.forEach((it, idx) => {
+            const ang = (2 * Math.PI * idx) / Math.max(1, rg.items.length) - Math.PI / 2;
+            const nx = cx + Math.cos(ang) * rg.r;
+            const ny = cy + Math.sin(ang) * rg.r;
+            const label = typeof it === 'string' ? it : (it.path || it.label || it.id || '');
+            svg.append('circle').attr('cx', nx).attr('cy', ny).attr('r', 5.5).attr('fill', rg.stroke).attr('stroke', '#fff').attr('stroke-width', 0.8)
+              .style('cursor', 'pointer').on('click', () => openInReader(label))
+              .append('title').text(`${rg.label}: ${label}`);
+          });
+        });
+        svg.append('circle').attr('cx', cx).attr('cy', cy).attr('r', 26).attr('fill', '#ffffff');
+        svg.append('text').attr('x', cx).attr('y', cy + 4).attr('text-anchor', 'middle').attr('fill', '#0f0f0f').attr('font-size', 10).attr('font-weight', 800).text(target.split('/').pop().slice(0, 10));
+      }
+
+      // List impacted items & infer pytest command
+      const rows = [];
+      const testFiles = new Set();
+      [['d=1 (Direct)', d1, '#ef4444'], ['d=2 (Indirect)', d2, '#f59e0b'], ['d=3 (Transitive)', d3, '#38bdf8']].forEach(([lbl, arr, col]) => {
+        arr.slice(0, 20).forEach(it => {
+          const p = typeof it === 'string' ? it : (it.path || it.label || it.id || '');
+          if (p.includes('test_')) testFiles.add(p);
+          rows.push(`<div class="row" onclick="openInReader('${esc(p)}')"><strong style="color:${col};">[${lbl}]</strong> <code>${esc(p)}</code></div>`);
+        });
+      });
+      document.getElementById('imp-list').innerHTML = rows.length ? rows.join('') : '<div style="color:#737373;font-size:12px;">Zero downstream callers detected — safe isolated module!</div>';
+
+      const cmdEl = document.getElementById('imp-cmd');
+      const stem = target.split('/').pop().replace(/\.py$/, '');
+      cmdEl.style.display = 'block';
+      cmdEl.textContent = testFiles.size
+        ? `Suggested verification: pytest ${Array.from(testFiles).slice(0, 5).join(' ')}`
+        : `Suggested verification: pytest -k "${stem}"`;
+    }
+
+    document.getElementById('imp-target').addEventListener('keydown', e => { if (e.key === 'Enter') runSimulation(); });
+    const qp = new URLSearchParams(window.location.search).get('target');
+    if (qp) runSimulation(qp);
+  </script>
+</body>
+</html>

@@ -1,0 +1,146 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>End-to-End Sequence &amp; Call-Chain Tracer</title>
+  <link rel="stylesheet" href="portal-theme.css?v=fp3">
+  <script src="../assets/d3.v7.min.js"></script>
+  <script src="../data/call_graph.js" onerror="void(0)"></script>
+  <script src="live-reload.js"></script>
+  <script defer src="portal-ui.js?v=fp4"></script>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body { background: #0f0f0f; color: #f3f4f6; font-family: 'Inter', system-ui, sans-serif; height: 100vh; display: flex; flex-direction: column; overflow: hidden; }
+    header { background: #141414; border-bottom: 1px solid #262626; padding: 12px 22px; display: flex; justify-content: space-between; align-items: center; gap: 12px; flex-wrap: wrap; }
+    .title { font-size: 16px; font-weight: 700; display: flex; align-items: center; gap: 8px; }
+    .badge { background: #1e293b; border: 1px solid #334155; color: #38bdf8; font-size: 11px; padding: 2px 8px; border-radius: 999px; font-family: ui-monospace, monospace; }
+    .search { background: #0f0f0f; border: 1px solid #2a2a2a; color: #fff; padding: 7px 12px; border-radius: 6px; font-size: 12px; width: 260px; }
+    .layout { flex: 1; display: flex; overflow: hidden; }
+    .sidebar { width: 310px; background: #141414; border-right: 1px solid #262626; overflow-y: auto; padding: 10px; flex-shrink: 0; }
+    .chain-item { padding: 9px 11px; border-radius: 7px; border: 1px solid transparent; cursor: pointer; margin-bottom: 6px; background: #191919; }
+    .chain-item:hover { border-color: #404040; }
+    .chain-item.active { border-color: #38bdf8; background: #17202a; }
+    .chain-lbl { font-size: 12px; font-weight: 600; color: #fff; font-family: ui-monospace, monospace; word-break: break-all; }
+    .chain-meta { font-size: 11px; color: #9ca3af; margin-top: 3px; }
+    .stage { flex: 1; overflow: auto; padding: 20px 26px; }
+    .step-card { background: #191919; border: 1px solid #2a2a2a; border-radius: 8px; padding: 12px 16px; margin-bottom: 10px; cursor: pointer; transition: border 0.15s; }
+    .step-card:hover { border-color: #38bdf8; }
+    .step-top { display: flex; align-items: center; justify-content: space-between; gap: 8px; flex-wrap: wrap; }
+    .depth-pill { font-size: 10px; font-weight: 700; padding: 2px 7px; border-radius: 4px; font-family: ui-monospace, monospace; }
+    .d0 { background: #38bdf8; color: #0f0f0f; }
+    .d1 { background: #34d399; color: #0f0f0f; }
+    .d2 { background: #fbbf24; color: #0f0f0f; }
+    .d3 { background: #c084fc; color: #0f0f0f; }
+    .db-pill { background: rgba(245,158,11,0.16); color: #fbbf24; border: 1px solid rgba(245,158,11,0.35); font-size: 10px; padding: 2px 7px; border-radius: 4px; font-family: ui-monospace, monospace; }
+    .svg-box { background: #141414; border: 1px solid #262626; border-radius: 10px; padding: 14px; margin-bottom: 16px; overflow-x: auto; }
+  </style>
+</head>
+<body>
+  <header>
+    <div>
+      <div class="title">⚡ End-to-End Sequence &amp; Call-Chain Tracer <span class="badge" id="cg-badge">Loading...</span></div>
+      <div style="font-size:12px;color:#9ca3af;margin-top:2px;">AST-resolved execution paths: Route / Entrypoint → Service Callees → Database Tables</div>
+    </div>
+    <input id="cg-search" class="search" type="search" placeholder="Filter route, symbol, file, or DB table..." oninput="renderSidebar()">
+  </header>
+
+  <div class="layout">
+    <div class="sidebar" id="chainList"></div>
+    <div class="stage" id="chainStage">
+      <div style="color:#737373;padding:24px;">Select an entrypoint on the left to inspect its end-to-end call chain.</div>
+    </div>
+  </div>
+
+  <script>
+    let CG = { summary: {}, chains: [] };
+    let selectedIdx = 0;
+
+    function esc(s) { return String(s ?? '').replace(/[&<>"']/g, m => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m])); }
+    function openInReader(p) { if (p) try { window.parent.postMessage({ action: 'openFile', path: p }, '*'); } catch (_) {} }
+
+    function renderSidebar() {
+      const q = (document.getElementById('cg-search').value || '').trim().toLowerCase();
+      const list = document.getElementById('chainList');
+      const items = (CG.chains || []).map((c, idx) => ({ c, idx })).filter(({ c }) => {
+        if (!q) return true;
+        return `${c.label} ${c.file} ${(c.db_tables || []).join(' ')}`.toLowerCase().includes(q);
+      });
+      if (!items.length) { list.innerHTML = '<div style="color:#737373;padding:12px;font-size:12px;">No matching call chains.</div>'; return; }
+      list.innerHTML = items.map(({ c, idx }) => `
+        <div class="chain-item ${idx === selectedIdx ? 'active' : ''}" onclick="selectChain(${idx})">
+          <div class="chain-lbl">${esc(c.label)}</div>
+          <div class="chain-meta">${c.steps.length} hops · ${(c.db_tables || []).length} DB tables · ${esc(c.file)}</div>
+        </div>
+      `).join('');
+    }
+
+    function selectChain(idx) {
+      selectedIdx = idx;
+      renderSidebar();
+      const c = (CG.chains || [])[idx];
+      const stage = document.getElementById('chainStage');
+      if (!c) return;
+
+      const stepsHtml = (c.steps || []).map((st, i) => `
+        <div class="step-card" style="margin-left:${Math.min(3, st.depth) * 22}px;" onclick="openInReader('${esc(st.file)}')">
+          <div class="step-top">
+            <div>
+              <span class="depth-pill d${Math.min(3, st.depth)}">d=${st.depth}</span>
+              <strong style="margin-left:8px;font-family:ui-monospace,monospace;">${esc(st.qname)}</strong>
+            </div>
+            <span style="font-size:11px;color:#38bdf8;font-family:ui-monospace,monospace;">${esc(st.file)}:${st.line}</span>
+          </div>
+          <div style="font-size:11px;color:#9ca3af;margin-top:6px;font-family:ui-monospace,monospace;">${esc(st.signature)}</div>
+          ${(st.db_tables || []).length ? `<div style="margin-top:6px;display:flex;gap:6px;flex-wrap:wrap;">${st.db_tables.map(t => `<span class="db-pill">🗄️ ${esc(t)}</span>`).join('')}</div>` : ''}
+        </div>
+      `).join('');
+
+      stage.innerHTML = `
+        <div style="margin-bottom:14px;">
+          <h2 style="font-size:16px;color:#fff;">${esc(c.label)}</h2>
+          <div style="font-size:12px;color:#9ca3af;margin-top:4px;">Entry: <code>${esc(c.file)}:${c.line}</code> · Hops: <strong>${c.steps.length}</strong> · Touched DB Tables: ${(c.db_tables || []).length ? c.db_tables.map(t => `<code>${esc(t)}</code>`).join(', ') : 'none'}</div>
+        </div>
+        <div class="svg-box" id="seq-svg"></div>
+        ${stepsHtml}
+      `;
+
+      // Render D3 horizontal sequence lane diagram
+      if (typeof d3 !== 'undefined' && c.steps.length) {
+        const W = Math.max(640, c.steps.length * 145), H = 120;
+        const svg = d3.select('#seq-svg').append('svg').attr('width', W).attr('height', H);
+        const colors = ['#38bdf8', '#34d399', '#fbbf24', '#c084fc'];
+        c.steps.forEach((st, i) => {
+          const x = 16 + i * 142;
+          if (i > 0) {
+            svg.append('line').attr('x1', x - 20).attr('y1', 56).attr('x2', x).attr('y2', 56).attr('stroke', '#525252').attr('stroke-width', 1.8);
+          }
+          const g = svg.append('g').attr('transform', `translate(${x},22)`).style('cursor', 'pointer').on('click', () => openInReader(st.file));
+          g.append('rect').attr('width', 122).attr('height', 68).attr('rx', 8).attr('fill', '#191919').attr('stroke', colors[Math.min(3, st.depth)]).attr('stroke-width', 1.6);
+          g.append('text').attr('x', 8).attr('y', 20).attr('fill', colors[Math.min(3, st.depth)]).attr('font-size', 10).attr('font-weight', 700).text(`d=${st.depth}`);
+          g.append('text').attr('x', 8).attr('y', 38).attr('fill', '#fff').attr('font-size', 11).attr('font-weight', 600).text(st.qname.slice(0, 16));
+          g.append('text').attr('x', 8).attr('y', 55).attr('fill', '#9ca3af').attr('font-size', 9).text(st.file.split('/').pop().slice(0, 18));
+        });
+      }
+    }
+
+    async function init() {
+      let loaded = window.CALL_GRAPH || null;
+      if (!loaded) {
+        for (const url of ['/api/call-graph', '../data/call-graph.json', 'data/call-graph.json']) {
+          try {
+            const r = await fetch(url);
+            if (r.ok) { const j = await r.json(); if (j && Array.isArray(j.chains)) { loaded = j; break; } }
+          } catch (_) {}
+        }
+      }
+      if (loaded) CG = loaded;
+      const s = CG.summary || {};
+      document.getElementById('cg-badge').textContent = `${s.total_symbols ?? 0} SYMBOLS · ${s.total_call_edges ?? 0} CALL EDGES · ${(CG.chains || []).length} CHAINS`;
+      renderSidebar();
+      if ((CG.chains || []).length) selectChain(0);
+    }
+    init();
+  </script>
+</body>
+</html>

@@ -74,6 +74,12 @@ class PortalReadOnlySDK:
         "health",
         "api_catalog",
         "arch_diff",
+        "call_graph",
+        "ownership",
+        "invariants",
+        "validate_change",
+        "mission_pack",
+        "pr_context",
         "telemetry",
         "context_pack",
         "read_doc",
@@ -109,6 +115,24 @@ class PortalReadOnlySDK:
     def arch_diff(self) -> dict[str, Any]:
         return self._engine.arch_diff()
 
+    def call_graph(self, symbol: str = "", max_depth: int = 3) -> dict[str, Any]:
+        return self._engine.call_graph(symbol=symbol, max_depth=max_depth)
+
+    def ownership(self) -> dict[str, Any]:
+        return self._engine.ownership()
+
+    def invariants(self) -> dict[str, Any]:
+        return self._engine.invariants()
+
+    def validate_change(self, paths: list[str]) -> dict[str, Any]:
+        return self._engine.validate_change(paths)
+
+    def mission_pack(self, task: str, max_tokens: int = 6000) -> dict[str, Any]:
+        return self._engine.mission_pack(task=task, max_tokens=max_tokens)
+
+    def pr_context(self, base: str = "main") -> dict[str, Any]:
+        return self._engine.pr_context(base=base)
+
     def telemetry(self) -> dict[str, Any]:
         return self._engine.telemetry()
 
@@ -131,6 +155,12 @@ def get_codemode_sdk_reference(topic: str = "") -> dict[str, Any]:
         {"call": "portal.health()", "returns": "{summary: {health_score, grade, cycle_count, orphan_count, ...}, cycles, orphans, god_files, layer_violations}"},
         {"call": "portal.api_catalog(query='')", "returns": "{summary, tags, endpoints: [{method, path, tag, handler, file, line, auth, response_model}]}"},
         {"call": "portal.arch_diff()", "returns": "{has_previous_snapshot, summary: {score_delta, cycle_delta, added_modules, ...}, history}"},
+        {"call": "portal.call_graph(symbol='', max_depth=3)", "returns": "{summary, chains} or {query, count, matches: [{id, signature, callers, callees, db_tables}]}"},
+        {"call": "portal.ownership()", "returns": "{codeowners_file, domains: [{domain, bus_factor, codeowners, conway_status}]}"},
+        {"call": "portal.invariants()", "returns": "{rules_file, builtin_invariants: [{id, severity, rule}]}"},
+        {"call": "portal.validate_change(paths)", "returns": "{allowed, violations, warnings}"},
+        {"call": "portal.mission_pack(task, max_tokens=6000)", "returns": "{task, target_files, estimated_tokens, validation, markdown}"},
+        {"call": "portal.pr_context(base='main')", "returns": "{stale_docs, impacted_tests, pr_comment_markdown}"},
         {"call": "portal.telemetry()", "returns": "Live host & portal sync telemetry dict"},
         {"call": "portal.context_pack(topic, max_tokens=4000)", "returns": "{topic, estimated_tokens, markdown}"},
         {"call": "portal.read_doc(path, max_chars=8000)", "returns": "{path, content, truncated}"},

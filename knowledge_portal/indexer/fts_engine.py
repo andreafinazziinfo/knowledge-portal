@@ -189,7 +189,7 @@ class FtsSearchEngine:
             return ""
         return " AND ".join(f'"{t}"*' for t in tokens[:8])
 
-    def search(self, query: str, limit: int = 30) -> list[dict[str, Any]]:
+    def search(self, query: str, limit: int = 30, expand_graph: bool = False) -> list[dict[str, Any]]:
         q = (query or "").strip()
         if not q:
             return []
@@ -219,7 +219,7 @@ class FtsSearchEngine:
             if self._mem_conn is None:
                 conn.close()
 
-        return [
+        results: list[dict[str, Any]] = [
             {
                 "id": r[0],
                 "name": r[1],
@@ -233,3 +233,41 @@ class FtsSearchEngine:
             }
             for r in rows
         ]
+
+        if expand_graph and results and len(results) < lim:
+            graph_file = self._find_graph_file()
+            if graph_file is not None:
+                try:
+                    g = json.loads(graph_file.read_text(encoding="utf-8"))
+                    seeds = {str(r.get("path") or r.get("id") or "").lower() for r in results[:3] if r.get("path") or r.get("id")}
+                    seen_paths = {str(r.get("path") or r.get("name") or "").lower() for r in results}
+                    for e in g.get("edges") or g.get("links") or []:
+                        if len(results) >= lim:
+                            break
+                        if not isinstance(e, dict):
+                            continue
+                        s = str(e.get("source", "")).replace("\\", "/")
+                        t = str(e.get("target", "")).replace("\\", "/")
+                        neighbor = ""
+                        if s.lower() in seeds and t.lower() not in seen_paths:
+                            neighbor = t
+                        elif t.lower() in seeds and s.lower() not in seen_paths:
+                            neighbor = s
+                        if neighbor and "frozen/" not in neighbor.lower():
+                            seen_paths.add(neighbor.lower())
+                            results.append({
+                                "id": neighbor,
+                                "name": Path(neighbor).name,
+                                "subtitle": "1-hop graph neighbor",
+                                "badge": "GRAPH",
+                                "category": "graph-neighbor",
+                                "tab": "reader",
+                                "hash": "",
+                                "action": "openFile",
+                                "path": neighbor,
+                                "graph_expanded": True,
+                            })
+                except Exception:
+                    pass
+
+        return results

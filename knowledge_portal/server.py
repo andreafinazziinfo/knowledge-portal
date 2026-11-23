@@ -358,8 +358,9 @@ class PortalRequestHandler(SimpleHTTPRequestHandler):
         elif path == "/api/search":
             from knowledge_portal.indexer.fts_engine import FtsSearchEngine
             q = query.get("q", [""])[0]
+            expand = query.get("expand", ["0"])[0] in ("1", "true", "yes")
             engine = FtsSearchEngine(self.template_dir / "data")
-            self.send_json(engine.search(q, limit=30))
+            self.send_json(engine.search(q, limit=30, expand_graph=expand))
 
         elif path == "/api/context-pack":
             from knowledge_portal.mcp_server import PortalMcpEngine
@@ -433,6 +434,35 @@ class PortalRequestHandler(SimpleHTTPRequestHandler):
                 self.send_header("Content-Length", str(len(md_bytes)))
                 self.end_headers()
                 self.wfile.write(md_bytes)
+
+        elif path == "/api/call-graph":
+            from knowledge_portal.mcp_server import PortalMcpEngine
+            sym = query.get("symbol", [""])[0]
+            eng = PortalMcpEngine(self.project_dir, self.template_dir / "data")
+            self.send_json(eng.call_graph(symbol=sym))
+
+        elif path == "/api/ownership":
+            from knowledge_portal.mcp_server import PortalMcpEngine
+            eng = PortalMcpEngine(self.project_dir, self.template_dir / "data")
+            self.send_json(eng.ownership())
+
+        elif path == "/api/invariants":
+            from knowledge_portal.mcp_server import PortalMcpEngine
+            eng = PortalMcpEngine(self.project_dir, self.template_dir / "data")
+            self.send_json(eng.invariants())
+
+        elif path == "/api/mission-pack":
+            from knowledge_portal.mcp_server import PortalMcpEngine
+            task = query.get("task", query.get("q", [""]))[0]
+            max_tok = int(query.get("max_tokens", ["6000"])[0] or 6000)
+            eng = PortalMcpEngine(self.project_dir, self.template_dir / "data")
+            self.send_json(eng.mission_pack(task=task, max_tokens=max_tok))
+
+        elif path == "/api/pr-context":
+            from knowledge_portal.mcp_server import PortalMcpEngine
+            base = query.get("base", ["main"])[0]
+            eng = PortalMcpEngine(self.project_dir, self.template_dir / "data")
+            self.send_json(eng.pr_context(base=base))
 
         elif path == "/api/file":
             filepath = query.get("path", [""])[0]
