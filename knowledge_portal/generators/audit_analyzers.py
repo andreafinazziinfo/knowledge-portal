@@ -438,3 +438,120 @@ def build_actionable_fix_queue(report: dict[str, Any]) -> list[dict[str, Any]]:
         })
 
     return queue[:10]
+
+
+_SEC_PATTERNS = [
+    ("EVAL_EXEC", re.compile(r"\b(eval|exec)\s*\(")),
+    ("PICKLE_LOADS", re.compile(r"\bpickle\.loads?\s*\(")),
+    ("SHELL_TRUE", re.compile(r"shell\s*=\s*True")),
+    ("UNSAFE_YAML", re.compile(r"\byaml\.load\s*\([^)]*\)(?!.*SafeLoader)")),
+]
+
+
+def analyze_extended_health_checks(project_dir: Path, max_files: int = 2000) -> dict[str, Any]:
+    """ADR-075: 4 additional zero-dep health checks:
+    1. Code Clones (6-line normalized block hashes)
+    2. Dependency Hygiene (unpinned deps in requirements/pyproject/package.json)
+    3. Security Hygiene Quick-Scan (eval/exec/pickle/shell=True/unsafe yaml in non-test code)
+    4. Test-to-Code Ratio by Domain
+    """
+    project_dir = Path(project_dir).resolve()
+    block_hashes: dict[str, list[str]] = defaultdict(list)
+    sec_findings: list[dict[str, Any]] = []
+    prod_by_domain: Counter[str] = Counter()
+    test_by_domain: Counter[str] = Counter()
+    scanned = 0
+
+    for root, dirs, files in os.walk(project_dir):
+        dirs[:] = [d for d in dirs if d not in _IGNORE_DIRS and not d.startswith(".")]
+        for fname in files:
+            if scanned >= max_files:
+                break
+            ext = os.path.splitext(fname)[1].lower()
+            if ext not in (".py", ".ts", ".tsx", ".js", ".jsx", ".vue"):
+                continue
+            if fname.endswith((".min.js", ".bundle.js", ".d.ts")):
+                continue
+            fpath = Path(root) / fname
+            rel = str(fpath.relative_to(project_dir)).replace("\\", "/")
+            if _is_ignored_path(rel):
+                continue
+            scanned += 1
+            parts = rel.split("/")
+            dom = f"{parts[0]}/{parts[1]}" if len(parts) >= 2 else parts[0]
+            is_test = any(h in f"/{rel.lower()}" for h in ("/tests/", "/test/", "test_", ".spec.", ".test."))
+            if is_test:
+                test_by_domain[dom] += 1
+            else:
+                prod_by_domain[dom] += 1
+
+            try:
+                if fpath.stat().st_size > 400_000:
+                    continue
+                src = fpath.read_text(encoding="utf-8", errors="replace")
+            except Exception:
+                continue
+
+            # 1. Security quick-scan (production code only)
+            if not is_test:
+                for lineno, line in enumerate(src.splitlines(), 1):
+                    stripped = line.strip()
+                    if not stripped or stripped.startswith(("#", "//", "*")):
+                        continue
+                    for rule_name, rx in _SEC_PATTERNS:
+                        if rx.search(stripped) and "nosec" not in stripped:
+                            sec_findings.append({"rule": rule_name, "path": rel, "line": lineno})
+                            break
+
+            # 2. 6-line normalized clone detection
+            norm_lines = [
+                re.sub(r"\s+", " ", ln.strip())
+                for ln in src.splitlines()
+                if len(ln.strip()) >= 18 and not ln.strip().startswith(("#", "//", "import ", "from ", "*"))
+            ]
+            seen_in_file: set[str] = set()
+            for i in range(0, max(0, len(norm_lines) - 5), 3):
+                sig = "\n".join(norm_lines[i : i + 6])
+                if sig not in seen_in_file:
+                    seen_in_file.add(sig)
+                    block_hashes[sig].append(rel)
+
+    clones = [
+        {"files": sorted(set(flist))[:5], "occurrences": len(set(flist)), "preview": sig.splitlines()[0][:90]}
+        for sig, flist in block_hashes.items()
+        if len(set(flist)) >= 2
+    ]
+    clones.sort(key=lambda c: -int(c["occurrences"]))
+
+    # 3. Dependency hygiene (unpinned deps)
+    unpinned: list[dict[str, str]] = []
+    for req_file in list(project_dir.glob("requirements*.txt")) + list(project_dir.glob("backend/requirements*.txt")):
+        if req_file.is_file():
+            for ln in req_file.read_text(encoding="utf-8", errors="ignore").splitlines():
+                s = ln.strip()
+                if not s or s.startswith(("#", "-")):
+                    continue
+                if "==" not in s:
+                    unpinned.append({"file": str(req_file.relative_to(project_dir)).replace("\\", "/"), "dep": s[:60]})
+    for pkg_file in (project_dir / "package.json", project_dir / "frontend" / "package.json"):
+        if pkg_file.is_file():
+            try:
+                pj = json.loads(pkg_file.read_text(encoding="utf-8"))
+                for sec in ("dependencies", "devDependencies"):
+                    for k, v in (pj.get(sec) or {}).items():
+                        if str(v).strip() in ("*", "latest"):
+                            unpinned.append({"file": str(pkg_file.relative_to(project_dir)).replace("\\", "/"), "dep": f"{k}:{v}"})
+            except Exception:
+                pass
+
+    # 4. Test-to-code ratio
+    total_prod = sum(prod_by_domain.values())
+    total_test = sum(test_by_domain.values())
+    ratio_pct = round(100.0 * total_test / total_prod, 1) if total_prod > 0 else 0.0
+
+    return {
+        "code_clones": {"count": len(clones), "top_clones": clones[:15]},
+        "dependency_hygiene": {"unpinned_count": len(unpinned), "unpinned": unpinned[:20]},
+        "security_hygiene": {"findings_count": len(sec_findings), "findings": sec_findings[:25]},
+        "test_ratio": {"prod_files": total_prod, "test_files": total_test, "ratio_pct": ratio_pct},
+    }

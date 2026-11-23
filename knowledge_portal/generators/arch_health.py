@@ -276,7 +276,13 @@ def compute_arch_health(graph_data: dict[str, Any]) -> dict[str, Any]:
     s_layers = max(0, 100 - len(layer_violations) * 12)
     s_orphans = max(0, round(100 * (1.0 - min(1.0, orphan_ratio))))
     s_main_seq = max(0, round(100 * (1.0 - min(1.0, avg_dist))))
-    s_modularity = max(0, min(100, round(100 - max(0, len(hubs) - 10) * 1.5)))
+    # Scale-aware Modularity: penalize proportion of true God-Files (symbols >= 40 or loc >= 800 or total_degree >= 25)
+    severe_gods = sum(
+        1 for h in hubs
+        if h.get("symbols", 0) >= 40 or h.get("loc", 0) >= 800 or h.get("total_degree", 0) >= 25
+    )
+    god_ratio = (severe_gods / max(1, total_modules)) if total_modules > 0 else 0.0
+    s_modularity = max(0, min(100, round(100 - god_ratio * 1800)))
     # ADR-074: Distinguish Stable Core (high in, low out <= 2) from true High Fan-Out / God-Objects
     bad_coupling_count = sum(
         1 for h in hubs
@@ -326,6 +332,7 @@ def generate_arch_health(data_dir: Path, project_dir: Path | None = None) -> dic
         analyze_code_complexity_and_ai_readiness,
         analyze_coverage_reports,
         analyze_db_health,
+        analyze_extended_health_checks,
         analyze_git_crime_scene,
         build_actionable_fix_queue,
         record_health_history,
@@ -346,10 +353,12 @@ def generate_arch_health(data_dir: Path, project_dir: Path | None = None) -> dic
         report["complexity"] = analyze_code_complexity_and_ai_readiness(pdir)
         report["git_crime_scene"] = analyze_git_crime_scene(pdir, days=90)
         report["coverage"] = analyze_coverage_reports(pdir)
+        report["extended_checks"] = analyze_extended_health_checks(pdir)
     else:
         report["complexity"] = {"files_analyzed": 0, "avg_maintainability_index": None, "avg_mccabe": None, "top_complex_files": [], "perf_bloat": {"large_files_count": 0, "large_files": [], "sql_select_star_files": 0, "sql_smells": []}, "ai_readiness": {"score": None, "docstring_coverage_pct": 0.0, "type_hint_coverage_pct": 0.0, "python_functions_analyzed": 0}}
         report["git_crime_scene"] = {"available": False, "hotspots": [], "temporal_coupling": [], "bus_factor_risks": []}
         report["coverage"] = {"available": False, "overall_pct": None, "files_measured": 0, "lowest_covered": []}
+        report["extended_checks"] = {"code_clones": {"count": 0, "top_clones": []}, "dependency_hygiene": {"unpinned_count": 0, "unpinned": []}, "security_hygiene": {"findings_count": 0, "findings": []}, "test_ratio": {"prod_files": 0, "test_files": 0, "ratio_pct": 0.0}}
 
     report["db_health"] = analyze_db_health(data_dir)
     report["history"] = record_health_history(data_dir, report["summary"])

@@ -155,16 +155,38 @@
 
     <!-- TAB 4: Tests & Coverage -->
     <div class="ah-panel" id="p-tests">
-      <section class="ah-card">
-        <h2>Coverage Report Ingestion (coverage.xml / lcov.info) <span class="ah-badge" id="cov-badge">N/A</span></h2>
-        <div class="ah-hint">Rileva automaticamente report pytest-cov / Vitest se generati nella repo.</div>
-        <div class="ah-list" id="list-cov"></div>
-      </section>
+      <div class="ah-grid">
+        <section class="ah-card">
+          <h2>Test-to-Code Ratio <span class="ah-badge" id="tr-badge">--%</span></h2>
+          <div class="ah-hint">Rapporto tra file di test e file di produzione nel repository (escluso frozen/).</div>
+          <div class="ah-list" id="list-tr"></div>
+        </section>
+        <section class="ah-card">
+          <h2>Coverage Report Ingestion (coverage.xml / lcov.info) <span class="ah-badge" id="cov-badge">N/A</span></h2>
+          <div class="ah-hint">Rileva automaticamente report pytest-cov / Vitest se generati nella repo.</div>
+          <div class="ah-list" id="list-cov"></div>
+        </section>
+      </div>
     </div>
 
-    <!-- TAB 5: Perf, SQL & DB Health -->
+    <!-- TAB 5: Perf, SQL, Security, Clones & Deps -->
     <div class="ah-panel" id="p-perf">
       <div class="ah-grid">
+        <section class="ah-card">
+          <h2>Security Hygiene Quick-Scan <span class="ah-badge" id="cnt-sec">0</span></h2>
+          <div class="ah-hint">Rileva eval/exec, pickle.loads, shell=True e yaml.load non sicuro in produzione.</div>
+          <div class="ah-list" id="list-sec"></div>
+        </section>
+        <section class="ah-card">
+          <h2>Duplicate Code / Copy-Paste Clones <span class="ah-badge" id="cnt-clones">0</span></h2>
+          <div class="ah-hint">Blocchi normalizzati di 6+ righe duplicati tra file diversi.</div>
+          <div class="ah-list" id="list-clones"></div>
+        </section>
+        <section class="ah-card">
+          <h2>Dependency Pinning Hygiene <span class="ah-badge" id="cnt-deps">0</span></h2>
+          <div class="ah-hint">Dipendenze non pinnate (senza == o */latest) in requirements/package.json.</div>
+          <div class="ah-list" id="list-deps"></div>
+        </section>
         <section class="ah-card">
           <h2>Layer Violations (UI → DB) <span class="ah-badge" id="cnt-viol">0</span></h2>
           <div class="ah-list" id="list-viol"></div>
@@ -448,13 +470,39 @@
       ? cfiles.map(f => `<div class="ah-row" style="cursor:pointer;" onclick="openInReader('${f.path.replace(/'/g, "\\'")}')"><strong>${f.path}</strong> — McCabe: <strong>${f.mccabe}</strong> · Cognitive: ${f.cognitive} · MI: <strong>${f.maintainability_index}/100</strong> · LOC: ${f.loc}${f.worst_fn ? ` · worst fn: <code>${f.worst_fn.name}()</code> (cc=${f.worst_fn.mccabe})` : ''}</div>`).join('')
       : '<div class="ah-empty">No complexity metrics computed yet.</div>';
 
-    // Tab 4: Coverage
+    // Tab 4: Test-to-Code Ratio & Coverage
+    const ext = data.extended_checks || {};
+    const tr = ext.test_ratio || {};
+    document.getElementById('tr-badge').textContent = `${tr.ratio_pct ?? 0}%`;
+    document.getElementById('list-tr').innerHTML = [
+      `<div class="ah-row"><strong>Production Source Files:</strong> ${tr.prod_files ?? 0}</div>`,
+      `<div class="ah-row"><strong>Test / Spec Files:</strong> ${tr.test_files ?? 0}</div>`,
+      `<div class="ah-row"><strong>Test-to-Code Ratio:</strong> <strong>${tr.ratio_pct ?? 0}%</strong></div>`,
+    ].join('');
+
     document.getElementById('cov-badge').textContent = cov.available ? `${cov.overall_pct}% (${cov.files_measured} files)` : 'No report';
     document.getElementById('list-cov').innerHTML = cov.available
       ? (cov.lowest_covered || []).map(c => `<div class="ah-row"><strong>${c.coverage_pct}%</strong> — <code>${c.path}</code></div>`).join('')
       : '<div class="ah-empty">No coverage.xml or lcov.info found in workspace root. Run pytest --cov-report=xml or vitest --coverage to populate automatically.</div>';
 
-    // Tab 5: Layer Violations, SQL/Perf & DB Health
+    // Tab 5: Security Hygiene, Code Clones, Dependency Pinning, Layer Violations, SQL/Perf & DB Health
+    const secF = (ext.security_hygiene || {}).findings || [];
+    document.getElementById('cnt-sec').textContent = (ext.security_hygiene || {}).findings_count || 0;
+    document.getElementById('list-sec').innerHTML = secF.length
+      ? secF.map(f => `<div class="ah-row" style="cursor:pointer;" onclick="openInReader('${f.path.replace(/'/g,"\\'")}')"><strong>[${f.rule}]</strong> <code>${f.path}:${f.line}</code></div>`).join('')
+      : '<div class="ah-empty">Zero risky security patterns (eval/exec/pickle/shell=True) in production code!</div>';
+
+    const clones = (ext.code_clones || {}).top_clones || [];
+    document.getElementById('cnt-clones').textContent = (ext.code_clones || {}).count || 0;
+    document.getElementById('list-clones').innerHTML = clones.length
+      ? clones.map(c => `<div class="ah-row"><strong>${c.occurrences}× files</strong>: ${c.files.map(p => `<code style="cursor:pointer;color:#38bdf8;" onclick="openInReader('${p.replace(/'/g,"\\'")}')">${p}</code>`).join(', ')}<br><span style="color:#8b8b8b;font-size:11px;">${c.preview}</span></div>`).join('')
+      : '<div class="ah-empty">Zero 6-line copy-paste clones detected!</div>';
+
+    const unp = (ext.dependency_hygiene || {}).unpinned || [];
+    document.getElementById('cnt-deps').textContent = (ext.dependency_hygiene || {}).unpinned_count || 0;
+    document.getElementById('list-deps').innerHTML = unp.length
+      ? unp.map(d => `<div class="ah-row"><strong>${d.file}</strong>: <code>${d.dep}</code></div>`).join('')
+      : '<div class="ah-empty">All declared dependencies are pinned!</div>';
     const viols = data.layer_violations || [];
     document.getElementById('cnt-viol').textContent = viols.length;
     document.getElementById('list-viol').innerHTML = viols.length
