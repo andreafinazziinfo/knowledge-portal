@@ -331,11 +331,15 @@ Please ensure all tests and `verify_sanitization.py` pass before opening PRs.
 
 This project is licensed under the **Apache License, Version 2.0**. See the [LICENSE](LICENSE) file for details.
 
-## 🧭 Unified Graph Studio, Health & Audit Center, AI Intelligence & Code Mode MCP (ADR-069 / 070 / 071)
+## 🧭 Unified Graph Studio (18 Modes), Health & Audit Center, AI Intelligence & Code Mode MCP (ADR-069 / 070 / 071 / 072 / 073)
 
-- **Unified Graph Studio (`views/graph-studio.html`)**: Consolidates **15 interactive visualizations** (`2D Graph`, `3D Sphere`, `Particle Flow`, `Chord Matrix`, `Edge Bundling`, `2D Canvas`, `3D Z-Planes 60 FPS`, `CodeCity 3D`, `Sankey Flow`, `Tree`, `Treemap`, `Sunburst`, `Circle Pack`, `3D Tree`, `Arch Health`) into a single studio shell with clean WebGL disposal.
-- **Dedicated 8-Pillar Health & Audit Center (`views/arch-health.html`)**: File-level Tarjan SCC cycles, Robert C. Martin Main Sequence ($I$ vs $A$), Domain DSM Heatmap, 6-Axis Radar, AST McCabe/Cognitive Complexity & Maintainability Index, Git Crime Scene (90d Churn Hotspots & Temporal Coupling), Coverage Report ingestion (`coverage.xml` / `lcov.info`), SQL/Asset Bloat, DB Health, AI Readiness Score, Historical Trend (`arch-health-history.json`), and ROI-prioritized Fix Queue.
-- **Universal `? Guida & AI` Overlay (`portal-ui.js`)**: Inline explanation, 1-click `Copy AI Context Pack`, `/llms.txt` link, and inline `Blast Radius` lookup on every view.
+- **Unified Graph Studio (`views/graph-studio.html`)**: Consolidates **18 zero-dependency interactive visualizations** into a single 60 FPS studio shell with clean WebGL disposal:
+  - *Network*: `2D Graph`, `3D Sphere`, `Particle Flow` (60 FPS white particles), `Chord Matrix`, `Edge Bundling`, `Arc Diagram` (backward cycle detector), `Hive Plot` (deterministic 3-axis)
+  - *Arch*: `2D Canvas`, `3D Z-Planes` (60 FPS white particles), `CodeCity 3D` (isometric buildings with district titles), `Sankey Flow` (clickable layer drawer)
+  - *Hierarchy*: `Tree` (Horizontal/Vertical toggle + branch colors), `Treemap`, `Sunburst` (20x zoom), `Circle Pack`, `Icicle / Flamegraph`, `3D Tree`
+  - *Audit*: Quick jump to `Arch Health`
+- **Dedicated 8-Pillar Health & Audit Center (`views/arch-health.html`)**: Promoted to top-level navigation with 6 diagnostic tabs — File-level Tarjan SCC cycles, Robert C. Martin Main Sequence ($I$ vs $A$), Domain DSM Heatmap, 6-Axis Radar, AST McCabe/Cognitive Complexity & Maintainability Index, Git Crime Scene (90d Churn Hotspots, Hotspot Bubble Map & Temporal Coupling), 4-Axis Parallel Coordinates, Coverage Report ingestion (`coverage.xml` / `lcov.info`), SQL/Asset Bloat, DB Health, AI Readiness Score, Historical Trend (`arch-health-history.json`), and ROI-prioritized Fix Queue (click any file to open directly in Reader).
+- **Full-Project Sidebar & Specialist Visuals**: `📚 Docs | 💻 Source Code` sidebar toggle (`/api/tree?scope=docs|code`, P4 Gate enforced), `ADR Chronological Timeline`, `24h Worker Schedule Gantt`, `Bipartite Store ↔ View Flow`, and universal `? Guida & AI` overlay (`Copy AI Context Pack`, `/llms.txt`, inline `Blast Radius`).
 - **AI Intelligence Endpoints & Generators**:
   - `GET /api/context-pack?q=<topic>&max_tokens=4000` — single-call compressed Markdown briefing fusing FTS5 BM25 search, blast radius, process flows, and architectural health.
   - `GET /api/impact?target=<symbol>&depth=3` — native reverse-dependency blast radius (`d=1`, `d=2`, `d=3`).

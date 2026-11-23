@@ -214,12 +214,18 @@ Il Knowledge Portal include un gate di verifica continuo:
 
 *Knowledge Portal v2.7 — Floorplan Carbon-Black & Production Hardened Edition — Realizzato per massimizzare la sinergia tra intelligenza umana e intelligenza artificiale.*
 
-## ADR-069 — Unified Graph Studio, AI Intelligence & Code Mode MCP
+## ADR-069 / 070 / 071 / 072 / 073 — Graph Studio (18 Modalità), Health & Audit Center (8 Pilastri), AI Intelligence & Code Mode MCP
 
-- **Graph Studio (`views/graph-studio.html`)**: unica vista unificata per esplorare tutte le 10 visualizzazioni del grafo (`2D Graph`, `3D Sphere`, `Particle Flow`, `Chord Matrix`, `2D Canvas`, `3D Z-Planes`, `Tree`, `Treemap`, `Sunburst`, `3D Tree`).
+- **Graph Studio (`views/graph-studio.html`)**: unica vista unificata zero-dipendenze (60 FPS) con **18 modalità**:
+  - *Network*: `2D Graph`, `3D Sphere`, `Particle Flow`, `Chord Matrix`, `Edge Bundling`, `Arc Diagram`, `Hive Plot`
+  - *Arch*: `2D Canvas`, `3D Z-Planes`, `CodeCity 3D`, `Sankey Flow`
+  - *Hierarchy*: `Tree` (Orizzontale/Verticale), `Treemap`, `Sunburst` (zoom 20x), `Circle Pack`, `Icicle / Flamegraph`, `3D Tree`
+- **Pagina Dedicata `Health & Audit` (`views/arch-health.html`)**: 6 tab diagnostici su 8 pilastri (Radar 6 assi, Martin Main Sequence Scatter, DSM Heatmap, Cicli Tarjan SCC, Complessità McCabe/Cognitiva/MI, Parallel Coordinates, Git Hotspots & Temporal Coupling 90gg, Coverage `coverage.xml`/`lcov.info`, Perf/SQL/DB, AI Readiness, Trend Storico e Top 10 Fix Queue cliccabile).
+- **Sidebar Full-Project (`📚 Docs | 💻 Source Code`)**: `/api/tree?scope=docs|code` con P4 Gate (`frozen/`, `.git/`, `.claude/`, `.env*` esclusi) + click-to-Reader diretto dalle viste.
+- **Strip Visuali sulle Viste Dedicate (`portal-ui.js`)**: `ADR Timeline`, `24h Worker Gantt`, `Bipartite Store ↔ View Flow` e overlay universale `? Guida & AI` (`Copia AI Context`, `/llms.txt`, `Blast Radius` inline).
 - **Nuovi endpoint AI read-only**:
   - `/api/context-pack?q=<topic>&max_tokens=4000`
-  - `/api/impact?target=<symbol_or_file>&depth=3`
+  - `/api/impact?target=<symbol_or_file>&depth=3` (resolver file-level)
   - `/api/health-audit` (`data/arch-health.json`)
   - `/llms.txt` e `/llms-full.txt`
 - **Cloudflare-Style Code Mode MCP**:
