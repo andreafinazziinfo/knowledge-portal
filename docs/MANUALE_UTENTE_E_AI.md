@@ -1,6 +1,6 @@
 # 📘 Manuale Operativo Knowledge Portal — Per Sviluppatori Umani e Agenti AI
 
-> **Guida Integrata all'Uso, Navigazione Ergonomica e Protocollo di Comprensione AST Polyglot (v2.4.0 Peak Excellence Edition)**
+> **Guida Integrata all'Uso, Navigazione Ergonomica e Protocollo Enterprise per Umani e Agenti AI (v3.0.0 Enterprise Edition)**
 
 ---
 
@@ -88,6 +88,29 @@ python3 -m knowledge_portal.cli export . --output ./dist --name "My Project"
   - `FROZEN` (Viola `#a855f7`): Componente congelato o versione LTS stabile.
   - `DEPRECATED` (Rosso `#f43f5e`): Servizio in dismissione.
 
+### 🕸️ Vista 6: Unified Graph Studio (18 Modalità + `📷 Snapshot`)
+- Riunisce in una singola barra veloce **18 visualizzazioni zero-CDN**: **Network** (*2D Graph, 3D Sphere, Particle Flow, Chord Matrix, Edge Bundling, Arc Diagram, Hive Plot*), **Arch** (*2D Canvas, 3D Z-Planes, CodeCity 3D, Sankey Flow*) e **Hierarchy** (*Tree, Treemap, Sunburst, Circle Pack, Icicle, Radial Tidy Tree, 3D Tree*).
+- Supporta la persistenza del focus (`?focus=<nodeId>`) tra modalità e il pulsante **`📷 Snapshot`** per esportare in 1 click la vista attiva in `.svg` o `.png`.
+
+### 🩺 Vista 7: Health & Audit Center 4.0 (16 Pilastri · 7 Tab · Export & CI Gate)
+- **Tab 1 (Overview & Fix Queue)**: Radar 6 assi, storico nel tempo e Top 12 ROI Fix Queue (`P0/P1/P2`).
+- **Tab 2 (Architecture)**: Scatter Robert C. Martin (`I` vs `A`), Domain DSM Heatmap, Cicli Tarjan SCC e God-Files.
+- **Tab 3 (Complexity, Git & Ownership)**: Hotspot Bubble Map, Parallel Coordinates, **CodeScene Risk Matrix**, Bus Factor e **Ownership & Conway's Law Map** (`CODEOWNERS` + 180g Git).
+- **Tab 4 (Tests & Coverage)**: **Per-Domain Test-to-Code Ratio** (D3 bar chart), **Test Smells Audit** (`ASSERT_LESS_TEST`, `SKIPPED_TEST`, `SLEEP_IN_TEST`) e auto-ingestion `coverage.xml`/`lcov.info`.
+- **Tab 5 (Security, SRE, API & DB)**: **Severity Breakdown Stacked Bar** + **OWASP Quick-Audit** (Secrets/Entropy, SQLi AST, `verify=False`, `CORS *`, `v-html`), **Reliability AST** (async blocking, missing `timeout=`, silent `except`), **API Auth/Model Governance**, **DB N+1 & Unbounded SELECT**, **Observability Probes**, **Supply Chain (`pyproject.toml` + lockfile)**.
+- **Tab 6 (AI Readiness & Orphans)**: Docstring/Type-Hint %, **AI Context Bombs (`>800 LOC`)** e drift `llms.txt`.
+- **Tab 7 (Architecture Diff & Evolution)**: Diff tra snapshot + **selettore Git-Ref (`base..HEAD`)** con **Living Doc-Drift Detector**.
+- **Export & CI Gate**: Pulsanti `🖨️ Print / PDF`, `⬇ Markdown`, `⬇ SARIF 2.1` + CLI `knowledge-portal report --format md|sarif` e `knowledge-portal gate --min-score 75 --max-cycles 0 --max-critical 0`.
+
+### ⚡ Vista 8: End-to-End Sequence Tracer & 💥 What-If Impact Simulator
+- **Sequence Tracer (`views/sequence-tracer.html`)**: visualizza le catene di chiamata reali estratte via AST (`Route → Handler → Service Callees → DB Tables`) con diagramma sequenziale D3 cliccabile verso il Reader.
+- **Impact Simulator (`views/impact-simulator.html`)**: digita qualsiasi file o simbolo per accendere i cerchi concentrici **`d=1` / `d=2` / `d=3`**, il badge di rischio e il comando `pytest` mirato da eseguire prima del commit.
+
+### 🔌 Vista 9: Live API Catalog & CycloneDX 1.5 SBOM + Ergonomia Enterprise
+- **Live API Explorer (`views/api-catalog.html`)**: estrazione polyglot automatica (FastAPI, Flask, Express, Go, OpenAPI 3.1) con filtri metodo/tag, auth badge e download `openapi.json`.
+- **SBOM & Licenze (`views/stack-ecosystem.html`)**: inventario licenze (`Permissive`/`Copyleft`) e download 1-click **CycloneDX 1.5** (`data/sbom.cdx.json`).
+- **UX Enterprise**: Command Palette universale **`Ctrl+K`** (viste + doc + endpoint API con frecce `↑/↓/Enter`), **Guided Onboarding Paths** nella Home, **Deep-Linking** (`?tab=reader&file=...`, `?tab=impact-simulator&target=...`) e toggle tema **`🌙 Dark / ☀️ Light`**.
+
 ---
 
 # 🤖 PARTE II: PROTOCOLLO OPERATIVO PER AGENTI AI
@@ -113,7 +136,17 @@ Tutti i file descrittivi risiedono nella cartella `data/` del portale:
 | `data/db-schema.json` | **Catalogo Relazionale SQL**: definizioni esatte di tabelle, colonne, PK, FK e mapping relazionali. | `tables`: `[{ name, columns: [{ name, type, pk, nullable }], foreign_keys: [...] }]` |
 | `data/graph.json` | **Grafo AST Polyglot**: tutti i simboli (classi, metodi, store, interfacce) e le dipendenze d'importazione. | `nodes`: `[{ id, label, type, lang, path, line, doc }]`, `edges`: `[{ source, target, type }]` |
 | `views/data/omni-search-index.json` | **Indice Invertito di Ricerca**: permette il lookup istantaneo per parole chiave, concetti e documentazione. | `docs`: `[{ id, title, path, content, tags }]` |
-| `data/views-manifest.json` | **Manifest delle Viste**: elenco delle viste e funzionalità attive nel portale. | `available_views`: `["home", "reader", "graph", "db-lineage", "floorplan"]` |
+| `data/views-manifest.json` | **Manifest delle Viste**: elenco delle viste e funzionalità attive nel portale. | `available_views`: `["home", "reader", "graph-studio", "arch-health", ...]` |
+| `data/arch-health.json` | **Health Engine 4.0 (16 pilastri)**: score, radar, cicli, OWASP, SRE, DB N+1, API auth, CodeScene Risk, ROI Fix Queue. | `summary`, `radar`, `health_v4`, `fix_queue` |
+| `data/call-graph.json` | **Symbol-Level Call Graph**: `caller → callee`, firme tipizzate, eccezioni, tabelle DB e catene `Route → DB`. | `summary`, `chains`, `symbols` |
+| `data/api-catalog.json` | **Live API & OpenAPI 3.1**: tutti gli endpoint HTTP/WS con auth, handler `file:line` e `response_model`. | `summary`, `tags`, `endpoints`, `openapi` |
+| `data/ownership.json` | **Ownership & Conway Map**: regole `CODEOWNERS`, Bus Factor e contributori 180g per dominio. | `codeowners_file`, `domains` |
+| `data/sbom.cdx.json` | **CycloneDX 1.5 SBOM**: componenti software, PURL e classificazione licenze. | `bomFormat`, `specVersion`, `components` |
+
+### 🔌 Protocollo MCP v2, Code Mode & CLI AI-Native
+- **Server MCP Standard (`knowledge-portal mcp`)**: espone **18 tool** (inclusi `portal_mission_pack`, `portal_call_chain`, `portal_validate_change`, `portal_pr_context`, `portal_api_catalog`, `portal_arch_diff`, `portal_health_audit`, `portal_impact`), **7 risorse** (`portal://llms.txt`, `portal://health`, `portal://api-catalog`, `portal://arch-diff`, `portal://sbom`, `portal://invariants`, `portal://ownership`) e **prompt guidati** (`audit_pr_impact`, `onboard_module`).
+- **Cloudflare-Style Code Mode (`knowledge-portal mcp --code-mode`)**: riduce lo schema MCP a 2 soli tool (`portal_discover` + `portal_codemode`) con interprete AST Python strettamente read-only per pipeline multi-step in un singolo round-trip.
+- **Ricerca Ibrida & PR Bot**: `GET /api/search?q=...&expand=1` espande i risultati FTS5 BM25 con i vicini 1-hop del grafo; `knowledge-portal pr-comment --base main` genera un commento PR con **Doc-Drift** e test impattati.
 
 ---
 

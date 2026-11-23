@@ -8,7 +8,7 @@
 [![Code Style: Ruff](https://img.shields.io/badge/code%20style-ruff-000000.svg)](https://github.com/astral-sh/ruff)
 [![Type Checked: Mypy](https://img.shields.io/badge/type%20checked-mypy-blue.svg)](http://mypy-lang.org/)
 [![Security: Bandit](https://img.shields.io/badge/security-bandit-yellow.svg)](https://github.com/PyCQA/bandit)
-[![Release: v2.4.0 Peak Excellence](https://img.shields.io/badge/release-v2.4.0%20Peak%20Excellence-purple.svg)](https://github.com/andreafinazziinfo/knowledge-portal/releases)
+[![Release: v3.0.0 Enterprise Edition](https://img.shields.io/badge/release-v3.0.0%20Enterprise%20Edition-purple.svg)](https://github.com/andreafinazziinfo/knowledge-portal/releases)
 [![Offline Ready](https://img.shields.io/badge/air--gapped-100%25%20offline-success.svg)](#-air-gapped-architecture--zero-telemetry)
 
 ---
@@ -30,6 +30,12 @@
 - **📊 Offline Perspective WASM Pivot Explorer (`views/data-explorer.html`)**: Air-gapped WebAssembly data grid and pivot analytics for architecture nodes, metrics, and schemas.
 - **🛡️ Production-Grade Hardening & CI E2E Gate**: Strict path-confinement (`safe_resolve_under`), `PORTAL_READ_ONLY` & `PORTAL_API_TOKEN` guards, HTTP security headers, hardened `read_only` non-root Docker Compose, `pytest-cov` coverage gate, and automated Playwright E2E checks.
 - **🔌 Native Zero-Dep MCP Server & CLI Query (`knowledge-portal mcp | status | query`)**: Connect any MCP client (`stdio` JSON-RPC 2.0) to query SQLite FTS5 BM25 search, 1-hop/2-hop graph neighbors, `process-flows.json`, `db-schema.json`, `stack-ecosystem.json`, live `/api/telemetry`, and safe workspace docs. Optional `pip install knowledge-portal[treesitter]` extra available for multi-language AST parsing.
+- **🕸️ Unified Graph Studio (18 Visualization Modes + SVG/PNG Snapshot)**: Switch seamlessly between 18 zero-CDN visualizers (2D/3D Graph, Particle Flow, Chord, Edge Bundling, Arc Diagram, Hive Plot, 2D/3D Canvas, CodeCity 3D, Sankey, Tree, Treemap, Sunburst, Circle Pack, Icicle, Radial Tidy Tree, 3D Tree) with `?focus=` persistence and 1-click `📷 Snapshot` export.
+- **🩺 Health & Audit Center 4.0 (16 Zero-Dep Pillars · 7 Tabs · SARIF & CI Gate)**: File-level Tarjan SCC cycles, Robert C. Martin metrics & DSM, McCabe/Cognitive/MI, CodeScene Risk Matrix, OWASP Quick-Audit (Secrets/Entropy, SQLi AST, TLS, CORS, XSS), Reliability AST (`async` blocking, missing `timeout=`, silent `except`), DB N+1 & schema health, API Auth/Model governance, Per-Domain Test Ratio & Smells, Ownership & Conway Map, Git-Ref Arch Diff & Doc-Drift, plus Print/PDF, Markdown, SARIF 2.1.0 export and `knowledge-portal gate`.
+- **⚡ End-to-End Sequence Tracer & 💥 What-If Impact Simulator**: Trace AST symbol-level `Route → Handler → Service → DB` call chains (`views/sequence-tracer.html`) and visually simulate `d=1 / d=2 / d=3` blast radius with suggested `pytest` commands (`views/impact-simulator.html`).
+- **🔌 Live Auto-Discovered API Catalog & CycloneDX 1.5 SBOM**: Polyglot AST/regex route extraction (FastAPI, Flask, Express, Go, OpenAPI 3.1) in `views/api-catalog.html`, plus license compliance & downloadable `sbom.cdx.json` in `views/stack-ecosystem.html`.
+- **🤖 Enterprise AI Context Engine (MCP v2 · Code Mode · Mission Pack · Invariants)**: 18 MCP tools + compact 2-tool Cloudflare-style AST-sandboxed `--code-mode`, MCP `resources/*` (`portal://llms.txt`, `portal://health`, `portal://invariants`, `portal://ownership`, `portal://sbom`), `prompts/*`, `portal_mission_pack`, hybrid FTS5 + 1-hop graph search, and `knowledge-portal pr-comment` Doc-Drift detector.
+- **🧭 Guided Onboarding, Universal `Cmd+K`, Deep-Linking & Dark/Light Theme**: Fuzzy keyboard-navigable `Cmd+K` across views/docs/APIs, 3 interactive onboarding tracks, shareable `?tab=&file=&target=` URLs, and 1-click `🌙 / ☀️` presentation theme toggle.
 - **🛡️ Zero-Dependency Core Runtime**: The server, watcher, and Polyglot AST scanner rely strictly on the **Python 3.10+ Standard Library** (zero heavy framework dependencies).
 
 ---
@@ -92,6 +98,23 @@
 | Security Threat Matrix | Operations & Disaster Recovery Runbook |
 |---|---|
 | ![Threat Matrix](docs/screenshots/threat-matrix-view.png) | ![Ops Runbook](docs/screenshots/runbook-ops-view.png) |
+
+### 6. Enterprise Studio, Health Engine 4.0 & Intelligence Views (v3.0)
+| Unified Graph Studio (18 Modes · CodeCity 3D) | Health & Audit Center 4.0 (16 Pillars · 7 Tabs) |
+|---|---|
+| ![Graph Studio](docs/screenshots/graph-studio-view.png) | ![Health & Audit 4.0](docs/screenshots/health-audit-v4-view.png) |
+
+| End-to-End Sequence & Call-Chain Tracer | What-If Blast-Radius Impact Simulator |
+|---|---|
+| ![Sequence Tracer](docs/screenshots/sequence-tracer-view.png) | ![Impact Simulator](docs/screenshots/impact-simulator-view.png) |
+
+| Architecture Diff, Git-Ref & Doc-Drift | Live Auto-Discovered API & OpenAPI 3.1 Explorer |
+|---|---|
+| ![Arch Diff](docs/screenshots/arch-diff-view.png) | ![Live API Catalog](docs/screenshots/api-catalog-live-view.png) |
+
+| 360° Radial Tidy Tree | Hierarchical Edge Bundling |
+|---|---|
+| ![Radial Tree](docs/screenshots/radial-tree-view.png) | ![Edge Bundling](docs/screenshots/edge-bundling-view.png) |
 
 ---
 
