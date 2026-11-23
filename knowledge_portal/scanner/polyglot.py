@@ -101,8 +101,37 @@ class PolyglotScanner:
         except Exception:
             return
 
+        rel_dir = str(Path(rel_path).parent).replace("\\", "/")
+        if rel_dir == ".":
+            rel_dir = ""
+
         for node in ast.walk(tree):
-            if isinstance(node, ast.ClassDef):
+            if isinstance(node, ast.Import):
+                for alias in node.names:
+                    mod_path = alias.name.replace(".", "/")
+                    self.edges.append({
+                        "source": rel_path,
+                        "target": mod_path,
+                        "type": "imports",
+                        "lang": "python",
+                    })
+            elif isinstance(node, ast.ImportFrom):
+                base_mod = (node.module or "").replace(".", "/")
+                if node.level and node.level > 0:
+                    parts = [p for p in rel_dir.split("/") if p]
+                    up = max(0, len(parts) - (node.level - 1))
+                    prefix = "/".join(parts[:up])
+                    target = f"{prefix}/{base_mod}".strip("/") if base_mod else prefix
+                else:
+                    target = base_mod
+                if target:
+                    self.edges.append({
+                        "source": rel_path,
+                        "target": target,
+                        "type": "imports",
+                        "lang": "python",
+                    })
+            elif isinstance(node, ast.ClassDef):
                 c_id = f"py_cls_{sanitize_id(rel_path)}_{node.name}"
                 self.nodes.append({
                     "id": c_id,
@@ -654,7 +683,7 @@ class PolyglotScanner:
 
         ignore_dirs = {
             ".git", "node_modules", "dist", "build", ".venv", "venv",
-            "__pycache__", ".idea", ".vscode", "target", "vendor", "bin", "obj"
+            "__pycache__", ".idea", ".vscode", "target", "vendor", "bin", "obj", "frozen"
         }
 
         for root, dirs, files in os.walk(self.target_dir):
@@ -725,21 +754,83 @@ class PolyglotScanner:
         return self.nodes, self.edges
 
 
+def _domain_bucket(rel_path: str) -> str:
+    parts = [p for p in str(rel_path or "").replace("\\", "/").split("/") if p]
+    if len(parts) >= 3 and parts[0] in ("backend", "frontend", "src", "packages"):
+        return f"{parts[0]}/{parts[1]}/{parts[2]}" if parts[1] in ("app", "src") else f"{parts[0]}/{parts[1]}"
+    if len(parts) >= 2:
+        return f"{parts[0]}/{parts[1]}"
+    return parts[0] if parts else "root"
+
+
 def scan_polyglot_codebase(target_dir: Path, output_dir: Path) -> Dict[str, Any]:
     scanner = PolyglotScanner(target_dir)
-    nodes, edges = scanner.scan()
+    nodes, raw_edges = scanner.scan()
 
     output_dir.mkdir(parents=True, exist_ok=True)
 
+    # Resolve Python/TS import targets against actual scanned files (filtering out stdlib/external packages)
+    known_stems: Dict[str, str] = {}
+    for n in nodes:
+        p = str(n.get("path") or "").replace("\\", "/")
+        if not p:
+            continue
+        p_low = p.lower()
+        known_stems.setdefault(p_low, p)
+        no_ext = p_low.rsplit(".", 1)[0] if "." in p_low.rsplit("/", 1)[-1] else p_low
+        known_stems.setdefault(no_ext, p)
+        # Also allow suffix resolution for `app.services.x` -> `backend/app/services/x.py`
+        parts = no_ext.split("/")
+        if len(parts) >= 2 and parts[0] in ("backend", "frontend", "src"):
+            sub = "/".join(parts[1:])
+            known_stems.setdefault(sub, p)
+        if len(parts) >= 3 and parts[0] == "frontend" and parts[1] == "src":
+            known_stems.setdefault("/".join(parts[2:]), p)
+
+    seen_edges: set[tuple[str, str, str]] = set()
+    edges: List[Dict[str, Any]] = []
+    degree_by_path: Dict[str, int] = {}
+    for e in raw_edges:
+        s_raw = str(e.get("source", ""))
+        t_raw = str(e.get("target", ""))
+        etype = str(e.get("type", "imports"))
+        if e.get("lang") == "python":
+            t_norm = t_raw.replace("\\", "/").lower().strip("/")
+            resolved_t = known_stems.get(t_norm) or known_stems.get(f"{t_norm}/__init__")
+            if not resolved_t or resolved_t == s_raw:
+                continue
+            t_raw = resolved_t
+        key = (s_raw, t_raw, etype)
+        if key in seen_edges:
+            continue
+        seen_edges.add(key)
+        edges.append({"source": s_raw, "target": t_raw, "type": etype})
+        degree_by_path[s_raw] = degree_by_path.get(s_raw, 0) + 1
+        degree_by_path[t_raw] = degree_by_path.get(t_raw, 0) + 1
+
+    # Real Domain Communities (deterministic top-K folder domains instead of round-robin)
+    bucket_counts: Dict[str, int] = {}
+    for node in nodes:
+        b = _domain_bucket(node.get("path", ""))
+        bucket_counts[b] = bucket_counts.get(b, 0) + 1
+
+    max_comms = len(COMMUNITY_COLORS)
+    ranked_buckets = sorted(bucket_counts.keys(), key=lambda b: (-bucket_counts[b], b))
+    top_buckets = ranked_buckets[:max_comms]
+    bucket_to_comm = {b: idx for idx, b in enumerate(top_buckets)}
+    labels_map = {str(idx): b for idx, b in enumerate(top_buckets)}
+
     viz_nodes = []
     for i, node in enumerate(nodes):
-        comm = i % len(COMMUNITY_COLORS)
+        b = _domain_bucket(node.get("path", ""))
+        comm = bucket_to_comm.get(b, max_comms - 1)
+        deg = max(1, degree_by_path.get(node.get("path", ""), 1))
         viz_nodes.append({
             "id": node["id"],
             "label": node["label"],
             "community": comm,
-            "color": COMMUNITY_COLORS[comm],
-            "degree": 1,
+            "color": COMMUNITY_COLORS[comm % len(COMMUNITY_COLORS)],
+            "degree": deg,
             "path": node["path"],
             "lang": node.get("lang", "unknown"),
             "x": (i % 25) * 45 - 500,
@@ -750,11 +841,12 @@ def scan_polyglot_codebase(target_dir: Path, output_dir: Path) -> Dict[str, Any]
     graph_data = {
         "nodes": viz_nodes,
         "edges": edges,
-        "labels": {}
+        "labels": labels_map
     }
 
     graph_json_path = output_dir / "graph.json"
     graph_viz_js = output_dir / "graph_viz.js"
+    graph_labels_js = output_dir / "graph_labels.js"
     config_js = output_dir / "config.js"
 
     with open(graph_json_path, "w", encoding="utf-8") as f:
@@ -762,6 +854,9 @@ def scan_polyglot_codebase(target_dir: Path, output_dir: Path) -> Dict[str, Any]
 
     with open(graph_viz_js, "w", encoding="utf-8") as f:
         f.write("window.GRAPH_VIZ = " + json.dumps(graph_data) + ";\n")
+
+    with open(graph_labels_js, "w", encoding="utf-8") as f:
+        f.write("window.GRAPH_LABELS = " + json.dumps(labels_map) + ";\n")
 
     with open(config_js, "w", encoding="utf-8") as f:
         f.write("window.GRAPH_CONFIG = { title: 'Knowledge Portal', node_limit: 15000 };\n")

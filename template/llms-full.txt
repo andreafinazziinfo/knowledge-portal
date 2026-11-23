@@ -4,9 +4,9 @@
 
 ## Snapshot Metrics
 - Graph Nodes: 13
-- Graph Edges: 0
-- Architectural Health: 94/100 (Grade A)
-- Dependency Cycles: 0 | Orphans: 13
+- Graph Edges: 3
+- Architectural Health: 92/100 (Grade A)
+- Dependency Cycles: 0 | Orphans: 0
 
 ## Primary Views
 - `/dashboard.html` — Main portal shell & live search

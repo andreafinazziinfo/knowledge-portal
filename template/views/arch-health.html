@@ -3,8 +3,9 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Architectural Health Audit</title>
+  <title>Architectural Health Audit 2.0</title>
   <link rel="stylesheet" href="portal-theme.css?v=fp3">
+  <script src="../assets/d3.v7.min.js"></script>
   <style>
     * { box-sizing: border-box; }
     html, body {
@@ -16,9 +17,9 @@
       min-height: 100%;
     }
     .ah-wrap {
-      max-width: 1280px;
+      max-width: 1360px;
       margin: 0 auto;
-      padding: 20px 24px 48px;
+      padding: 20px 24px 56px;
     }
     .ah-header {
       display: flex;
@@ -26,7 +27,7 @@
       justify-content: space-between;
       flex-wrap: wrap;
       gap: 14px;
-      margin-bottom: 20px;
+      margin-bottom: 18px;
       padding-bottom: 14px;
       border-bottom: 1px solid #262626;
     }
@@ -52,18 +53,24 @@
     }
     .ah-kpis {
       display: grid;
-      grid-template-columns: repeat(auto-fit, minmax(165px, 1fr));
+      grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
       gap: 12px;
-      margin-bottom: 22px;
+      margin-bottom: 20px;
     }
     .ah-kpi {
       background: #191919;
       border: 1px solid #262626;
       border-radius: 10px;
-      padding: 14px 16px;
+      padding: 13px 15px;
     }
-    .ah-kpi-val { font-size: 24px; font-weight: 700; color: #ffffff; }
-    .ah-kpi-lbl { font-size: 11px; text-transform: uppercase; letter-spacing: 0.06em; color: #9ca3af; margin-top: 4px; }
+    .ah-kpi-val { font-size: 22px; font-weight: 700; color: #ffffff; }
+    .ah-kpi-lbl { font-size: 10px; text-transform: uppercase; letter-spacing: 0.06em; color: #9ca3af; margin-top: 4px; }
+    .ah-charts {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(360px, 1fr));
+      gap: 16px;
+      margin-bottom: 20px;
+    }
     .ah-grid {
       display: grid;
       grid-template-columns: repeat(auto-fit, minmax(360px, 1fr));
@@ -80,7 +87,7 @@
     }
     .ah-card h2 {
       margin: 0;
-      font-size: 13px;
+      font-size: 12px;
       text-transform: uppercase;
       letter-spacing: 0.06em;
       color: #e5e7eb;
@@ -88,12 +95,21 @@
       justify-content: space-between;
       align-items: center;
     }
+    .ah-hint { font-size: 11px; color: #8b8b8b; margin-top: -4px; }
     .ah-badge {
       font-size: 11px;
       padding: 2px 8px;
       border-radius: 999px;
       background: #262626;
       color: #d4d4d8;
+    }
+    .ah-svg-box {
+      width: 100%;
+      min-height: 280px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      position: relative;
     }
     .ah-cycle {
       background: #141414;
@@ -112,57 +128,36 @@
       padding: 6px 0;
       border-bottom: 1px solid #222222;
     }
-    .ah-bar-head {
-      display: flex;
-      justify-content: space-between;
-      gap: 8px;
-      font-size: 12px;
-    }
-    .ah-bar-path {
-      color: #e5e7eb;
-      overflow: hidden;
-      text-overflow: ellipsis;
-      white-space: nowrap;
-    }
+    .ah-bar-head { display: flex; justify-content: space-between; gap: 8px; font-size: 12px; }
+    .ah-bar-path { color: #e5e7eb; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
     .ah-bar-meta { color: #9ca3af; font-size: 11px; white-space: nowrap; }
     .ah-bar-track { height: 5px; background: #262626; border-radius: 999px; overflow: hidden; }
     .ah-bar-fill { height: 100%; background: linear-gradient(90deg, #38bdf8, #818cf8); border-radius: 999px; }
-    .ah-list {
-      max-height: 320px;
-      overflow-y: auto;
-      display: flex;
-      flex-direction: column;
-      gap: 6px;
-    }
+    .ah-list { max-height: 300px; overflow-y: auto; display: flex; flex-direction: column; gap: 6px; }
     .ah-row {
-      font-size: 12px;
-      padding: 6px 10px;
-      background: #141414;
-      border: 1px solid #242424;
-      border-radius: 6px;
-      color: #d4d4d8;
-      word-break: break-all;
+      font-size: 12px; padding: 6px 10px; background: #141414; border: 1px solid #242424;
+      border-radius: 6px; color: #d4d4d8; word-break: break-all;
     }
     .ah-search {
-      background: #141414;
-      border: 1px solid #303030;
-      border-radius: 6px;
-      padding: 6px 10px;
-      color: #ffffff;
-      font-size: 12px;
-      width: 100%;
+      background: #141414; border: 1px solid #303030; border-radius: 6px;
+      padding: 6px 10px; color: #ffffff; font-size: 12px; width: 100%;
     }
     .ah-empty { color: #737373; font-size: 12px; padding: 8px 0; }
+    .ah-tip {
+      position: fixed; pointer-events: none; z-index: 99; display: none;
+      background: #171717; border: 1px solid #404040; border-radius: 6px;
+      padding: 6px 10px; font-size: 11px; color: #fff; box-shadow: 0 8px 20px rgba(0,0,0,0.6);
+    }
   </style>
 </head>
 <body>
   <div class="ah-wrap">
     <div class="ah-header">
       <div>
-        <h1 class="ah-title">Architectural Health Audit</h1>
-        <div class="ah-sub">Tarjan SCC dependency cycles, high-coupling hubs (god-files), UI→DB layer violations &amp; orphan modules</div>
+        <h1 class="ah-title">Architectural Health Audit 2.0</h1>
+        <div class="ah-sub">File-level Tarjan SCC cycles · Robert C. Martin Main Sequence (I vs A) · Domain DSM Heatmap · 6-Axis Radar</div>
       </div>
-      <div class="ah-grade" id="ah-grade-box">
+      <div class="ah-grade">
         <span>Health Score:</span>
         <span id="ah-score">--/100</span>
         <span class="ah-grade-pill" id="ah-grade" style="background:#34d399;">--</span>
@@ -170,6 +165,26 @@
     </div>
 
     <div class="ah-kpis" id="ah-kpis"></div>
+
+    <div class="ah-charts">
+      <section class="ah-card">
+        <h2>6-Axis Health Radar <span class="ah-badge">Polar</span></h2>
+        <div class="ah-hint">Higher area = cleaner architecture across cycles, layers, orphans, stability &amp; modularity.</div>
+        <div class="ah-svg-box" id="chart-radar"></div>
+      </section>
+
+      <section class="ah-card">
+        <h2>Martin Main Sequence (I vs A) <span class="ah-badge">Scatter</span></h2>
+        <div class="ah-hint">Diagonal = ideal balance. Bottom-left = Zone of Pain (rigid); Top-right = Zone of Uselessness.</div>
+        <div class="ah-svg-box" id="chart-martin"></div>
+      </section>
+
+      <section class="ah-card">
+        <h2>Domain DSM Heatmap <span class="ah-badge">N×N Matrix</span></h2>
+        <div class="ah-hint">Row imports Column. Symmetric pairs (above &amp; below diagonal) reveal cross-domain cycles.</div>
+        <div class="ah-svg-box" id="chart-dsm"></div>
+      </section>
+    </div>
 
     <div class="ah-grid">
       <section class="ah-card">
@@ -188,17 +203,27 @@
       </section>
 
       <section class="ah-card">
-        <h2>Orphan / Unconnected Modules <span class="ah-badge" id="cnt-orphans">0</span></h2>
+        <h2>Orphan / Unconnected Files <span class="ah-badge" id="cnt-orphans">0</span></h2>
         <input id="orphan-filter" class="ah-search" type="search" placeholder="Filter orphan paths...">
         <div class="ah-list" id="list-orphans"></div>
       </section>
     </div>
   </div>
 
-  <script src="portal-ui.js?v=fp3"></script>
+  <div id="ah-tip" class="ah-tip"></div>
+  <script src="portal-ui.js?v=fp4"></script>
   <script src="live-reload.js"></script>
   <script>
   (async function () {
+    const tip = document.getElementById('ah-tip');
+    function showTip(ev, html) {
+      tip.innerHTML = html;
+      tip.style.display = 'block';
+      tip.style.left = (ev.clientX + 12) + 'px';
+      tip.style.top = (ev.clientY - 10) + 'px';
+    }
+    function hideTip() { tip.style.display = 'none'; }
+
     let data = null;
     for (const url of ['/api/health-audit', '../data/arch-health.json']) {
       try {
@@ -210,7 +235,7 @@
       } catch (_) {}
     }
     if (!data) {
-      document.getElementById('ah-kpis').innerHTML = '<div class="ah-empty">No arch-health.json data available yet. Run a portal scan.</div>';
+      document.getElementById('ah-kpis').innerHTML = '<div class="ah-empty">No arch-health.json data available yet.</div>';
       return;
     }
 
@@ -222,17 +247,114 @@
     gEl.style.background = gradeColor;
 
     const kpis = [
-      { lbl: 'Total Nodes', val: (s.total_nodes || 0).toLocaleString() },
-      { lbl: 'Resolved Edges', val: (s.total_edges || 0).toLocaleString() },
-      { lbl: 'Dependency Cycles', val: s.cycle_count || 0 },
-      { lbl: 'God-Files / Hubs', val: s.god_file_count || 0 },
+      { lbl: 'File Modules', val: (s.total_modules || s.total_nodes || 0).toLocaleString() },
+      { lbl: 'AST Symbols', val: (s.total_nodes || 0).toLocaleString() },
+      { lbl: 'Module Edges', val: (s.total_edges || 0).toLocaleString() },
+      { lbl: 'Cycles (SCC)', val: s.cycle_count || 0 },
+      { lbl: 'God-Files', val: s.god_file_count || 0 },
       { lbl: 'Layer Violations', val: s.layer_violation_count || 0 },
-      { lbl: 'Orphan Modules', val: (s.orphan_count || 0).toLocaleString() },
+      { lbl: 'Orphan Files', val: (s.orphan_count || 0).toLocaleString() },
     ];
     document.getElementById('ah-kpis').innerHTML = kpis.map(k =>
       `<div class="ah-kpi"><div class="ah-kpi-val">${k.val}</div><div class="ah-kpi-lbl">${k.lbl}</div></div>`
     ).join('');
 
+    // 1. 6-Axis Health Radar (D3)
+    if (typeof d3 !== 'undefined' && data.radar) {
+      const entries = Object.entries(data.radar);
+      const size = 270, r = 92;
+      const svg = d3.select('#chart-radar').append('svg').attr('width', size).attr('height', size);
+      const g = svg.append('g').attr('transform', `translate(${size/2},${size/2})`);
+      const step = (2 * Math.PI) / entries.length;
+
+      [0.25, 0.5, 0.75, 1].forEach(lvl => {
+        const pts = entries.map((_, i) => [Math.cos(i*step - Math.PI/2)*r*lvl, Math.sin(i*step - Math.PI/2)*r*lvl]);
+        g.append('polygon').attr('points', pts.map(p => p.join(',')).join(' '))
+          .attr('fill', 'none').attr('stroke', '#2a2a2a');
+      });
+      entries.forEach(([k, v], i) => {
+        const ang = i*step - Math.PI/2;
+        g.append('line').attr('x1', 0).attr('y1', 0).attr('x2', Math.cos(ang)*r).attr('y2', Math.sin(ang)*r).attr('stroke', '#2a2a2a');
+        g.append('text').attr('x', Math.cos(ang)*(r+18)).attr('y', Math.sin(ang)*(r+14))
+          .attr('text-anchor', 'middle').attr('fill', '#b4b4b4').attr('font-size', 10).text(k);
+      });
+      const polyPts = entries.map(([, v], i) => {
+        const ang = i*step - Math.PI/2;
+        const dist = (Math.max(0, Math.min(100, v)) / 100) * r;
+        return [Math.cos(ang)*dist, Math.sin(ang)*dist];
+      });
+      g.append('polygon').attr('points', polyPts.map(p => p.join(',')).join(' '))
+        .attr('fill', 'rgba(56, 189, 248, 0.28)').attr('stroke', '#38bdf8').attr('stroke-width', 2);
+      entries.forEach(([k, v], i) => {
+        g.append('circle').attr('cx', polyPts[i][0]).attr('cy', polyPts[i][1]).attr('r', 4).attr('fill', '#ffffff')
+          .on('mousemove', ev => showTip(ev, `<strong>${k}</strong>: ${v}/100`)).on('mouseleave', hideTip);
+      });
+    }
+
+    // 2. Robert C. Martin Main Sequence Scatter (I vs A)
+    if (typeof d3 !== 'undefined' && Array.isArray(data.martin_metrics) && data.martin_metrics.length) {
+      const W = 330, H = 265, pad = 34;
+      const svg = d3.select('#chart-martin').append('svg').attr('width', W).attr('height', H);
+      const x = d3.scaleLinear().domain([0, 1]).range([pad, W - 16]);
+      const y = d3.scaleLinear().domain([0, 1]).range([H - pad, 16]);
+
+      // Shaded Zone of Pain (bottom-left) & Zone of Uselessness (top-right)
+      svg.append('polygon').attr('points', `${x(0)},${y(0)} ${x(0.45)},${y(0)} ${x(0)},${y(0.45)}`)
+        .attr('fill', 'rgba(248, 113, 113, 0.12)');
+      svg.append('polygon').attr('points', `${x(1)},${y(1)} ${x(0.55)},${y(1)} ${x(1)},${y(0.55)}`)
+        .attr('fill', 'rgba(251, 191, 36, 0.12)');
+      // Ideal Main Sequence line A + I = 1
+      svg.append('line').attr('x1', x(0)).attr('y1', y(1)).attr('x2', x(1)).attr('y2', y(0))
+        .attr('stroke', '#34d399').attr('stroke-dasharray', '4,4').attr('stroke-width', 1.5);
+
+      svg.append('g').attr('transform', `translate(0,${H - pad})`).call(d3.axisBottom(x).ticks(4)).attr('color', '#737373');
+      svg.append('g').attr('transform', `translate(${pad},0)`).call(d3.axisLeft(y).ticks(4)).attr('color', '#737373');
+      svg.append('text').attr('x', W/2).attr('y', H - 4).attr('fill', '#9ca3af').attr('font-size', 10).attr('text-anchor', 'middle').text('Instability (I = Ce / (Ca + Ce))');
+      svg.append('text').attr('x', 11).attr('y', H/2).attr('fill', '#9ca3af').attr('font-size', 10).attr('transform', `rotate(-90,11,${H/2})`).attr('text-anchor', 'middle').text('Abstractness (A)');
+
+      svg.selectAll('circle.mod').data(data.martin_metrics).join('circle').attr('class', 'mod')
+        .attr('cx', d => x(d.instability)).attr('cy', d => y(d.abstractness))
+        .attr('r', d => Math.min(13, Math.max(4, Math.sqrt(d.files))))
+        .attr('fill', d => d.zone === 'Balanced' ? '#34d399' : (d.zone === 'Zone of Pain' ? '#f87171' : '#fbbf24'))
+        .attr('fill-opacity', 0.78).attr('stroke', '#ffffff').attr('stroke-width', 0.8)
+        .on('mousemove', (ev, d) => showTip(ev, `<strong>${d.domain}</strong><br>Files: ${d.files} · Ca:${d.ca} · Ce:${d.ce}<br>I=${d.instability} · A=${d.abstractness} · D=${d.distance} (${d.zone})`))
+        .on('mouseleave', hideTip);
+    }
+
+    // 3. Domain DSM Heatmap
+    if (typeof d3 !== 'undefined' && data.dsm && data.dsm.domains && data.dsm.domains.length) {
+      const doms = data.dsm.domains;
+      const mat = data.dsm.matrix;
+      const n = doms.length;
+      const labelPad = 88;
+      const cell = Math.max(11, Math.min(18, Math.floor(210 / n)));
+      const W = labelPad + n * cell + 12;
+      const H = labelPad + n * cell + 12;
+      const maxVal = Math.max(1, ...mat.flat());
+      const color = d3.scaleSequential(d3.interpolateBlues).domain([0, maxVal]);
+      const svg = d3.select('#chart-dsm').append('svg').attr('width', W).attr('height', H);
+
+      for (let i = 0; i < n; i++) {
+        svg.append('text').attr('x', labelPad - 5).attr('y', labelPad + i*cell + cell*0.75)
+          .attr('text-anchor', 'end').attr('fill', '#9ca3af').attr('font-size', 9)
+          .text(doms[i].length > 14 ? doms[i].slice(0, 13) + '…' : doms[i]);
+        svg.append('text').attr('transform', `translate(${labelPad + i*cell + cell*0.7},${labelPad - 5}) rotate(-55)`)
+          .attr('fill', '#9ca3af').attr('font-size', 9)
+          .text(doms[i].length > 14 ? doms[i].slice(0, 13) + '…' : doms[i]);
+        for (let j = 0; j < n; j++) {
+          const v = mat[i][j] || 0;
+          const isSymCycle = i !== j && v > 0 && (mat[j][i] || 0) > 0;
+          svg.append('rect')
+            .attr('x', labelPad + j*cell).attr('y', labelPad + i*cell)
+            .attr('width', cell - 1).attr('height', cell - 1).attr('rx', 2)
+            .attr('fill', v === 0 ? '#161616' : (isSymCycle ? '#ef4444' : color(v)))
+            .on('mousemove', ev => showTip(ev, `<strong>${doms[i]}</strong> → <strong>${doms[j]}</strong>: ${v} imports${isSymCycle ? ' (bidirectional cycle!)' : ''}`))
+            .on('mouseleave', hideTip);
+        }
+      }
+    }
+
+    // Lists
     const cycles = data.cycles || [];
     document.getElementById('cnt-cycles').textContent = cycles.length;
     document.getElementById('list-cycles').innerHTML = cycles.length
@@ -248,7 +370,7 @@
           return `<div class="ah-bar-row">
             <div class="ah-bar-head">
               <span class="ah-bar-path" title="${h.path || h.id}">${h.path || h.label || h.id}</span>
-              <span class="ah-bar-meta">in:${h.in_degree} · out:${h.out_degree}</span>
+              <span class="ah-bar-meta">in:${h.in_degree} · out:${h.out_degree} · sym:${h.symbols || 0}</span>
             </div>
             <div class="ah-bar-track"><div class="ah-bar-fill" style="width:${pct}%"></div></div>
           </div>`;
@@ -268,7 +390,7 @@
       const filtered = low ? orphans.filter(o => (o.path || o.id).toLowerCase().includes(low)) : orphans;
       document.getElementById('list-orphans').innerHTML = filtered.length
         ? filtered.slice(0, 50).map(o => `<div class="ah-row">${o.path || o.id}</div>`).join('')
-        : '<div class="ah-empty">No matching orphan modules.</div>';
+        : '<div class="ah-empty">No matching orphan files.</div>';
     }
     renderOrphans('');
     document.getElementById('orphan-filter').addEventListener('input', e => renderOrphans(e.target.value));

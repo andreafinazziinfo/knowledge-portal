@@ -78,7 +78,7 @@ def test_arch_health_detects_cycles_orphans_violations_and_excludes_frozen(tmp_p
 
     assert (data_dir / "arch-health.json").exists()
     assert summary["cycle_count"] == 1
-    assert report["cycles"][0] == ["api_srv", "auth_mod"]
+    assert report["cycles"][0] == ["backend/auth.py", "backend/server.py"]
     assert summary["orphan_count"] == 1
     assert report["orphans"][0]["id"] == "orphan_util"
     assert summary["layer_violation_count"] == 1
@@ -194,3 +194,36 @@ def test_treesitter_helper_graceful_fallback():
     ok, nodes = _try_treesitter_extract("function hello() { return 1; }", "app.js", "javascript")
     assert isinstance(ok, bool)
     assert isinstance(nodes, list)
+
+
+def test_arch_health_v2_martin_metrics_radar_and_dsm(tmp_path: Path):
+    _, data_dir = _make_sample_portal(tmp_path)
+    report = generate_arch_health(data_dir)
+    assert "radar" in report and len(report["radar"]) == 6
+    assert "martin_metrics" in report and len(report["martin_metrics"]) >= 1
+    assert "dsm" in report and len(report["dsm"]["domains"]) >= 1
+    for m in report["martin_metrics"]:
+        assert 0.0 <= m["instability"] <= 1.0
+        assert 0.0 <= m["abstractness"] <= 1.0
+        assert 0.0 <= m["distance"] <= 1.0
+
+
+def test_polyglot_python_imports_and_domain_communities(tmp_path: Path):
+    from knowledge_portal.scanner.polyglot import scan_polyglot_codebase
+
+    repo = tmp_path / "sample_repo"
+    (repo / "backend" / "api").mkdir(parents=True)
+    (repo / "backend" / "services").mkdir(parents=True)
+    (repo / "backend" / "services" / "auth.py").write_text("class AuthService:\n    pass\n", encoding="utf-8")
+    (repo / "backend" / "api" / "routes.py").write_text(
+        "from backend.services.auth import AuthService\ndef login():\n    return AuthService()\n",
+        encoding="utf-8",
+    )
+    out = tmp_path / "out"
+    scan_polyglot_codebase(repo, out)
+    g = json.loads((out / "graph.json").read_text(encoding="utf-8"))
+    assert len(g["edges"]) >= 1
+    assert any("backend/services/auth.py" in e["target"] for e in g["edges"])
+    assert len(g["labels"]) >= 1
+    assert (out / "graph_labels.js").exists()
+
