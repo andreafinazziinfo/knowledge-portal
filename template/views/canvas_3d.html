@@ -168,11 +168,37 @@
       if (allLinks.length >= 2500) break;
     }
 
-    document.getElementById('hud-sub').textContent = `${allNodes.length.toLocaleString()} modules across 5 Z-planes • ${allLinks.length.toLocaleString()} live animated links`;
+    // Prioritize cross-layer vertical links and cap animated particles for 60 FPS
+    const crossLinks = [];
+    const intraLinks = [];
+    for (const l of allLinks) {
+      const sN = fileNodesMap.get(l.source);
+      const tN = fileNodesMap.get(l.target);
+      if (sN && tN && sN.layerId !== tN.layerId) crossLinks.push(l);
+      else intraLinks.push(l);
+    }
+    const fastLinks = crossLinks.concat(intraLinks).slice(0, 380);
+    const fullLinks = allLinks;
+    let fastMode = true;
+    allLinks = fastLinks;
+
+    window.toggleFastMode = function () {
+      fastMode = !fastMode;
+      allLinks = fastMode ? fastLinks : fullLinks;
+      const b = document.getElementById('btn-perf');
+      if (b) {
+        b.classList.toggle('active', fastMode);
+        b.textContent = fastMode ? `60 FPS (${fastLinks.length})` : `All Links (${fullLinks.length})`;
+      }
+      filterLayer(activeLayer);
+    };
+
+    document.getElementById('hud-sub').textContent = `${allNodes.length.toLocaleString()} modules across 5 Z-planes • ${fastLinks.length} animated / ${fullLinks.length} total links`;
 
     const btnWrap = document.getElementById('layer-btns');
     btnWrap.innerHTML = `<button class="btn active" data-lid="ALL" onclick="filterLayer('ALL')">All 5 Planes</button>` +
-      LAYERS.map(l => `<button class="btn" data-lid="${l.id}" onclick="filterLayer(${l.id})">${l.name.split('/')[0].trim()}</button>`).join('');
+      LAYERS.map(l => `<button class="btn" data-lid="${l.id}" onclick="filterLayer(${l.id})">${l.name.split('/')[0].trim()}</button>`).join('') +
+      `<button class="btn active" id="btn-perf" onclick="toggleFastMode()">60 FPS (${fastLinks.length})</button>`;
 
     document.getElementById('legend-list').innerHTML = LAYERS.map(l => `
       <div class="legend-item" onclick="filterLayer(${l.id})">
@@ -183,16 +209,27 @@
     `).join('');
 
     const el = document.getElementById('3d-canvas');
-    fg = window.__fpTransparent3D(ForceGraph3D({ rendererConfig: { alpha: true, antialias: true } })(el))
+    fg = window.__fpTransparent3D(ForceGraph3D({ rendererConfig: { alpha: true, antialias: false, powerPreference: 'high-performance' } })(el))
       .graphData({ nodes: allNodes, links: allLinks })
       .nodeLabel(n => `${n.name} [${n.layerName}]`)
       .nodeColor('color')
       .nodeVal('val')
-      .linkColor(() => 'rgba(56, 189, 248, 0.28)')
-      .linkDirectionalParticles(3)
-      .linkDirectionalParticleSpeed(0.009)
-      .linkDirectionalParticleWidth(2.4)
-      .linkOpacity(0.32);
+      .nodeResolution(6)
+      .cooldownTicks(0)
+      .warmupTicks(0)
+      .linkColor(() => 'rgba(255, 255, 255, 0.24)')
+      .linkDirectionalParticles(1)
+      .linkDirectionalParticleSpeed(0.008)
+      .linkDirectionalParticleWidth(2.0)
+      .linkDirectionalParticleResolution(4)
+      .linkDirectionalParticleColor(() => '#ffffff')
+      .linkOpacity(0.28);
+
+    document.addEventListener('visibilitychange', () => {
+      if (!fg) return;
+      if (document.hidden && typeof fg.pauseAnimation === 'function') fg.pauseAnimation();
+      else if (!document.hidden && typeof fg.resumeAnimation === 'function') fg.resumeAnimation();
+    });
 
     fg.cameraPosition({ x: 420, y: 240, z: 620 }, { x: 0, y: 0, z: 0 });
   });
