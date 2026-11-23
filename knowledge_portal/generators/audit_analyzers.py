@@ -578,7 +578,7 @@ def analyze_extended_health_checks(project_dir: Path, max_files: int = 2000) -> 
                     seen_in_file.add(sig)
                     block_hashes[sig].append(rel)
 
-    clones = [
+    clones: list[dict[str, Any]] = [
         {"files": sorted(set(flist))[:5], "occurrences": len(set(flist)), "preview": sig.splitlines()[0][:90]}
         for sig, flist in block_hashes.items()
         if len(set(flist)) >= 2
