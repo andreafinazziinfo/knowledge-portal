@@ -254,7 +254,7 @@ def analyze_git_crime_scene(project_dir: Path, days: int = 90) -> dict[str, Any]
         cur_files.append(fpath)
     _flush_commit()
 
-    hotspots = [
+    hotspots: list[dict[str, Any]] = [
         {
             "path": p,
             "commits": c,
@@ -264,7 +264,7 @@ def analyze_git_crime_scene(project_dir: Path, days: int = 90) -> dict[str, Any]
         }
         for p, c in file_commits.most_common(25)
     ]
-    hotspots.sort(key=lambda h: -h["hotspot_score"])
+    hotspots.sort(key=lambda h: -float(h["hotspot_score"]))
 
     temporal_coupling = [
         {"file_a": a, "file_b": b, "co_changes": cnt}
@@ -275,7 +275,7 @@ def analyze_git_crime_scene(project_dir: Path, days: int = 90) -> dict[str, Any]
     bus_risks = [
         {"path": h["path"], "commits": h["commits"], "authors": h["authors"]}
         for h in hotspots
-        if h["authors"] == 1 and h["commits"] >= 4
+        if int(h["authors"]) == 1 and int(h["commits"]) >= 4
     ][:15]
 
     return {
