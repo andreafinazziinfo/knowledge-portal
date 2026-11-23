@@ -25,7 +25,7 @@ jobs:
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
       - name: Build Local Image for Smoke Test
-        uses: docker/build-push-action@v5
+        uses: docker/build-push-action@v7
         with:
           context: .
           load: true
@@ -40,7 +40,7 @@ jobs:
           curl -f http://localhost:8000/data/views-manifest.json || exit 1
           docker stop test-portal
       - name: Build & Push Multi-Arch Image to GHCR
-        uses: docker/build-push-action@v5
+        uses: docker/build-push-action@v7
         with:
           context: .
           platforms: linux/amd64,linux/arm64
