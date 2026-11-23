@@ -90,6 +90,7 @@
       <button class="ah-tab" data-panel="p-tests">4. Tests &amp; Coverage</button>
       <button class="ah-tab" data-panel="p-perf">5. Security, SRE, API &amp; DB</button>
       <button class="ah-tab" data-panel="p-ai">6. AI Readiness &amp; Orphans</button>
+      <button class="ah-tab" data-panel="p-diff">7. Architecture Diff &amp; Evolution</button>
     </div>
 
     <!-- TAB 1: Overview, Radar, Trend & Fix Queue -->
@@ -297,6 +298,13 @@
         <div class="ah-list" id="list-orphans"></div>
       </section>
     </div>
+
+    <!-- TAB 7: Architecture Diff & Evolution -->
+    <div class="ah-panel" id="p-diff">
+      <section class="ah-card" style="padding:0;overflow:hidden;">
+        <iframe id="ah-diff-frame" data-src="arch-diff.html" title="Architecture Diff &amp; Evolution" style="width:100%;height:78vh;border:none;display:block;background:#0f0f0f;"></iframe>
+      </section>
+    </div>
   </div>
 
   <div id="ah-tip" class="ah-tip"></div>
@@ -311,6 +319,10 @@
         btn.classList.add('active');
         const p = document.getElementById(btn.dataset.panel);
         if (p) p.classList.add('active');
+        if (btn.dataset.panel === 'p-diff') {
+          const df = document.getElementById('ah-diff-frame');
+          if (df && !df.getAttribute('src')) df.setAttribute('src', df.getAttribute('data-src'));
+        }
       });
     });
 
