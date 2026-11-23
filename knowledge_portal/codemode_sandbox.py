@@ -72,6 +72,8 @@ class PortalReadOnlySDK:
         "schema",
         "stack",
         "health",
+        "api_catalog",
+        "arch_diff",
         "telemetry",
         "context_pack",
         "read_doc",
@@ -101,6 +103,12 @@ class PortalReadOnlySDK:
     def health(self) -> dict[str, Any]:
         return self._engine.health_audit()
 
+    def api_catalog(self, query: str = "") -> dict[str, Any]:
+        return self._engine.api_catalog(query=query)
+
+    def arch_diff(self) -> dict[str, Any]:
+        return self._engine.arch_diff()
+
     def telemetry(self) -> dict[str, Any]:
         return self._engine.telemetry()
 
@@ -121,6 +129,8 @@ def get_codemode_sdk_reference(topic: str = "") -> dict[str, Any]:
         {"call": "portal.schema(table='')", "returns": "{table, count, tables}"},
         {"call": "portal.stack()", "returns": "Technology stack inventory dict"},
         {"call": "portal.health()", "returns": "{summary: {health_score, grade, cycle_count, orphan_count, ...}, cycles, orphans, god_files, layer_violations}"},
+        {"call": "portal.api_catalog(query='')", "returns": "{summary, tags, endpoints: [{method, path, tag, handler, file, line, auth, response_model}]}"},
+        {"call": "portal.arch_diff()", "returns": "{has_previous_snapshot, summary: {score_delta, cycle_delta, added_modules, ...}, history}"},
         {"call": "portal.telemetry()", "returns": "Live host & portal sync telemetry dict"},
         {"call": "portal.context_pack(topic, max_tokens=4000)", "returns": "{topic, estimated_tokens, markdown}"},
         {"call": "portal.read_doc(path, max_chars=8000)", "returns": "{path, content, truncated}"},

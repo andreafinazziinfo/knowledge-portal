@@ -9,6 +9,7 @@ import json
 import mimetypes
 import os
 import shutil
+import threading
 import time
 import urllib.parse
 from http.server import SimpleHTTPRequestHandler, ThreadingHTTPServer
@@ -127,12 +128,73 @@ class PortalRequestHandler(SimpleHTTPRequestHandler):
         self.send_cors_headers()
         self.end_headers()
 
+    _rebuild_lock = threading.Lock()
+    _rebuild_state: dict[str, object] = {
+        "rebuilding": False, "phase": "idle", "processed": 0, "total": 4, "percent": 0, "message": "Idle",
+    }
+
+    def _run_background_rebuild(self) -> None:
+        try:
+            from knowledge_portal.generators.api_catalog import generate_api_catalog
+            from knowledge_portal.generators.arch_health import generate_arch_health
+            from knowledge_portal.generators.llms_txt import generate_llms_manifests
+            from knowledge_portal.generators.stack_inventory import generate_stack_inventory
+            from knowledge_portal.scanner.polyglot import scan_polyglot_codebase
+
+            data_dir = self.template_dir / "data"
+            PortalRequestHandler._rebuild_state.update({"rebuilding": True, "phase": "scan", "processed": 1, "percent": 25, "message": "Scanning codebase..."})
+            scan_polyglot_codebase(self.project_dir, data_dir)
+            PortalRequestHandler._rebuild_state.update({"phase": "api_sbom", "processed": 2, "percent": 50, "message": "Generating API catalog & SBOM..."})
+            generate_api_catalog(self.project_dir, data_dir)
+            generate_stack_inventory(self.project_dir, data_dir)
+            PortalRequestHandler._rebuild_state.update({"phase": "health", "processed": 3, "percent": 75, "message": "Running Health Engine 4.0..."})
+            generate_arch_health(data_dir, project_dir=self.project_dir)
+            generate_llms_manifests(self.project_dir, data_dir, self.template_dir)
+            PortalRequestHandler._rebuild_state.update({"rebuilding": False, "phase": "done", "processed": 4, "percent": 100, "message": "Rebuild complete"})
+        except Exception as exc:
+            PortalRequestHandler._rebuild_state.update({"rebuilding": False, "phase": "error", "message": str(exc)})
+        finally:
+            if PortalRequestHandler._rebuild_lock.locked():
+                PortalRequestHandler._rebuild_lock.release()
+
     def do_POST(self) -> None:
         ok, code, msg = self.is_mutation_authorized()
         if not ok:
             self.send_error(code, msg)
             return
-        self.send_error(404, "POST endpoint not supported in standalone mode")
+        parsed = urllib.parse.urlparse(self.path)
+        path = parsed.path
+        if path in ("/api/rebuild", "/api/sync"):
+            if not PortalRequestHandler._rebuild_lock.acquire(blocking=False):
+                self.send_response(409)
+                self.send_cors_headers()
+                self.send_header("Content-Type", "application/json")
+                body = json.dumps({"status": "busy", "message": "Rebuild already in progress"}).encode("utf-8")
+                self.send_header("Content-Length", str(len(body)))
+                self.end_headers()
+                self.wfile.write(body)
+                return
+            t = threading.Thread(target=self._run_background_rebuild, daemon=True)
+            t.start()
+            self.send_json({"status": "accepted", "message": "Background portal rebuild started"})
+            return
+
+        if path == "/api/codemode":
+            try:
+                length = min(65536, int(self.headers.get("Content-Length", "0") or 0))
+                raw = self.rfile.read(length).decode("utf-8", errors="replace") if length > 0 else "{}"
+                payload = json.loads(raw)
+                code_str = str(payload.get("code", ""))
+                from knowledge_portal.codemode_sandbox import execute_codemode
+                from knowledge_portal.mcp_server import PortalMcpEngine
+                eng = PortalMcpEngine(self.project_dir, self.template_dir / "data")
+                res = execute_codemode(eng, code_str)
+                self.send_json({"ok": True, "result": res})
+            except Exception as exc:
+                self.send_json({"ok": False, "error": str(exc)})
+            return
+
+        self.send_error(404, "POST endpoint not found")
 
     def do_GET(self) -> None:
         parsed = urllib.parse.urlparse(self.path)
@@ -291,7 +353,7 @@ class PortalRequestHandler(SimpleHTTPRequestHandler):
             })
 
         elif path == "/api/rebuild/status":
-            self.send_json({"rebuilding": False, "phase": "idle", "processed": 0, "total": 4, "percent": 0, "message": "Idle"})
+            self.send_json(PortalRequestHandler._rebuild_state)
 
         elif path == "/api/search":
             from knowledge_portal.indexer.fts_engine import FtsSearchEngine
@@ -325,6 +387,52 @@ class PortalRequestHandler(SimpleHTTPRequestHandler):
                 self.send_json(json.loads(diff_file.read_text(encoding="utf-8")))
             else:
                 self.send_json(generate_arch_diff(self.template_dir / "data"))
+
+        elif path == "/api/endpoints":
+            from knowledge_portal.generators.api_catalog import generate_api_catalog
+            ep_file = self.template_dir / "data" / "api-catalog.json"
+            if ep_file.exists():
+                self.send_json(json.loads(ep_file.read_text(encoding="utf-8")))
+            else:
+                self.send_json(generate_api_catalog(self.project_dir, self.template_dir / "data"))
+
+        elif path == "/api/backlinks":
+            target_p = query.get("path", [""])[0].replace("\\", "/").lower()
+            backlinks: list[dict[str, str]] = []
+            graph_file = self.template_dir / "data" / "graph.json"
+            if target_p and graph_file.exists():
+                try:
+                    g = json.loads(graph_file.read_text(encoding="utf-8"))
+                    stem = target_p.rsplit(".", 1)[0]
+                    seen_src: set[str] = set()
+                    for e in g.get("edges") or g.get("links") or []:
+                        if not isinstance(e, dict):
+                            continue
+                        t = str(e.get("target", "")).replace("\\", "/").lower()
+                        s = str(e.get("source", "")).replace("\\", "/")
+                        if s and s not in seen_src and (t == target_p or t.endswith(target_p) or stem in t):
+                            seen_src.add(s)
+                            backlinks.append({"source": s, "relation": str(e.get("relation") or e.get("type") or "imports")})
+                except Exception:
+                    pass
+            self.send_json({"path": target_p, "count": len(backlinks), "backlinks": backlinks[:50]})
+
+        elif path == "/api/audit-report":
+            from knowledge_portal.generators.audit_report import render_markdown_report, render_sarif_report
+            from knowledge_portal.mcp_server import PortalMcpEngine
+            fmt = query.get("format", ["md"])[0].lower()
+            eng = PortalMcpEngine(self.project_dir, self.template_dir / "data")
+            rep = eng.health_audit()
+            if fmt == "sarif":
+                self.send_json(render_sarif_report(rep))
+            else:
+                md_bytes = render_markdown_report(rep, project_name=self.project_dir.name).encode("utf-8")
+                self.send_response(200)
+                self.send_cors_headers()
+                self.send_header("Content-Type", "text/markdown; charset=utf-8")
+                self.send_header("Content-Length", str(len(md_bytes)))
+                self.end_headers()
+                self.wfile.write(md_bytes)
 
         elif path == "/api/file":
             filepath = query.get("path", [""])[0]

@@ -56,10 +56,25 @@ def main():
     # Command: query
     query_p = subparsers.add_parser("query", help="Query portal knowledge artifacts (search, flow, schema, stack)")
     query_p.add_argument("term", nargs="?", default="", help="Search term or table/symbol name")
-    query_p.add_argument("--type", "-t", choices=["search", "flow", "schema", "stack", "impact", "health", "context-pack"], default="search", help="Query target")
+    query_p.add_argument("--type", "-t", choices=["search", "flow", "schema", "stack", "impact", "health", "context-pack", "api-catalog", "arch-diff"], default="search", help="Query target")
     query_p.add_argument("--limit", "-l", type=int, default=15, help="Max results")
     query_p.add_argument("--data-dir", default=None, help="Portal data directory (default: template/data)")
     query_p.add_argument("--dir", "-d", default=".", help="Project root directory")
+
+    # Command: report
+    report_p = subparsers.add_parser("report", help="Generate Executive Markdown or SARIF 2.1.0 audit report")
+    report_p.add_argument("--format", "-f", choices=["md", "sarif"], default="md", help="Report format (default: md)")
+    report_p.add_argument("--output", "-o", default=None, help="Write report to file instead of stdout")
+    report_p.add_argument("--data-dir", default=None, help="Portal data directory (default: template/data)")
+    report_p.add_argument("--dir", "-d", default=".", help="Project root directory")
+
+    # Command: gate
+    gate_p = subparsers.add_parser("gate", help="CI Quality Gate — exits 0 on pass, 1 on threshold violation")
+    gate_p.add_argument("--min-score", type=int, default=0, help="Minimum required Health Score (0-100)")
+    gate_p.add_argument("--max-cycles", type=int, default=None, help="Maximum allowed dependency cycles")
+    gate_p.add_argument("--max-critical", type=int, default=None, help="Maximum allowed CRITICAL security/SRE findings")
+    gate_p.add_argument("--data-dir", default=None, help="Portal data directory (default: template/data)")
+    gate_p.add_argument("--dir", "-d", default=".", help="Project root directory")
 
     args = parser.parse_args()
 
@@ -79,8 +94,10 @@ def main():
 
         from knowledge_portal.generators.stack_inventory import generate_stack_inventory
         from knowledge_portal.generators.arch_health import generate_arch_health
+        from knowledge_portal.generators.api_catalog import generate_api_catalog
         from knowledge_portal.generators.llms_txt import generate_llms_manifests
         generate_stack_inventory(target, out)
+        generate_api_catalog(target, out)
         generate_arch_health(out, project_dir=target)
         generate_llms_manifests(target, out, template_dir)
 
@@ -156,8 +173,51 @@ def main():
             "impact": lambda: engine.impact(args.term),
             "health": lambda: engine.health_audit(),
             "context-pack": lambda: engine.context_pack(args.term),
+            "api-catalog": lambda: engine.api_catalog(args.term),
+            "arch-diff": lambda: engine.arch_diff(),
         }
         print(json.dumps(dispatch[args.type](), indent=2, ensure_ascii=False))
+
+    elif args.command == "report":
+        import json
+        from knowledge_portal.generators.arch_health import generate_arch_health
+        from knowledge_portal.generators.audit_report import render_markdown_report, render_sarif_report
+        from knowledge_portal.server import get_template_dir
+        target = Path(args.dir).resolve()
+        data_dir = Path(args.data_dir).resolve() if args.data_dir else (get_template_dir() / "data")
+        health_file = data_dir / "arch-health.json"
+        report_data = json.loads(health_file.read_text(encoding="utf-8")) if health_file.exists() else generate_arch_health(data_dir, project_dir=target)
+        out_text = render_markdown_report(report_data, project_name=target.name) if args.format == "md" else json.dumps(render_sarif_report(report_data), indent=2)
+        if args.output:
+            Path(args.output).write_text(out_text, encoding="utf-8")
+            print(f"✅ Report written to {args.output}")
+        else:
+            print(out_text)
+
+    elif args.command == "gate":
+        import json
+        from knowledge_portal.generators.arch_health import generate_arch_health
+        from knowledge_portal.generators.audit_report import evaluate_quality_gate
+        from knowledge_portal.server import get_template_dir
+        target = Path(args.dir).resolve()
+        data_dir = Path(args.data_dir).resolve() if args.data_dir else (get_template_dir() / "data")
+        health_file = data_dir / "arch-health.json"
+        report_data = json.loads(health_file.read_text(encoding="utf-8")) if health_file.exists() else generate_arch_health(data_dir, project_dir=target)
+        passed, reasons = evaluate_quality_gate(
+            report_data,
+            min_score=args.min_score,
+            max_cycles=args.max_cycles,
+            max_critical=args.max_critical,
+        )
+        if passed:
+            s = report_data.get("summary") or {}
+            print(f"✅ QUALITY GATE PASSED (Score: {s.get('health_score', 0)}/100 Grade {s.get('grade', '-')}, Cycles: {s.get('cycle_count', 0)})")
+            sys.exit(0)
+        else:
+            print("❌ QUALITY GATE FAILED:")
+            for r in reasons:
+                print(f"   - {r}")
+            sys.exit(1)
     else:
         parser.print_help()
 

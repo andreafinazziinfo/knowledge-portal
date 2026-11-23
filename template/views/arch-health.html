@@ -48,6 +48,16 @@
     .ah-search { background: #141414; border: 1px solid #303030; border-radius: 6px; padding: 6px 10px; color: #ffffff; font-size: 12px; width: 100%; }
     .ah-empty { color: #737373; font-size: 12px; padding: 8px 0; }
     .ah-tip { position: fixed; pointer-events: none; z-index: 99; display: none; background: #171717; border: 1px solid #404040; border-radius: 6px; padding: 6px 10px; font-size: 11px; color: #fff; box-shadow: 0 8px 20px rgba(0,0,0,0.6); }
+    .ah-export-bar { display: flex; gap: 6px; flex-wrap: wrap; align-items: center; }
+    .ah-exp-btn { background: #171717; color: #e5e7eb; border: 1px solid #333; border-radius: 6px; padding: 5px 10px; font-size: 11px; font-weight: 600; cursor: pointer; }
+    .ah-exp-btn:hover { background: #262626; color: #fff; border-color: #525252; }
+    @media print {
+      body { background: #fff !important; color: #111 !important; }
+      .ah-tabs, .ah-export-bar, .ah-search, #ah-tip { display: none !important; }
+      .ah-panel { display: block !important; page-break-inside: avoid; margin-bottom: 16px; }
+      .ah-card, .ah-kpi, .ah-row { background: #fff !important; color: #111 !important; border-color: #ccc !important; }
+      .ah-title, .ah-kpi-val, .ah-card h2 { color: #111 !important; }
+    }
   </style>
 </head>
 <body>
@@ -57,10 +67,17 @@
         <h1 class="ah-title">Health &amp; Audit Center 4.0 (16 Zero-Dep Pillars)</h1>
         <div class="ah-sub">Architecture · Complexity &amp; MI · CodeScene Risk · OWASP · SRE/Reliability · API &amp; DB N+1 · Observability · Test Quality · Supply Chain · AI Readiness</div>
       </div>
-      <div class="ah-grade">
-        <span>Health Score:</span>
-        <span id="ah-score">--/100</span>
-        <span class="ah-grade-pill" id="ah-grade" style="background:#34d399;">--</span>
+      <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;">
+        <div class="ah-export-bar">
+          <button class="ah-exp-btn" onclick="window.print()">🖨️ Print / PDF</button>
+          <button class="ah-exp-btn" id="btn-exp-md">⬇ Markdown</button>
+          <button class="ah-exp-btn" id="btn-exp-sarif">⬇ SARIF 2.1</button>
+        </div>
+        <div class="ah-grade">
+          <span>Health Score:</span>
+          <span id="ah-score">--/100</span>
+          <span class="ah-grade-pill" id="ah-grade" style="background:#34d399;">--</span>
+        </div>
       </div>
     </div>
 
@@ -758,6 +775,47 @@
     }
     renderOrphans('');
     document.getElementById('orphan-filter').addEventListener('input', e => renderOrphans(e.target.value));
+
+    // Export Markdown & SARIF 2.1.0 (works both live & offline static export!)
+    function downloadBlob(name, text, mime) {
+      const a = document.createElement('a');
+      a.href = URL.createObjectURL(new Blob([text], { type: mime }));
+      a.download = name;
+      a.click();
+    }
+    const mdBtn = document.getElementById('btn-exp-md');
+    if (mdBtn) {
+      mdBtn.addEventListener('click', () => {
+        const lines = [
+          `# Health & Audit Executive Summary`,
+          ``,
+          `- **Health Score**: **${s.health_score ?? 0}/100** (Grade **${s.grade ?? '-'}**)`,
+          `- **Modules**: ${s.total_modules ?? 0} · **Edges**: ${s.total_edges ?? 0} · **Cycles**: ${s.cycle_count ?? 0}`,
+          `- **OWASP Findings**: ${(owasp.findings_count ?? 0)} · **Reliability AST**: ${(relAst.total_issues ?? 0)} · **DB N+1**: ${(dbGov.n_plus_one_count ?? 0)} · **API Unauth**: ${(apiGov.unprotected_count ?? 0)}`,
+          ``,
+          `## Top Fix Queue`,
+          ...(fq.map(f => `- **[${f.priority}] [${f.category}]** \`${f.target}\` — ${f.action}`)),
+        ];
+        downloadBlob('health-audit-report.md', lines.join('\n') + '\n', 'text/markdown;charset=utf-8');
+      });
+    }
+    const sarifBtn = document.getElementById('btn-exp-sarif');
+    if (sarifBtn) {
+      sarifBtn.addEventListener('click', () => {
+        const results = (owasp.findings || []).map(f => ({
+          ruleId: `KP-OWASP-${f.rule}`,
+          level: f.severity === 'CRITICAL' || f.severity === 'HIGH' ? 'error' : 'warning',
+          message: { text: f.detail || f.rule },
+          locations: [{ physicalLocation: { artifactLocation: { uri: f.path }, region: { startLine: f.line || 1 } } }],
+        }));
+        const sarif = {
+          $schema: 'https://json.schemastore.org/sarif-2.1.0.json',
+          version: '2.1.0',
+          runs: [{ tool: { driver: { name: 'Knowledge Portal Health Engine 4.0', version: '4.0.0' } }, results }],
+        };
+        downloadBlob('health-audit.sarif.json', JSON.stringify(sarif, null, 2), 'application/json');
+      });
+    }
   })();
   </script>
 </body>

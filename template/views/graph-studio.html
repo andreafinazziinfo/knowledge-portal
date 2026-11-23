@@ -142,6 +142,10 @@
         <button class="gs-btn" data-mode="arch-health">Arch Health</button>
         <button class="gs-btn" data-mode="arch-diff">Arch Diff</button>
       </div>
+
+      <div class="gs-group" style="margin-left:auto;">
+        <button class="gs-btn" id="gs-export-btn" title="Export active SVG/Canvas snapshot">📷 Snapshot</button>
+      </div>
     </div>
 
     <div class="gs-stage">
@@ -217,11 +221,42 @@
       }
 
       currentFile = spec.file;
-      const targetUrl = spec.sub ? `${spec.file}?mode=${encodeURIComponent(spec.sub)}&embed=1` : spec.file;
-      frame.src = targetUrl;
+      const focusParam = new URLSearchParams(window.location.search).get('focus');
+      const qp = new URLSearchParams();
+      if (spec.sub) { qp.set('mode', spec.sub); qp.set('embed', '1'); }
+      if (focusParam) qp.set('focus', focusParam);
+      const qStr = qp.toString();
+      frame.src = qStr ? `${spec.file}?${qStr}` : spec.file;
     }
 
     window.setStudioMode = activateMode;
+
+    const expBtn = document.getElementById('gs-export-btn');
+    if (expBtn) {
+      expBtn.addEventListener('click', () => {
+        try {
+          const doc = frame.contentDocument;
+          if (!doc) return;
+          const svg = doc.querySelector('svg');
+          if (svg) {
+            const xml = new XMLSerializer().serializeToString(svg);
+            const blob = new Blob([xml], { type: 'image/svg+xml;charset=utf-8' });
+            const a = document.createElement('a');
+            a.href = URL.createObjectURL(blob);
+            a.download = `graph-studio-${currentMode || 'view'}.svg`;
+            a.click();
+            return;
+          }
+          const canvas = doc.querySelector('canvas');
+          if (canvas) {
+            const a = document.createElement('a');
+            a.href = canvas.toDataURL('image/png');
+            a.download = `graph-studio-${currentMode || 'view'}.png`;
+            a.click();
+          }
+        } catch (_) {}
+      });
+    }
 
     document.querySelectorAll('.gs-btn[data-mode]').forEach(btn => {
       btn.addEventListener('click', () => activateMode(btn.dataset.mode));

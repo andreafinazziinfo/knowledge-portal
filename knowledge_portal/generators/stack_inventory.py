@@ -8,8 +8,108 @@ from __future__ import annotations
 import json
 import re
 import subprocess
+import time
+import uuid
 from pathlib import Path
 from typing import Any
+
+_PERMISSIVE_LICENSES = ("mit", "apache", "bsd", "isc", "unlicense", "cc0", "0bsd", "psf", "python")
+_WEAK_COPYLEFT = ("lgpl", "mpl", "epl", "cddl")
+_STRONG_COPYLEFT = ("gpl", "agpl", "sspl")
+
+
+def _classify_license(lic: str) -> str:
+    low = (lic or "").strip().lower()
+    if not low or low in ("unknown", "none"):
+        return "Unknown"
+    if any(k in low for k in _STRONG_COPYLEFT) and "lgpl" not in low:
+        return "Copyleft"
+    if any(k in low for k in _WEAK_COPYLEFT):
+        return "Weak-Copyleft"
+    if any(k in low for k in _PERMISSIVE_LICENSES):
+        return "Permissive"
+    return "Other"
+
+
+def _detect_project_license(root: Path) -> str:
+    for cand in ("LICENSE", "LICENSE.md", "LICENSE.txt"):
+        p = root / cand
+        if p.is_file():
+            head = p.read_text(encoding="utf-8", errors="ignore")[:800].lower()
+            if "mit license" in head or "permission is hereby granted, free of charge" in head:
+                return "MIT"
+            if "apache license" in head:
+                return "Apache-2.0"
+            if "affero general public license" in head:
+                return "AGPL-3.0"
+            if "gnu general public license" in head:
+                return "GPL-3.0"
+            if "bsd" in head:
+                return "BSD"
+    pp = root / "pyproject.toml"
+    if pp.is_file():
+        m = re.search(r"""license\s*=\s*(?:\{[^}]*text\s*=\s*)?["']([^"']+)["']""", pp.read_text(encoding="utf-8", errors="ignore"))
+        if m:
+            return m.group(1)
+    pj = root / "package.json"
+    if pj.is_file():
+        try:
+            lic = json.loads(pj.read_text(encoding="utf-8", errors="ignore")).get("license")
+            if isinstance(lic, str) and lic.strip():
+                return lic.strip()
+        except Exception:
+            pass
+    return "Unknown"
+
+
+def _resolve_node_license(root: Path, pkg_name: str) -> str:
+    for base in (root / "node_modules", root / "frontend" / "node_modules"):
+        p = base / pkg_name / "package.json"
+        if p.is_file():
+            try:
+                data = json.loads(p.read_text(encoding="utf-8", errors="ignore"))
+                lic = data.get("license")
+                if isinstance(lic, str) and lic.strip():
+                    return lic.strip()
+                if isinstance(lic, dict) and lic.get("type"):
+                    return str(lic["type"])
+            except Exception:
+                pass
+    return "Unknown"
+
+
+def _build_cyclonedx_sbom(project_name: str, project_license: str, deps: list[dict[str, Any]]) -> dict[str, Any]:
+    components: list[dict[str, Any]] = []
+    for d in deps:
+        eco = "pypi" if "python" in str(d.get("ecosystem", "")).lower() else "npm"
+        ver = str(d.get("version", "*")).lstrip("^~>=< ")
+        name = str(d.get("name", "unknown"))
+        comp: dict[str, Any] = {
+            "type": "library",
+            "name": name,
+            "version": ver or "*",
+            "purl": f"pkg:{eco}/{name}@{ver}" if ver and ver != "*" else f"pkg:{eco}/{name}",
+            "scope": "required" if d.get("scope") != "dev" else "optional",
+        }
+        lic = str(d.get("license") or "")
+        if lic and lic != "Unknown":
+            comp["licenses"] = [{"license": {"id": lic}}]
+        components.append(comp)
+    return {
+        "bomFormat": "CycloneDX",
+        "specVersion": "1.5",
+        "serialNumber": f"urn:uuid:{uuid.uuid5(uuid.NAMESPACE_DNS, f'knowledge-portal:{project_name}')}",
+        "version": 1,
+        "metadata": {
+            "timestamp": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime()),
+            "component": {
+                "type": "application",
+                "name": project_name,
+                "licenses": [{"license": {"id": project_license}}] if project_license != "Unknown" else [],
+            },
+        },
+        "components": components,
+    }
 
 
 def _parse_req_line(line: str) -> dict[str, str] | None:
@@ -241,17 +341,31 @@ def _scan_repositories(root: Path) -> list[dict[str, Any]]:
 
 
 def generate_stack_inventory(target_dir: Path, output_dir: Path) -> dict[str, Any]:
-    """Scan target_dir for dependencies, containers, dev tools, and repositories."""
+    """Scan target_dir for dependencies, licenses, CycloneDX SBOM, containers, dev tools, and repositories."""
     py_deps = _scan_python_deps(target_dir)
     node_deps = _scan_node_deps(target_dir)
     docker_svcs = _scan_docker_services(target_dir)
     tools = _scan_tools_and_ci(target_dir)
     repos = _scan_repositories(target_dir)
 
+    proj_license = _detect_project_license(target_dir)
+    for d in py_deps:
+        d.setdefault("license", "Unknown")
+        d["license_risk"] = _classify_license(d["license"])
+    for d in node_deps:
+        lic = _resolve_node_license(target_dir, str(d.get("name", "")))
+        d["license"] = lic
+        d["license_risk"] = _classify_license(lic)
+
     all_deps = py_deps + node_deps
+    copyleft_cnt = sum(1 for d in all_deps if d.get("license_risk") == "Copyleft")
+    known_lic_cnt = sum(1 for d in all_deps if d.get("license") and d.get("license") != "Unknown")
+    sbom = _build_cyclonedx_sbom(target_dir.name, proj_license, all_deps)
+
     payload = {
-        "schema_version": "1.0.0",
+        "schema_version": "1.1.0",
         "project": target_dir.name,
+        "project_license": proj_license,
         "summary": {
             "total_dependencies": len(all_deps),
             "python_dependencies": len(py_deps),
@@ -259,6 +373,17 @@ def generate_stack_inventory(target_dir: Path, output_dir: Path) -> dict[str, An
             "docker_services": len(docker_svcs),
             "tools_and_ci": len(tools),
             "repositories": len(repos),
+            "licenses_detected": known_lic_cnt,
+            "copyleft_count": copyleft_cnt,
+        },
+        "sbom_summary": {
+            "bom_format": "CycloneDX",
+            "spec_version": "1.5",
+            "total_components": len(sbom["components"]),
+            "project_license": proj_license,
+            "licenses_detected": known_lic_cnt,
+            "copyleft_count": copyleft_cnt,
+            "sbom_file": "data/sbom.cdx.json",
         },
         "dependencies": all_deps,
         "docker_services": docker_svcs,
@@ -269,8 +394,10 @@ def generate_stack_inventory(target_dir: Path, output_dir: Path) -> dict[str, An
     output_dir.mkdir(parents=True, exist_ok=True)
     json_path = output_dir / "stack-ecosystem.json"
     js_path = output_dir / "stack_ecosystem.js"
+    sbom_path = output_dir / "sbom.cdx.json"
     json_path.write_text(json.dumps(payload, indent=2), encoding="utf-8")
     js_path.write_text(f"window.STACK_ECOSYSTEM = {json.dumps(payload)};\n", encoding="utf-8")
+    sbom_path.write_text(json.dumps(sbom, indent=2), encoding="utf-8")
 
     # Mirror to views/data if output_dir is .../data
     views_data = output_dir.parent / "views" / "data"
@@ -278,5 +405,6 @@ def generate_stack_inventory(target_dir: Path, output_dir: Path) -> dict[str, An
         views_data.mkdir(parents=True, exist_ok=True)
         (views_data / "stack-ecosystem.json").write_text(json.dumps(payload, indent=2), encoding="utf-8")
         (views_data / "stack_ecosystem.js").write_text(f"window.STACK_ECOSYSTEM = {json.dumps(payload)};\n", encoding="utf-8")
+        (views_data / "sbom.cdx.json").write_text(json.dumps(sbom, indent=2), encoding="utf-8")
 
     return payload

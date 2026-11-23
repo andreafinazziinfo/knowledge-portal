@@ -164,7 +164,8 @@
       <h1>Tech Stack, Dependencies &amp; Ecosystem</h1>
       <p id="subtitle">Unified inventory of libraries, containers, dev tools, CI/CD workflows, and connected repositories.</p>
     </div>
-    <div style="display:flex; gap:8px;">
+    <div style="display:flex; gap:8px; flex-wrap:wrap;">
+      <a class="btn" id="downloadSbomBtn" href="../data/sbom.cdx.json" download="sbom.cdx.json">⬇ Download CycloneDX SBOM</a>
       <a class="btn" id="openDiagramBtn" href="stack-diagram.html" target="_blank" style="display:none;">↗ Open Diagram Fullscreen</a>
     </div>
   </div>
@@ -176,6 +177,7 @@
     <div class="kpi"><div class="val" id="kpi-docker">0</div><div class="lbl">Docker Services</div></div>
     <div class="kpi"><div class="val" id="kpi-tools">0</div><div class="lbl">Tools &amp; CI/CD</div></div>
     <div class="kpi"><div class="val" id="kpi-repos">0</div><div class="lbl">Repositories</div></div>
+    <div class="kpi"><div class="val" id="kpi-lic">-</div><div class="lbl">Project License / Copyleft</div></div>
   </div>
 
   <div class="section">
@@ -210,6 +212,7 @@
             <th>Component / Name</th>
             <th>Category</th>
             <th>Version / Image / URL</th>
+            <th>License</th>
             <th>Scope</th>
             <th>Manifest Source</th>
           </tr>
@@ -251,6 +254,7 @@
           <td><strong>${escapeHtml(r.name)}</strong></td>
           <td><span class="badge ${r.badgeClass}">${escapeHtml(r.category)}</span></td>
           <td class="mono">${escapeHtml(r.detail)}</td>
+          <td><span class="badge">${escapeHtml(r.license || '-')}</span></td>
           <td>${escapeHtml(r.scope)}</td>
           <td class="mono" style="color:var(--muted);">${escapeHtml(r.source)}</td>
         </tr>
@@ -266,8 +270,10 @@
       document.getElementById('kpi-docker').textContent = s.docker_services ?? 0;
       document.getElementById('kpi-tools').textContent = s.tools_and_ci ?? 0;
       document.getElementById('kpi-repos').textContent = s.repositories ?? 0;
+      const licEl = document.getElementById('kpi-lic');
+      if (licEl) licEl.textContent = `${data.project_license || 'Unknown'} (${s.copyleft_count ?? 0})`;
       if (data.project) {
-        document.getElementById('subtitle').textContent = `Project: ${data.project} — Unified inventory of libraries, containers, dev tools, CI/CD workflows, and connected repositories.`;
+        document.getElementById('subtitle').textContent = `Project: ${data.project} — Unified inventory, CycloneDX 1.5 SBOM, licenses, containers, CI/CD, and repositories.`;
       }
 
       allRows = [];
@@ -279,6 +285,7 @@
           name: d.name,
           category: d.ecosystem,
           detail: d.version || '*',
+          license: d.license || 'Unknown',
           scope: d.scope || 'runtime',
           source: d.source || ''
         });

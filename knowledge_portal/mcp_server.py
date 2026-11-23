@@ -396,6 +396,29 @@ class PortalMcpEngine:
             "markdown": markdown,
         }
 
+    def api_catalog(self, query: str = "") -> dict[str, Any]:
+        from knowledge_portal.generators.api_catalog import generate_api_catalog
+        ep_file = self.data_dir / "api-catalog.json"
+        if ep_file.exists():
+            data = json.loads(ep_file.read_text(encoding="utf-8"))
+        else:
+            data = generate_api_catalog(self.project_dir, self.data_dir)
+        q = (query or "").strip().lower()
+        if q:
+            eps = [
+                e for e in (data.get("endpoints") or [])
+                if q in f"{e.get('method', '')} {e.get('path', '')} {e.get('tag', '')} {e.get('handler', '')} {e.get('file', '')}".lower()
+            ]
+            return {"query": query, "count": len(eps), "endpoints": eps[:50]}
+        return {"summary": data.get("summary", {}), "tags": data.get("tags", []), "endpoints": (data.get("endpoints") or [])[:50]}
+
+    def arch_diff(self) -> dict[str, Any]:
+        from knowledge_portal.generators.arch_health import generate_arch_diff
+        diff_file = self.data_dir / "arch-diff.json"
+        if diff_file.exists():
+            return json.loads(diff_file.read_text(encoding="utf-8"))
+        return generate_arch_diff(self.data_dir)
+
     def codemode_discover(self, topic: str = "") -> dict[str, Any]:
         return get_codemode_sdk_reference(topic=topic)
 
@@ -516,6 +539,24 @@ TOOLS_SPEC: list[dict[str, Any]] = [
         },
     },
     {
+        "name": "portal_api_catalog",
+        "description": "Query auto-discovered HTTP/WebSocket API endpoints, auth guards, handlers, and response models.",
+        "inputSchema": {
+            "type": "object",
+            "properties": {
+                "query": {"type": "string", "default": "", "description": "Optional path, method, tag, or handler filter"},
+            },
+        },
+    },
+    {
+        "name": "portal_arch_diff",
+        "description": "Compare current architecture snapshot against previous graph-prev.json and historical health trend.",
+        "inputSchema": {
+            "type": "object",
+            "properties": {},
+        },
+    },
+    {
         "name": "portal_discover",
         "description": "Code Mode SDK discovery: returns the compact typed read-only `portal.*` API reference for writing multi-step query pipelines.",
         "inputSchema": {
@@ -557,13 +598,69 @@ def handle_jsonrpc_request(engine: PortalMcpEngine, req: dict[str, Any], code_mo
             "id": req_id,
             "result": {
                 "protocolVersion": PROTOCOL_VERSION,
-                "capabilities": {"tools": {}},
+                "capabilities": {"tools": {}, "resources": {}, "prompts": {}},
                 "serverInfo": SERVER_INFO,
             },
         }
 
     if method == "ping":
         return {"jsonrpc": "2.0", "id": req_id, "result": {}}
+
+    if method == "resources/list":
+        return {
+            "jsonrpc": "2.0",
+            "id": req_id,
+            "result": {
+                "resources": [
+                    {"uri": "portal://llms.txt", "name": "llms.txt", "description": "AI-ready project manifest", "mimeType": "text/markdown"},
+                    {"uri": "portal://health", "name": "Health Engine 4.0 Report", "description": "16-pillar architectural & security health audit", "mimeType": "application/json"},
+                    {"uri": "portal://api-catalog", "name": "Live API Catalog", "description": "Auto-discovered HTTP/WS endpoints & OpenAPI 3.1", "mimeType": "application/json"},
+                    {"uri": "portal://arch-diff", "name": "Architecture Diff", "description": "Snapshot delta & historical trend", "mimeType": "application/json"},
+                    {"uri": "portal://sbom", "name": "CycloneDX 1.5 SBOM", "description": "Software Bill of Materials & licenses", "mimeType": "application/json"},
+                ]
+            },
+        }
+
+    if method == "resources/read":
+        uri = str(params.get("uri", ""))
+        if uri == "portal://llms.txt":
+            cand = engine.data_dir.parent / "llms.txt"
+            txt = cand.read_text(encoding="utf-8") if cand.exists() else "# llms.txt not generated yet"
+            return {"jsonrpc": "2.0", "id": req_id, "result": {"contents": [{"uri": uri, "mimeType": "text/markdown", "text": txt}]}}
+        if uri == "portal://health":
+            return {"jsonrpc": "2.0", "id": req_id, "result": {"contents": [{"uri": uri, "mimeType": "application/json", "text": json.dumps(engine.health_audit(), indent=2)}]}}
+        if uri == "portal://api-catalog":
+            return {"jsonrpc": "2.0", "id": req_id, "result": {"contents": [{"uri": uri, "mimeType": "application/json", "text": json.dumps(engine.api_catalog(), indent=2)}]}}
+        if uri == "portal://arch-diff":
+            return {"jsonrpc": "2.0", "id": req_id, "result": {"contents": [{"uri": uri, "mimeType": "application/json", "text": json.dumps(engine.arch_diff(), indent=2)}]}}
+        if uri == "portal://sbom":
+            sb = engine.data_dir / "sbom.cdx.json"
+            txt = sb.read_text(encoding="utf-8") if sb.exists() else json.dumps({"bomFormat": "CycloneDX", "specVersion": "1.5", "components": []})
+            return {"jsonrpc": "2.0", "id": req_id, "result": {"contents": [{"uri": uri, "mimeType": "application/json", "text": txt}]}}
+        return {"jsonrpc": "2.0", "id": req_id, "error": {"code": -32602, "message": f"Unknown resource URI: {uri}"}}
+
+    if method == "prompts/list":
+        return {
+            "jsonrpc": "2.0",
+            "id": req_id,
+            "result": {
+                "prompts": [
+                    {"name": "audit_pr_impact", "description": "Analyze blast radius, cycles, and OWASP/SRE findings for a target module.", "arguments": [{"name": "target", "required": True}]},
+                    {"name": "onboard_module", "description": "Generate an onboarding briefing for a module using context-pack and API catalog.", "arguments": [{"name": "module", "required": True}]},
+                ]
+            },
+        }
+
+    if method == "prompts/get":
+        pname = str(params.get("name", ""))
+        pargs = params.get("arguments") or {}
+        if pname == "audit_pr_impact":
+            tgt = str(pargs.get("target", "main"))
+            return {"jsonrpc": "2.0", "id": req_id, "result": {"messages": [{"role": "user", "content": {"type": "text", "text": f"Run portal_impact('{tgt}'), portal_health_audit(), and portal_arch_diff() to assess blast radius and regression risk before merging."}}]}}
+        if pname == "onboard_module":
+            mod = str(pargs.get("module", "core"))
+            return {"jsonrpc": "2.0", "id": req_id, "result": {"messages": [{"role": "user", "content": {"type": "text", "text": f"Use portal_context_pack('{mod}') and portal_api_catalog('{mod}') to summarize architecture, dependencies, and public routes."}}]}}
+        return {"jsonrpc": "2.0", "id": req_id, "error": {"code": -32602, "message": f"Unknown prompt: {pname}"}}
 
     if method == "tools/list":
         tools = CODE_MODE_TOOLS_SPEC if code_mode else TOOLS_SPEC
@@ -583,6 +680,8 @@ def handle_jsonrpc_request(engine: PortalMcpEngine, req: dict[str, Any], code_mo
             "portal_context_pack": lambda a: engine.context_pack(a.get("topic", ""), a.get("max_tokens", 4000)),
             "portal_impact": lambda a: engine.impact(a.get("target", ""), a.get("max_depth", 3)),
             "portal_health_audit": lambda _a: engine.health_audit(),
+            "portal_api_catalog": lambda a: engine.api_catalog(a.get("query", "")),
+            "portal_arch_diff": lambda _a: engine.arch_diff(),
             "portal_discover": lambda a: engine.codemode_discover(a.get("topic", "")),
             "portal_codemode": lambda a: engine.codemode_execute(a.get("code", "")),
         }
