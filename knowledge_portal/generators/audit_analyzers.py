@@ -919,17 +919,9 @@ def _check_pyproject_and_lockfiles(project_dir: Path) -> dict[str, Any]:
                 pass
         else:
             text = cand.read_text(encoding="utf-8", errors="ignore")
-            in_deps = False
-            for ln in text.splitlines():
-                s = ln.strip()
-                if s.startswith("dependencies") and "[" in s:
-                    in_deps = True
-                elif in_deps and "]" in s:
-                    in_deps = False
-                elif in_deps:
-                    m = re.search(r"""["']([^"']+)["']""", s)
-                    if m:
-                        raw_deps.append(m.group(1))
+            for m_blk in re.finditer(r"(?m)^\s*dependencies\s*=\s*\[(.*?)\]", text, re.DOTALL):
+                for m_dep in re.finditer(r"""["']([^"']+)["']""", m_blk.group(1)):
+                    raw_deps.append(m_dep.group(1))
         for dep in raw_deps:
             clean = dep.strip()
             if clean and "==" not in clean and "@ " not in clean:
