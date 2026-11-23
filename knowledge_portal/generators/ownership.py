@@ -103,8 +103,8 @@ def generate_ownership_map(project_dir: Path, data_dir: Path, days: int = 180) -
     domains: list[dict[str, Any]] = []
     for dom, cnt in sorted(domain_authors.items(), key=lambda kv: (-sum(kv[1].values()), kv[0]))[:30]:
         total_touches = sum(cnt.values())
-        top_authors = [{"author": a, "touches": n, "share_pct": round(100.0 * n / max(1, total_touches), 1)} for a, n in cnt.most_common(5)]
-        bus_factor = sum(1 for a in top_authors if a["share_pct"] >= 20.0) or 1
+        top_authors: list[dict[str, Any]] = [{"author": a, "touches": n, "share_pct": round(100.0 * n / max(1, total_touches), 1)} for a, n in cnt.most_common(5)]
+        bus_factor = sum(1 for a in top_authors if float(a["share_pct"]) >= 20.0) or 1
         co_owners = match_owners(f"{dom}/placeholder.py", rules) if rules else []
         conway_risk = "Single-Author Bottleneck" if len(cnt) == 1 and total_touches >= 5 else ("Multi-Team Friction" if len(cnt) >= 6 else "Healthy")
         domains.append({
