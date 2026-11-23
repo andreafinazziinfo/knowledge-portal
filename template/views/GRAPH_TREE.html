@@ -12,7 +12,7 @@
   * { box-sizing: border-box; margin: 0; padding: 0; }
   body { background: #0f0f0f; color: #f1f5f9; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; overflow: hidden; }
   #hud { position: absolute; top: 14px; left: 14px; background: rgba(26, 26, 26, 0.86); backdrop-filter: blur(8px); border: 1px solid #232323; padding: 10px 14px; border-radius: 6px; font-size: 12px; color: #ececec; font-weight: 600; z-index: 10; }
-  #legend { position: absolute; top: 14px; right: 14px; max-height: 70vh; overflow-y: auto; background: rgba(26, 26, 26, 0.86); backdrop-filter: blur(8px); border: 1px solid #232323; padding: 10px 12px; border-radius: 6px; font-size: 11px; z-index: 10; width: 200px; }
+  #legend { position: absolute; top: 54px; right: 14px; max-height: 70vh; overflow-y: auto; background: rgba(26, 26, 26, 0.86); backdrop-filter: blur(8px); border: 1px solid #232323; padding: 10px 12px; border-radius: 6px; font-size: 11px; z-index: 10; width: 200px; }
   #legend h3 { font-size: 10px; color: #8b8b8b; text-transform: uppercase; letter-spacing: 0.06em; margin-bottom: 6px; font-weight: 700; }
   .legend-item { display: flex; align-items: center; gap: 6px; padding: 3px 0; }
   .legend-dot { width: 9px; height: 9px; border-radius: 50%; flex-shrink: 0; }
@@ -31,7 +31,14 @@
   <script defer src="portal-ui.js?v=fp3"></script>
 </head>
 <body>
-<div id="hud">🌳 D3 Zoomable Hierarchical Directory Tree (Scroll to zoom, drag to pan, hover node to view file)</div>
+<div id="hud" style="display:flex;flex-direction:column;gap:8px;">
+  <div id="hud-label">🌳 D3 Hierarchical Directory Tree</div>
+  <div style="display:flex;gap:6px;flex-wrap:wrap;">
+    <button class="btn active" id="mode-tree" onclick="setTreeMode('tree')">Tree</button>
+    <button class="btn" id="mode-treemap" onclick="setTreeMode('treemap')">Treemap</button>
+    <button class="btn" id="mode-sunburst" onclick="setTreeMode('sunburst')">Sunburst</button>
+  </div>
+</div>
 <div id="legend"><h3>Communities</h3><div id="legend-list">Loading...</div></div>
 <svg id="tree-svg"><g id="container-group"></g></svg>
 <script>
@@ -120,49 +127,119 @@
     const width = window.innerWidth;
     const height = window.innerHeight;
 
-    // Horizontal hierarchical tree layout
-    const treeLayout = d3.tree().nodeSize([24, 220]);
-    const root = d3.hierarchy(treeData);
-    treeLayout(root);
+    function renderTreeMode() {
+      container.selectAll("*").remove();
+      document.getElementById('hud-label').textContent = '🌳 D3 Hierarchical Directory Tree';
+      const treeLayout = d3.tree().nodeSize([24, 220]);
+      const root = d3.hierarchy(treeData);
+      treeLayout(root);
 
-    // Initial transform center
-    svg.call(zoom.transform, d3.zoomIdentity.translate(80, height / 2).scale(0.8));
+      svg.call(zoom.transform, d3.zoomIdentity.translate(80, height / 2).scale(0.8));
 
-    // Links
-    container.selectAll(".link")
-      .data(root.links())
-      .enter().append("path")
-      .attr("class", "link")
-      .attr("d", d3.linkHorizontal().x(d => d.y).y(d => d.x));
+      container.selectAll(".link")
+        .data(root.links())
+        .enter().append("path")
+        .attr("class", "link")
+        .attr("d", d3.linkHorizontal().x(d => d.y).y(d => d.x));
 
-    // Nodes
-    const node = container.selectAll(".node")
-      .data(root.descendants())
-      .enter().append("g")
-      .attr("class", d => "node " + (d.children ? "folder" : "leaf"))
-      .attr("transform", d => `translate(${d.y},${d.x})`);
+      const node = container.selectAll(".node")
+        .data(root.descendants())
+        .enter().append("g")
+        .attr("class", d => "node " + (d.children ? "folder" : "leaf"))
+        .attr("transform", d => `translate(${d.y},${d.x})`);
 
-    node.append("circle")
-      .attr("r", d => d.children ? 5 : 3.5)
-      .attr("fill", d => d.children ? "#ececec" : (d.data.color || "#b4b4b4"))
-      .attr("stroke", "#0284c7")
-      .on("click", (e, d) => {
-        if (d.data.path && window.parent && typeof window.parent.loadFile === 'function') {
-          window.parent.loadFile(d.data.path);
-        }
+      node.append("circle")
+        .attr("r", d => d.children ? 5 : 3.5)
+        .attr("fill", d => d.children ? "#ececec" : (d.data.color || "#b4b4b4"))
+        .attr("stroke", "rgba(255,255,255,0.28)")
+        .on("click", (e, d) => {
+          if (d.data.path && window.parent && typeof window.parent.loadFile === 'function') {
+            window.parent.loadFile(d.data.path);
+          }
+        });
+
+      node.append("text")
+        .attr("dy", "0.32em")
+        .attr("x", d => d.children ? -8 : 8)
+        .attr("text-anchor", d => d.children ? "end" : "start")
+        .text(d => d.data.name.replace(".md", ""))
+        .on("click", (e, d) => {
+          if (d.data.path && window.parent && typeof window.parent.loadFile === 'function') {
+            window.parent.loadFile(d.data.path);
+          }
+        });
+    }
+
+    function renderTreemapMode() {
+      container.selectAll("*").remove();
+      document.getElementById('hud-label').textContent = '🧱 D3 Module Weight Treemap (area = files)';
+      svg.call(zoom.transform, d3.zoomIdentity);
+      const padTop = 96, padSide = 24, padRight = 230;
+      const w = Math.max(400, width - padSide - padRight);
+      const h = Math.max(300, height - padTop - 24);
+
+      const root = d3.hierarchy(treeData).sum(d => (d.children && d.children.length) ? 0 : 1).sort((a, b) => b.value - a.value);
+      d3.treemap().size([w, h]).paddingOuter(4).paddingTop(18).paddingInner(2)(root);
+
+      const g = container.append("g").attr("transform", `translate(${padSide},${padTop})`);
+      const cell = g.selectAll("g")
+        .data(root.descendants().filter(d => d.depth > 0 && (d.x1 - d.x0) > 6 && (d.y1 - d.y0) > 6))
+        .enter().append("g")
+        .attr("transform", d => `translate(${d.x0},${d.y0})`);
+
+      cell.append("rect")
+        .attr("width", d => Math.max(1, d.x1 - d.x0))
+        .attr("height", d => Math.max(1, d.y1 - d.y0))
+        .attr("rx", 4)
+        .attr("fill", d => d.children ? "rgba(255,255,255,0.03)" : (d.data.color || "#232323"))
+        .attr("fill-opacity", d => d.children ? 1 : 0.42)
+        .attr("stroke", "rgba(255,255,255,0.14)");
+
+      cell.append("title").text(d => `${d.data.name} (${d.value} files)`);
+      cell.filter(d => (d.x1 - d.x0) > 48 && (d.y1 - d.y0) > 16)
+        .append("text")
+        .attr("x", 5).attr("y", 13)
+        .attr("fill", "#ececec")
+        .attr("font-size", "10.5px")
+        .text(d => d.data.name.slice(0, Math.floor((d.x1 - d.x0 - 8) / 6)));
+    }
+
+    function renderSunburstMode() {
+      container.selectAll("*").remove();
+      document.getElementById('hud-label').textContent = '☀️ D3 Radial Hierarchy Sunburst';
+      svg.call(zoom.transform, d3.zoomIdentity);
+      const radius = Math.min(width - 260, height - 80) / 2;
+      const root = d3.hierarchy(treeData).sum(d => (d.children && d.children.length) ? 0 : 1);
+      d3.partition().size([2 * Math.PI, radius])(root);
+
+      const arc = d3.arc()
+        .startAngle(d => d.x0)
+        .endAngle(d => d.x1)
+        .innerRadius(d => d.y0)
+        .outerRadius(d => Math.max(d.y0, d.y1 - 1));
+
+      const g = container.append("g").attr("transform", `translate(${(width - 210) / 2},${height / 2})`);
+      const path = g.selectAll("path")
+        .data(root.descendants().filter(d => d.depth > 0 && (d.x1 - d.x0) > 0.004))
+        .enter().append("path")
+        .attr("d", arc)
+        .attr("fill", d => d.data.color || (d.children ? "#2b2b2b" : "#8b8b8b"))
+        .attr("fill-opacity", d => Math.max(0.25, 0.9 - d.depth * 0.12))
+        .attr("stroke", "#0f0f0f")
+        .attr("stroke-width", 0.8);
+      path.append("title").text(d => `${d.data.name} (${d.value} files)`);
+    }
+
+    window.setTreeMode = function (mode) {
+      ['tree', 'treemap', 'sunburst'].forEach(m => {
+        document.getElementById('mode-' + m).classList.toggle('active', m === mode);
       });
+      if (mode === 'treemap') renderTreemapMode();
+      else if (mode === 'sunburst') renderSunburstMode();
+      else renderTreeMode();
+    };
 
-    // CRITICAL: Text labels shown ONLY for folder nodes or on hover so NO text overlap occurs!
-    node.append("text")
-      .attr("dy", "0.32em")
-      .attr("x", d => d.children ? -8 : 8)
-      .attr("text-anchor", d => d.children ? "end" : "start")
-      .text(d => d.data.name.replace(".md", ""))
-      .on("click", (e, d) => {
-        if (d.data.path && window.parent && typeof window.parent.loadFile === 'function') {
-          window.parent.loadFile(d.data.path);
-        }
-      });
+    renderTreeMode();
   });
 </script>
 </body>

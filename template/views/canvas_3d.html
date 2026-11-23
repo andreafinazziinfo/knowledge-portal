@@ -2,96 +2,160 @@
 <html lang="en">
 <head>
 <meta charset="UTF-8">
-<title>Graphify 3D Canvas Panels</title>
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Knowledge Portal — 3D Z-Layered Architecture Planes</title>
 <script src="../assets/3d-force-graph.min.js"></script>
-<script>if (typeof ForceGraph3D === "undefined") { document.write('<script src="https://unpkg.com/3d-force-graph@1.73.0/dist/3d-force-graph.min.js"><\/script>'); }</script>
 <script src="../data/config.js"></script>
 <script src="../data/graph_viz.js"></script>
 <script src="../data/graph_labels.js"></script>
 <style>
   * { box-sizing: border-box; margin: 0; padding: 0; }
-  body { background: #0f0f0f; color: #fff; font-family: sans-serif; overflow: hidden; }
-  #3d-canvas { width: 100vw; height: 100vh; }
-  #hud { position: absolute; top: 14px; left: 14px; background: rgba(26, 26, 26, 0.86); backdrop-filter: blur(8px); border: 1px solid #232323; padding: 10px 14px; border-radius: 6px; font-size: 12px; color: #ececec; z-index: 10; font-weight: 600; }
-  #legend { position: absolute; top: 54px; right: 14px; max-height: 70vh; overflow-y: auto; background: rgba(26, 26, 26, 0.86); backdrop-filter: blur(8px); border: 1px solid #232323; padding: 10px 12px; border-radius: 6px; font-size: 11px; z-index: 10; width: 200px; }
-  #legend h3 { font-size: 10px; color: #8b8b8b; text-transform: uppercase; letter-spacing: 0.06em; margin-bottom: 6px; font-weight: 700; }
-  .legend-item { display: flex; align-items: center; gap: 6px; padding: 3px 0; }
+  body { background: #0f0f0f; color: #ececec; font-family: "Inter", ui-sans-serif, system-ui, sans-serif; overflow: hidden; }
+  [id="3d-canvas"] { width: 100vw; height: 100vh; }
+  #hud {
+    position: absolute; top: 14px; left: 14px; z-index: 10;
+    background: rgba(26, 26, 26, 0.88); backdrop-filter: blur(16px);
+    border: 1px solid rgba(255, 255, 255, 0.08); border-radius: 12px;
+    padding: 12px 14px; font-size: 12px; color: #b4b4b4;
+    display: flex; flex-direction: column; gap: 8px; max-width: 560px;
+  }
+  #hud strong { color: #ececec; font-size: 13px; font-weight: 600; }
+  .layer-row { display: flex; gap: 6px; flex-wrap: wrap; }
+  #legend {
+    position: absolute; top: 54px; right: 14px; max-height: 70vh; overflow-y: auto;
+    background: rgba(26, 26, 26, 0.88); backdrop-filter: blur(16px);
+    border: 1px solid rgba(255, 255, 255, 0.08); padding: 12px 14px;
+    border-radius: 12px; font-size: 11.5px; z-index: 10; width: 220px;
+  }
+  #legend h3 { font-size: 10.5px; color: #8b8b8b; text-transform: uppercase; letter-spacing: 0.06em; margin-bottom: 8px; font-weight: 700; }
+  .legend-item { display: flex; align-items: center; gap: 8px; padding: 4px 6px; border-radius: 6px; cursor: pointer; }
+  .legend-item:hover { background: #232323; }
   .legend-dot { width: 9px; height: 9px; border-radius: 50%; flex-shrink: 0; }
   .legend-label { flex: 1; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; color: #ececec; }
+  .legend-count { font-family: "JetBrains Mono", monospace; font-size: 10.5px; color: #8b8b8b; }
 </style>
-  <script src="live-reload.js"></script>
-  <link rel="stylesheet" href="portal-theme.css?v=fp3">
-  <script defer src="portal-ui.js?v=fp3"></script>
+<script src="live-reload.js"></script>
+<link rel="stylesheet" href="portal-theme.css?v=fp3">
+<script defer src="portal-ui.js?v=fp3"></script>
 </head>
 <body>
-<div id="hud">🎨 3D Canvas Panels Grid</div>
-<div id="legend"><h3>Communities</h3><div id="legend-list">Loading...</div></div>
+<div id="hud">
+  <strong id="hud-title">3D Z-Layered Architecture Planes</strong>
+  <div id="hud-sub">Loading architectural layers...</div>
+  <div class="layer-row" id="layer-btns"></div>
+</div>
+<div id="legend"><h3>Architecture Layers</h3><div id="legend-list"></div></div>
 <div id="3d-canvas"></div>
 <script>
+  const LAYERS = [
+    { id: 4, name: 'Presentation / UI', z: 260, color: '#38bdf8', match: /frontend|vue|\.tsx?$|\.jsx?$|store|component|view|ui|dashboard/i },
+    { id: 3, name: 'API / Gateway / WS', z: 130, color: '#a855f7', match: /api|router|route|ws|websocket|endpoint|gateway|server/i },
+    { id: 2, name: 'Domain / Services', z: 0, color: '#10b981', match: /service|quant|engine|core|domain|logic|scanner|generator/i },
+    { id: 1, name: 'Workers / Tasks / CLI', z: -130, color: '#f59e0b', match: /task|worker|celery|cli|script|watcher|job|beat/i },
+    { id: 0, name: 'Data / DB / Infra', z: -260, color: '#ef4444', match: /sql|db|alembic|model|schema|redis|docker|infra|config|yaml/i },
+  ];
+
+  let fg = null;
+  let allNodes = [];
+  let allLinks = [];
+  let activeLayer = 'ALL';
+
   function getVizData() {
-    return window.GRAPH_VIZ || (window.parent && window.parent.GRAPH_VIZ) || { nodes: [] };
+    return window.GRAPH_VIZ || (window.parent && window.parent.GRAPH_VIZ) || { nodes: [], edges: [], links: [] };
+  }
+
+  function classifyLayer(node) {
+    const hay = `${node.path || ''} ${node.label || node.name || ''} ${node.type || ''}`;
+    for (const l of LAYERS) {
+      if (l.match.test(hay)) return l;
+    }
+    return LAYERS[2]; // Default to Domain / Services
+  }
+
+  function filterLayer(lid) {
+    activeLayer = lid;
+    document.querySelectorAll('#layer-btns .btn').forEach(b => b.classList.toggle('active', b.dataset.lid === String(lid)));
+    if (!fg) return;
+    if (lid === 'ALL') {
+      fg.graphData({ nodes: allNodes, links: allLinks });
+      fg.cameraPosition({ x: 420, y: 240, z: 620 }, { x: 0, y: 0, z: 0 }, 700);
+    } else {
+      const targetL = LAYERS.find(l => l.id === Number(lid));
+      const subNodes = allNodes.filter(n => n.layerId === Number(lid));
+      const ids = new Set(subNodes.map(n => n.id));
+      const subLinks = allLinks.filter(l => ids.has(typeof l.source === 'object' ? l.source.id : l.source) && ids.has(typeof l.target === 'object' ? l.target.id : l.target));
+      fg.graphData({ nodes: subNodes, links: subLinks });
+      if (targetL) fg.cameraPosition({ x: 0, y: 220, z: targetL.z + 360 }, { x: 0, y: 0, z: targetL.z }, 700);
+    }
   }
 
   window.addEventListener('DOMContentLoaded', () => {
     const raw = getVizData();
-    const allNodes = raw.nodes || [];
-    const labelsMap = raw.labels || window.GRAPH_LABELS || {};
+    const nodesIn = raw.nodes || [];
+    const linksIn = raw.links || raw.edges || [];
 
-    const commCounts = {};
-    const commColor = {};
-    allNodes.forEach(n => {
-      const cid = n.community || 0;
-      commCounts[cid] = (commCounts[cid] || 0) + 1;
-      if (!commColor[cid] && n.color) commColor[cid] = n.color;
+    const layerCounts = new Map(LAYERS.map(l => [l.id, 0]));
+    const layerBuckets = new Map(LAYERS.map(l => [l.id, []]));
+
+    allNodes = nodesIn.map(n => {
+      const layer = classifyLayer(n);
+      layerCounts.set(layer.id, (layerCounts.get(layer.id) || 0) + 1);
+      const item = {
+        id: n.id,
+        name: n.label || n.name || n.id,
+        path: n.path || '',
+        layerId: layer.id,
+        layerName: layer.name,
+        color: layer.color,
+        val: Math.min(10, Math.max(1.5, (n.degree || 1) * 0.9)),
+      };
+      layerBuckets.get(layer.id).push(item);
+      return item;
     });
-    const sortedCommIds = Object.keys(commCounts).map(Number).sort((a, b) => commCounts[b] - commCounts[a]);
-    const legendList = document.getElementById('legend-list');
-    legendList.innerHTML = '';
-    sortedCommIds.slice(0, 20).forEach(cid => {
-      const item = document.createElement('div');
-      item.className = 'legend-item';
-      item.innerHTML = `<div class="legend-dot" style="background:${commColor[cid] || '#8b8b8b'};"></div><div class="legend-label">${labelsMap[cid] || `Community ${cid}`}</div>`;
-      legendList.appendChild(item);
-    });
 
-    // One flat grid "panel" per community, panels laid out in a grid of their own —
-    // genuinely distinct from graph_3d.html's radial nebula clustering.
-    const byComm = {};
-    allNodes.forEach(n => { const cid = n.community || 0; (byComm[cid] = byComm[cid] || []).push(n); });
-    const commIds = Object.keys(byComm).map(Number).sort((a, b) => byComm[b].length - byComm[a].length);
-
-    const PANEL_COLS = Math.max(1, Math.ceil(Math.sqrt(commIds.length)));
-    const PANEL_SPACING = 260;
-    const GRID_CELL = 18;
-
-    const nodes = [];
-    commIds.forEach((cid, panelIdx) => {
-      const members = byComm[cid];
-      const panelX = (panelIdx % PANEL_COLS) * PANEL_SPACING;
-      const panelY = Math.floor(panelIdx / PANEL_COLS) * PANEL_SPACING;
-      const cols = Math.max(1, Math.ceil(Math.sqrt(members.length)));
-      members.forEach((n, i) => {
-        nodes.push({
-          id: n.id, name: n.label, path: n.path, color: n.color,
-          fx: panelX + (i % cols) * GRID_CELL,
-          fy: panelY + Math.floor(i / cols) * GRID_CELL,
-          fz: 0
-        });
+    // Arrange each layer as an organized 2D disc on its Z plane
+    LAYERS.forEach(l => {
+      const bucket = layerBuckets.get(l.id) || [];
+      const count = Math.max(1, bucket.length);
+      bucket.forEach((nd, i) => {
+        const angle = i * 2.3999632; // golden spiral
+        const r = Math.sqrt((i + 0.5) / count) * 230;
+        nd.fx = Math.cos(angle) * r;
+        nd.fy = Math.sin(angle) * r;
+        nd.fz = l.z + (Math.random() - 0.5) * 14;
       });
     });
 
-    document.getElementById('hud').textContent = `🎨 3D Canvas Panels Grid — ${commIds.length} community panels`;
+    const validIds = new Set(allNodes.map(n => n.id));
+    allLinks = linksIn
+      .slice(0, 3000)
+      .map(l => ({ source: typeof l.source === 'object' ? l.source.id : l.source, target: typeof l.target === 'object' ? l.target.id : l.target }))
+      .filter(l => validIds.has(l.source) && validIds.has(l.target));
 
-    window.__fpTransparent3D(ForceGraph3D({ rendererConfig: { alpha: true, antialias: true } })(document.getElementById('3d-canvas')))
-      .graphData({ nodes, links: [] })
-      .nodeLabel('name')
+    document.getElementById('hud-sub').textContent = `${allNodes.length.toLocaleString()} nodes across 5 Z-planes • ${allLinks.length.toLocaleString()} cross-layer links`;
+
+    const btnWrap = document.getElementById('layer-btns');
+    btnWrap.innerHTML = `<button class="btn active" data-lid="ALL" onclick="filterLayer('ALL')">All 5 Planes</button>` +
+      LAYERS.map(l => `<button class="btn" data-lid="${l.id}" onclick="filterLayer(${l.id})">${l.name.split('/')[0].trim()}</button>`).join('');
+
+    document.getElementById('legend-list').innerHTML = LAYERS.map(l => `
+      <div class="legend-item" onclick="filterLayer(${l.id})">
+        <div class="legend-dot" style="background:${l.color};"></div>
+        <div class="legend-label">${l.name}</div>
+        <div class="legend-count">${layerCounts.get(l.id) || 0}</div>
+      </div>
+    `).join('');
+
+    const el = document.getElementById('3d-canvas');
+    fg = window.__fpTransparent3D(ForceGraph3D({ rendererConfig: { alpha: true, antialias: true } })(el))
+      .graphData({ nodes: allNodes, links: allLinks })
+      .nodeLabel(n => `${n.name} [${n.layerName}]`)
       .nodeColor('color')
-      .nodeVal(2)
-      .onNodeClick(node => {
-        if (window.parent && typeof window.parent.loadFile === 'function') {
-          window.parent.loadFile(node.path);
-        }
-      });
+      .nodeVal('val')
+      .linkColor(() => 'rgba(255, 255, 255, 0.14)')
+      .linkOpacity(0.18);
+
+    fg.cameraPosition({ x: 420, y: 240, z: 620 }, { x: 0, y: 0, z: 0 });
   });
 </script>
 </body>
