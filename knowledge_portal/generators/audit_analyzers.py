@@ -27,6 +27,11 @@ from itertools import combinations
 from pathlib import Path
 from typing import Any
 
+try:
+    import tomllib  # Python 3.11+
+except ImportError:  # pragma: no cover
+    tomllib = None  # type: ignore[assignment]
+
 _IGNORE_DIRS = frozenset({
     ".git", "node_modules", "dist", "build", ".venv", "venv",
     "__pycache__", ".idea", ".vscode", "target", "vendor", "bin", "obj", "frozen",
@@ -389,8 +394,9 @@ def record_health_history(data_dir: Path, summary: dict[str, Any]) -> list[dict[
 
 
 def build_actionable_fix_queue(report: dict[str, Any]) -> list[dict[str, Any]]:
-    """Build Top 10 prioritized engineering actions ordered by ROI."""
+    """Build Top 12 prioritized engineering actions ordered by ROI (Health Engine 4.0)."""
     queue: list[dict[str, Any]] = []
+    hv4 = report.get("health_v4") or {}
 
     for idx, cyc in enumerate((report.get("cycles") or [])[:3], 1):
         queue.append({
@@ -408,8 +414,55 @@ def build_actionable_fix_queue(report: dict[str, Any]) -> list[dict[str, Any]]:
             "action": "Remove direct UI → DB import; route through API/service layer.",
         })
 
+    owasp = hv4.get("owasp_audit") or {}
+    for finding in (owasp.get("findings") or [])[:3]:
+        if finding.get("severity") in ("CRITICAL", "HIGH"):
+            queue.append({
+                "priority": "P0",
+                "category": "OWASP",
+                "target": f"{finding.get('path', '')}:{finding.get('line', 1)}",
+                "action": f"[{finding.get('rule', 'SEC')}] {finding.get('detail', 'Remediate security vulnerability.')}",
+            })
+
+    rel_ast = hv4.get("reliability_ast") or {}
+    for ab in (rel_ast.get("async_blocking") or [])[:2]:
+        queue.append({
+            "priority": "P0",
+            "category": "Reliability",
+            "target": f"{ab.get('path', '')}:{ab.get('line', 1)}",
+            "action": f"Replace blocking `{ab.get('call', 'io')}` inside async function `{ab.get('func', '')}` with async equivalent.",
+        })
+
+    cs_risk = hv4.get("codescene_risk") or {}
+    for r in (cs_risk.get("top_risks") or [])[:3]:
+        if float(r.get("risk_score", 0)) >= 10.0:
+            queue.append({
+                "priority": "P1",
+                "category": "CodeScene Risk",
+                "target": r["path"],
+                "action": f"De-risk high-churn complex file (Risk={r['risk_score']}, McCabe={r['mccabe']}, Commits={r['commits']}, Cov={r['coverage_pct']}%).",
+            })
+
+    api_gov = hv4.get("api_governance") or {}
+    for rt in (api_gov.get("unprotected_mutating_routes") or [])[:2]:
+        queue.append({
+            "priority": "P1",
+            "category": "API Auth",
+            "target": f"{rt.get('path', '')}:{rt.get('line', 1)}",
+            "action": f"Add authentication dependency (`Depends`) to mutating route `{rt.get('method', 'POST')} {rt.get('route', '')}`.",
+        })
+
+    db_gov = hv4.get("db_governance") or {}
+    for n1 in (db_gov.get("n_plus_one_loops") or [])[:2]:
+        queue.append({
+            "priority": "P1",
+            "category": "DB N+1",
+            "target": f"{n1.get('path', '')}:{n1.get('line', 1)}",
+            "action": f"Batch query `{n1.get('call', 'execute')}` executed inside loop to eliminate N+1 DB round-trips.",
+        })
+
     comp = report.get("complexity") or {}
-    for f in (comp.get("top_complex_files") or [])[:3]:
+    for f in (comp.get("top_complex_files") or [])[:2]:
         if f.get("mccabe", 0) >= 25:
             queue.append({
                 "priority": "P1",
@@ -437,7 +490,16 @@ def build_actionable_fix_queue(report: dict[str, Any]) -> list[dict[str, Any]]:
             "action": f"Replace {s['select_star_count']}x `SELECT *` queries with explicit column projections.",
         })
 
-    return queue[:10]
+    sc_ai = hv4.get("supply_chain_and_ai") or {}
+    for bomb in (sc_ai.get("context_bombs") or [])[:2]:
+        queue.append({
+            "priority": "P2",
+            "category": "AI Context",
+            "target": bomb["path"],
+            "action": f"Split oversized file ({bomb['loc']} LOC / {bomb['size_kb']} KB) for better modularity & LLM context fit.",
+        })
+
+    return queue[:12]
 
 
 _SEC_PATTERNS = [
@@ -554,4 +616,674 @@ def analyze_extended_health_checks(project_dir: Path, max_files: int = 2000) -> 
         "dependency_hygiene": {"unpinned_count": len(unpinned), "unpinned": unpinned[:20]},
         "security_hygiene": {"findings_count": len(sec_findings), "findings": sec_findings[:25]},
         "test_ratio": {"prod_files": total_prod, "test_files": total_test, "ratio_pct": ratio_pct},
+    }
+
+
+# ═══════════════════════════════════════════════════════════════════════════
+# ADR-075 — Health Engine 4.0 (8 Zero-Dependency Python Stdlib Checks)
+# ═══════════════════════════════════════════════════════════════════════════
+
+_SECRET_REGEXES: list[tuple[str, re.Pattern[str], str]] = [
+    ("AWS_ACCESS_KEY", re.compile(r"\bAKIA[0-9A-Z]{16}\b"), "CRITICAL"),
+    ("GITHUB_TOKEN", re.compile(r"\bgh[pousr]_[A-Za-z0-9_]{30,}\b"), "CRITICAL"),
+    ("PRIVATE_KEY_PEM", re.compile(r"-----BEGIN (?:RSA |EC |OPENSSH )?PRIVATE KEY-----"), "CRITICAL"),
+    ("HARDCODED_JWT", re.compile(r"\beyJ[A-Za-z0-9_-]{18,}\.eyJ[A-Za-z0-9_-]{18,}\.[A-Za-z0-9_-]{10,}\b"), "HIGH"),
+]
+_SECRET_VAR_RE = re.compile(r"(?:secret|token|api_?key|passwd|password|private_?key)", re.IGNORECASE)
+_SECRET_PLACEHOLDER_HINTS = ("example", "changeme", "your_", "dummy", "placeholder", "xxxx", "test_", "fake", "sample", "localhost")
+_VERIFY_FALSE_RE = re.compile(r"\bverify\s*=\s*False\b")
+_CORS_WILDCARD_RE = re.compile(r"""allow_origins\s*=\s*\[\s*["']\*["']\s*\]|Access-Control-Allow-Origin["']?\s*[:,]\s*["']\*["']""", re.IGNORECASE)
+_XSS_HTML_RE = re.compile(r"\b(?:v-html\s*=|dangerouslySetInnerHTML|\.innerHTML\s*=)")
+_CONSOLE_LOG_RE = re.compile(r"\bconsole\.log\s*\(")
+_PROBE_HEALTH_RE = re.compile(r"""["'](?:/api(?:/v\d+)?)?/healthz?["']""")
+_PROBE_READY_RE = re.compile(r"""["'](?:/api(?:/v\d+)?)?/readyz?["']""")
+_UNBOUNDED_SELECT_RE = re.compile(r"""["']\s*SELECT\s+(?!COUNT\s*\(|SUM\s*\(|MAX\s*\(|MIN\s*\(|AVG\s*\(|1\b)[^"'\n]{4,140}\bFROM\s+[a-zA-Z_][a-zA-Z0-9_]*[^"'\n]*["']""", re.IGNORECASE)
+_CLI_PATH_HINTS = ("cli", "script", "scripts/", "tools/", "manage.py", "__main__.py", "bin/")
+_PUBLIC_ROUTE_HINTS = ("/login", "/logout", "/auth", "/token", "/register", "/signup", "/health", "/ready", "/webhook", "/metrics", "/docs", "/openapi")
+_AUTH_PARAM_HINTS = ("depends", "security", "auth", "current_user", "user", "token", "api_key", "session", "permission", "guard")
+_HTTP_TIMEOUT_CALLS = frozenset({"get", "post", "put", "delete", "patch", "request", "head", "options"})
+_HTTP_CLIENTS = frozenset({"requests", "httpx"})
+_SUBPROCESS_CALLS = frozenset({"run", "call", "check_output", "check_call"})
+_DB_QUERY_METHODS = frozenset({"execute", "executemany", "fetchall", "fetchone", "fetchmany", "query", "exec"})
+_DB_RECEIVER_HINTS = ("db", "conn", "cursor", "cur", "session", "sess", "engine", "pool", "tx", "repo")
+_LOCKFILE_NAMES = ("poetry.lock", "uv.lock", "package-lock.json", "pnpm-lock.yaml", "yarn.lock", "Pipfile.lock", "requirements.lock")
+
+
+def _shannon_entropy(s: str) -> float:
+    if not s:
+        return 0.0
+    counts = Counter(s)
+    n = len(s)
+    return -sum((c / n) * math.log2(c / n) for c in counts.values())
+
+
+def _is_test_rel(rel: str) -> bool:
+    low = f"/{rel.lower()}"
+    return any(h in low for h in ("/tests/", "/test/", "/test_", "test_", "_test.py", ".spec.", ".test.", "conftest.py"))
+
+
+def _domain_bucket(rel: str) -> str:
+    parts = [p for p in rel.replace("\\", "/").split("/") if p]
+    if len(parts) >= 3 and parts[0] in ("backend", "frontend", "src", "packages"):
+        return f"{parts[0]}/{parts[1]}/{parts[2]}" if parts[1] in ("app", "src") else f"{parts[0]}/{parts[1]}"
+    if len(parts) >= 2:
+        return f"{parts[0]}/{parts[1]}"
+    return parts[0] if parts else "root"
+
+
+def _call_name_parts(call: ast.Call) -> tuple[str, str]:
+    """Return (receiver_lower, attr_or_func_lower) for an AST Call."""
+    fn = call.func
+    if isinstance(fn, ast.Name):
+        return "", fn.id.lower()
+    if isinstance(fn, ast.Attribute):
+        attr = fn.attr.lower()
+        if isinstance(fn.value, ast.Name):
+            return fn.value.id.lower(), attr
+        if isinstance(fn.value, ast.Attribute):
+            return fn.value.attr.lower(), attr
+        return "", attr
+    return "", ""
+
+
+def _is_dynamic_sql_arg(arg: ast.AST) -> bool:
+    if isinstance(arg, ast.JoinedStr):
+        return True
+    if isinstance(arg, ast.BinOp) and isinstance(arg.op, (ast.Add, ast.Mod)):
+        return True
+    if isinstance(arg, ast.Call) and isinstance(arg.func, ast.Attribute) and arg.func.attr == "format":
+        return True
+    return False
+
+
+def _scan_python_ast_v4(
+    rel: str,
+    src: str,
+    is_test: bool,
+    is_cli: bool,
+    owasp_findings: list[dict[str, Any]],
+    silent_except: list[dict[str, Any]],
+    missing_timeout: list[dict[str, Any]],
+    async_blocking: list[dict[str, Any]],
+    obs_samples: list[dict[str, Any]],
+    n_plus_one: list[dict[str, Any]],
+    unprotected_routes: list[dict[str, Any]],
+    missing_resp_model: list[dict[str, Any]],
+    test_smells: list[dict[str, Any]],
+    counters: Counter[str],
+) -> None:
+    """Single-pass Python AST scanner for all ADR-075 checks."""
+    try:
+        tree = ast.parse(src)
+    except Exception:
+        return
+
+    lines = src.splitlines()
+
+    def _has_nosec(lineno: int) -> bool:
+        if 1 <= lineno <= len(lines):
+            return "nosec" in lines[lineno - 1]
+        return False
+
+    # 1. Test-file smells (only on test files)
+    if is_test:
+        for node in ast.walk(tree):
+            if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef)) and node.name.startswith("test_"):
+                lineno = getattr(node, "lineno", 1)
+                for dec in node.decorator_list:
+                    dec_src = ast.unparse(dec) if hasattr(ast, "unparse") else ""
+                    if "skip" in dec_src.lower():
+                        test_smells.append({"rule": "SKIPPED_TEST", "path": rel, "line": lineno, "detail": f"{node.name} is skipped"})
+                        break
+                has_assertion = False
+                for sub in ast.walk(node):
+                    if isinstance(sub, ast.Assert):
+                        has_assertion = True
+                    elif isinstance(sub, ast.Call):
+                        recv, fname = _call_name_parts(sub)
+                        if fname in ("raises", "warns", "fail") or fname.startswith("assert"):
+                            has_assertion = True
+                        if recv == "time" and fname == "sleep":
+                            test_smells.append({"rule": "SLEEP_IN_TEST", "path": rel, "line": getattr(sub, "lineno", lineno), "detail": f"time.sleep() inside {node.name}"})
+                if not has_assertion:
+                    test_smells.append({"rule": "ASSERT_LESS_TEST", "path": rel, "line": lineno, "detail": f"{node.name} has no assert / pytest.raises"})
+        return
+
+    # 2. Production Python AST single-pass walk with parent/loop/async context
+    def _visit(node: ast.AST, in_async_fn: str | None, in_loop: bool) -> None:
+        # High-entropy secret assignment check
+        if isinstance(node, ast.Assign) and isinstance(node.value, ast.Constant) and isinstance(node.value.value, str):
+            val = node.value.value.strip()
+            lineno = getattr(node, "lineno", 1)
+            if len(val) >= 20 and " " not in val and not _has_nosec(lineno):
+                low_val = val.lower()
+                if not any(h in low_val for h in _SECRET_PLACEHOLDER_HINTS):
+                    for tgt in node.targets:
+                        tname = tgt.id if isinstance(tgt, ast.Name) else (tgt.attr if isinstance(tgt, ast.Attribute) else "")
+                        if tname and _SECRET_VAR_RE.search(tname) and _shannon_entropy(val) >= 4.3:
+                            owasp_findings.append({
+                                "severity": "CRITICAL",
+                                "rule": "HIGH_ENTROPY_SECRET",
+                                "path": rel,
+                                "line": lineno,
+                                "detail": f"High-entropy literal assigned to `{tname}` (H={_shannon_entropy(val):.2f})",
+                            })
+                            break
+
+        # Reliability: Silent except: pass / bare except:
+        if isinstance(node, ast.ExceptHandler):
+            lineno = getattr(node, "lineno", 1)
+            if not _has_nosec(lineno):
+                is_bare = node.type is None
+                is_pass_only = len(node.body) == 1 and (
+                    isinstance(node.body[0], ast.Pass)
+                    or (isinstance(node.body[0], ast.Expr) and isinstance(node.body[0].value, ast.Constant) and node.body[0].value.value is Ellipsis)
+                )
+                if is_bare or is_pass_only:
+                    silent_except.append({
+                        "path": rel,
+                        "line": lineno,
+                        "kind": "bare_except" if is_bare else "except_pass",
+                    })
+
+        # API Contract Governance on route decorators
+        if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef)):
+            for dec in node.decorator_list:
+                if isinstance(dec, ast.Call):
+                    recv, method = _call_name_parts(dec)
+                    if method in ("post", "put", "patch", "delete") and recv in ("app", "router", "api_router", "bp", "blueprint"):
+                        route_str = ""
+                        if dec.args and isinstance(dec.args[0], ast.Constant) and isinstance(dec.args[0].value, str):
+                            route_str = dec.args[0].value
+                        if any(h in route_str.lower() for h in _PUBLIC_ROUTE_HINTS):
+                            continue
+                        counters["mutating_routes_scanned"] += 1
+                        lineno = getattr(node, "lineno", 1)
+                        # Check auth dependency in decorator kwargs or function args/defaults
+                        dec_kw_names = {kw.arg for kw in dec.keywords if kw.arg}
+                        has_auth = "dependencies" in dec_kw_names
+                        if not has_auth:
+                            arg_names = [a.arg.lower() for a in node.args.args + node.args.kwonlyargs]
+                            if any(any(h in an for h in _AUTH_PARAM_HINTS) for an in arg_names):
+                                has_auth = True
+                        if not has_auth:
+                            defaults = list(node.args.defaults) + [d for d in node.args.kw_defaults if d is not None]
+                            for d in defaults:
+                                if isinstance(d, ast.Call):
+                                    _, dn = _call_name_parts(d)
+                                    if dn in ("depends", "security"):
+                                        has_auth = True
+                                        break
+                        if not has_auth:
+                            unprotected_routes.append({
+                                "path": rel,
+                                "line": lineno,
+                                "method": method.upper(),
+                                "route": route_str or node.name,
+                                "func": node.name,
+                            })
+                        if "response_model" not in dec_kw_names and node.returns is None:
+                            missing_resp_model.append({
+                                "path": rel,
+                                "line": lineno,
+                                "method": method.upper(),
+                                "route": route_str or node.name,
+                                "func": node.name,
+                            })
+
+        # Calls: SQLi AST, Missing timeout=, Async blocking I/O, Observability print(), DB N+1 in loops
+        if isinstance(node, ast.Call):
+            lineno = getattr(node, "lineno", 1)
+            recv, fname = _call_name_parts(node)
+            kw_names = {kw.arg for kw in node.keywords if kw.arg}
+
+            # SQLi AST: .execute(f"...") / + / % / .format()
+            if fname in ("execute", "executemany", "raw") and node.args and not _has_nosec(lineno):
+                if _is_dynamic_sql_arg(node.args[0]):
+                    owasp_findings.append({
+                        "severity": "CRITICAL",
+                        "rule": "SQL_INJECTION_AST",
+                        "path": rel,
+                        "line": lineno,
+                        "detail": f"Dynamic string interpolation in `.{fname}()` — use parameterized queries.",
+                    })
+
+            # Reliability: Missing timeout=
+            if not _has_nosec(lineno):
+                if (recv in _HTTP_CLIENTS and fname in _HTTP_TIMEOUT_CALLS) or (recv == "subprocess" and fname in _SUBPROCESS_CALLS) or fname == "urlopen":
+                    if "timeout" not in kw_names:
+                        missing_timeout.append({
+                            "path": rel,
+                            "line": lineno,
+                            "call": f"{recv}.{fname}" if recv else fname,
+                        })
+
+            # Reliability: Blocking I/O inside async def
+            if in_async_fn and not _has_nosec(lineno):
+                if (recv == "time" and fname == "sleep") or (recv == "requests" and fname in _HTTP_TIMEOUT_CALLS):
+                    async_blocking.append({
+                        "path": rel,
+                        "line": lineno,
+                        "func": in_async_fn,
+                        "call": f"{recv}.{fname}",
+                    })
+
+            # Observability: print() in production code
+            if not is_cli and recv == "" and fname == "print" and not _has_nosec(lineno):
+                counters["prod_print_count"] += 1
+                if len(obs_samples) < 20:
+                    obs_samples.append({"kind": "print()", "path": rel, "line": lineno})
+
+            # DB Governance: N+1 query inside loop
+            if in_loop and fname in _DB_QUERY_METHODS and not _has_nosec(lineno):
+                if recv and any(h in recv for h in _DB_RECEIVER_HINTS):
+                    n_plus_one.append({
+                        "path": rel,
+                        "line": lineno,
+                        "call": f"{recv}.{fname}()",
+                    })
+
+        # Recurse with updated context
+        next_async = in_async_fn
+        if isinstance(node, ast.AsyncFunctionDef):
+            next_async = node.name
+        elif isinstance(node, ast.FunctionDef):
+            next_async = None
+        next_loop = in_loop or isinstance(node, (ast.For, ast.AsyncFor, ast.While))
+
+        for child in ast.iter_child_nodes(node):
+            _visit(child, next_async, next_loop)
+
+    _visit(tree, None, False)
+
+
+def _check_pyproject_and_lockfiles(project_dir: Path) -> dict[str, Any]:
+    """Check pyproject.toml dependency pinning (via tomllib or regex fallback) and lockfile presence."""
+    unpinned: list[dict[str, str]] = []
+    for cand in (project_dir / "pyproject.toml", project_dir / "backend" / "pyproject.toml"):
+        if not cand.is_file():
+            continue
+        rel_f = str(cand.relative_to(project_dir)).replace("\\", "/")
+        raw_deps: list[str] = []
+        if tomllib is not None:
+            try:
+                parsed = tomllib.loads(cand.read_text(encoding="utf-8", errors="ignore"))
+                proj = parsed.get("project") or {}
+                for d in proj.get("dependencies") or []:
+                    if isinstance(d, str):
+                        raw_deps.append(d)
+                for grp_deps in (proj.get("optional-dependencies") or {}).values():
+                    if isinstance(grp_deps, list):
+                        raw_deps.extend(d for d in grp_deps if isinstance(d, str))
+            except Exception:
+                pass
+        else:
+            text = cand.read_text(encoding="utf-8", errors="ignore")
+            in_deps = False
+            for ln in text.splitlines():
+                s = ln.strip()
+                if s.startswith("dependencies") and "[" in s:
+                    in_deps = True
+                elif in_deps and "]" in s:
+                    in_deps = False
+                elif in_deps:
+                    m = re.search(r"""["']([^"']+)["']""", s)
+                    if m:
+                        raw_deps.append(m.group(1))
+        for dep in raw_deps:
+            clean = dep.strip()
+            if clean and "==" not in clean and "@ " not in clean:
+                unpinned.append({"file": rel_f, "dep": clean[:70]})
+
+    lockfiles: list[str] = []
+    for base in (project_dir, project_dir / "backend", project_dir / "frontend"):
+        if not base.is_dir():
+            continue
+        for lf in _LOCKFILE_NAMES:
+            p = base / lf
+            if p.is_file():
+                lockfiles.append(str(p.relative_to(project_dir)).replace("\\", "/"))
+
+    return {
+        "pyproject_unpinned_count": len(unpinned),
+        "pyproject_unpinned": unpinned[:25],
+        "lockfiles_present": sorted(set(lockfiles)),
+        "has_lockfile": len(lockfiles) > 0,
+    }
+
+
+def _check_llms_txt_drift(project_dir: Path, data_dir: Path | None) -> dict[str, Any]:
+    """Compare llms.txt mtime vs latest git commit timestamp."""
+    candidates: list[Path] = [project_dir / "llms.txt"]
+    if data_dir is not None:
+        candidates.append(Path(data_dir).parent / "llms.txt")
+        candidates.append(Path(data_dir) / "llms.txt")
+    found: Path | None = next((p for p in candidates if p.is_file()), None)
+    if found is None:
+        return {"status": "missing", "path": None, "drift_hours": None}
+
+    rel_p = str(found.relative_to(project_dir)).replace("\\", "/") if str(found).startswith(str(project_dir)) else found.name
+    llms_mtime = found.stat().st_mtime
+    latest_commit_ts: float | None = None
+    if (project_dir / ".git").exists():
+        try:
+            proc = subprocess.run(  # nosec B603 B607
+                ["git", "-C", str(project_dir), "log", "-1", "--format=%ct"],
+                capture_output=True,
+                text=True,
+                timeout=5,
+                check=False,
+            )
+            if proc.returncode == 0 and proc.stdout.strip().isdigit():
+                latest_commit_ts = float(proc.stdout.strip())
+        except Exception:
+            latest_commit_ts = None
+
+    if latest_commit_ts is None:
+        return {"status": "fresh", "path": rel_p, "drift_hours": 0.0}
+    drift_h = round(max(0.0, (latest_commit_ts - llms_mtime) / 3600.0), 1)
+    status = "stale" if drift_h >= 24.0 else "fresh"
+    return {"status": status, "path": rel_p, "drift_hours": drift_h}
+
+
+def analyze_health_v4(
+    project_dir: Path,
+    data_dir: Path | None = None,
+    complexity: dict[str, Any] | None = None,
+    git_crime_scene: dict[str, Any] | None = None,
+    coverage: dict[str, Any] | None = None,
+    max_files: int = 2500,
+) -> dict[str, Any]:
+    """ADR-075 Health Engine 4.0: 8 zero-dependency Python stdlib checks in a single pass."""
+    project_dir = Path(project_dir).resolve()
+
+    owasp_findings: list[dict[str, Any]] = []
+    silent_except: list[dict[str, Any]] = []
+    missing_timeout: list[dict[str, Any]] = []
+    async_blocking: list[dict[str, Any]] = []
+    obs_samples: list[dict[str, Any]] = []
+    probe_files: list[str] = []
+    has_health_probe = False
+    has_ready_probe = False
+    n_plus_one: list[dict[str, Any]] = []
+    unbounded_selects: list[dict[str, Any]] = []
+    unprotected_routes: list[dict[str, Any]] = []
+    missing_resp_model: list[dict[str, Any]] = []
+    test_smells: list[dict[str, Any]] = []
+    context_bombs: list[dict[str, Any]] = []
+    prod_by_domain: Counter[str] = Counter()
+    test_by_domain: Counter[str] = Counter()
+    counters: Counter[str] = Counter()
+
+    # Load DB schema table names (if available) to check unreferenced tables in the same walk
+    schema_tables: list[str] = []
+    referenced_tables: set[str] = set()
+    if data_dir is not None:
+        schema_file = Path(data_dir) / "db-schema.json"
+        if schema_file.is_file():
+            try:
+                sc = json.loads(schema_file.read_text(encoding="utf-8"))
+                schema_tables = [
+                    str(t.get("name", ""))
+                    for t in (sc.get("tables") or [])
+                    if isinstance(t, dict) and t.get("name")
+                ]
+            except Exception:
+                schema_tables = []
+
+    scanned = 0
+    for root, dirs, files in os.walk(project_dir):
+        dirs[:] = [d for d in dirs if d not in _IGNORE_DIRS and not d.startswith(".")]
+        for fname in files:
+            if scanned >= max_files:
+                break
+            ext = os.path.splitext(fname)[1].lower()
+            if ext not in (".py", ".ts", ".tsx", ".js", ".jsx", ".vue", ".sql"):
+                continue
+            if fname.endswith((".min.js", ".min.css", ".bundle.js", ".d.ts")):
+                continue
+            fpath = Path(root) / fname
+            rel = str(fpath.relative_to(project_dir)).replace("\\", "/")
+            if _is_ignored_path(rel):
+                continue
+            try:
+                size_bytes = fpath.stat().st_size
+            except OSError:
+                continue
+            if size_bytes > 500_000:
+                continue
+            scanned += 1
+
+            is_test = _is_test_rel(rel)
+            is_cli = any(h in rel.lower() for h in _CLI_PATH_HINTS)
+            if ext != ".sql":
+                dom = _domain_bucket(rel)
+                if is_test:
+                    test_by_domain[dom] += 1
+                else:
+                    prod_by_domain[dom] += 1
+
+            try:
+                src = fpath.read_text(encoding="utf-8", errors="replace")
+            except Exception:
+                continue
+
+            loc = max(1, src.count("\n") + 1)
+            size_kb = round(size_bytes / 1024.0, 1)
+            if not is_test and ext != ".sql" and (loc > 800 or size_kb > 30.0):
+                context_bombs.append({"path": rel, "loc": loc, "size_kb": size_kb})
+
+            # Track referenced DB tables in production code
+            if schema_tables and not is_test:
+                for tname in schema_tables:
+                    if tname not in referenced_tables and tname in src:
+                        referenced_tables.add(tname)
+
+            # Probes check
+            if not is_test and ext in (".py", ".ts", ".js"):
+                if _PROBE_HEALTH_RE.search(src):
+                    has_health_probe = True
+                    if rel not in probe_files and len(probe_files) < 10:
+                        probe_files.append(rel)
+                if _PROBE_READY_RE.search(src):
+                    has_ready_probe = True
+                    if rel not in probe_files and len(probe_files) < 10:
+                        probe_files.append(rel)
+
+            # Line-level security / observability / unbounded SELECT (non-test code)
+            if not is_test:
+                for lineno, line in enumerate(src.splitlines(), 1):
+                    s = line.strip()
+                    if not s or s.startswith(("#", "//", "*")) or "nosec" in s:
+                        continue
+                    for rule_name, rx, sev in _SECRET_REGEXES:
+                        if rx.search(s):
+                            owasp_findings.append({"severity": sev, "rule": rule_name, "path": rel, "line": lineno, "detail": f"Potential {rule_name} literal detected."})
+                            break
+                    if _VERIFY_FALSE_RE.search(s):
+                        owasp_findings.append({"severity": "HIGH", "rule": "TLS_VERIFY_FALSE", "path": rel, "line": lineno, "detail": "TLS certificate verification disabled (`verify=False`)."})
+                    if _CORS_WILDCARD_RE.search(s):
+                        owasp_findings.append({"severity": "MEDIUM", "rule": "CORS_WILDCARD", "path": rel, "line": lineno, "detail": "Permissive CORS wildcard (`*`) configured."})
+                    if ext in (".ts", ".tsx", ".js", ".jsx", ".vue") and _XSS_HTML_RE.search(s):
+                        owasp_findings.append({"severity": "HIGH", "rule": "XSS_UNSAFE_HTML", "path": rel, "line": lineno, "detail": "Unsafe HTML injection sink (`v-html` / `innerHTML`)."})
+                    if ext in (".ts", ".tsx", ".js", ".jsx", ".vue") and not is_cli and _CONSOLE_LOG_RE.search(s):
+                        counters["prod_console_log_count"] += 1
+                        if len(obs_samples) < 20:
+                            obs_samples.append({"kind": "console.log()", "path": rel, "line": lineno})
+                    if ext in (".py", ".ts", ".js"):
+                        m_sel = _UNBOUNDED_SELECT_RE.search(s)
+                        if m_sel:
+                            frag = m_sel.group(0).upper()
+                            if "LIMIT" not in frag and "WHERE" not in frag:
+                                unbounded_selects.append({"path": rel, "line": lineno, "snippet": m_sel.group(0)[:85]})
+
+            # Single-pass Python AST checks
+            if ext == ".py":
+                _scan_python_ast_v4(
+                    rel=rel,
+                    src=src,
+                    is_test=is_test,
+                    is_cli=is_cli,
+                    owasp_findings=owasp_findings,
+                    silent_except=silent_except,
+                    missing_timeout=missing_timeout,
+                    async_blocking=async_blocking,
+                    obs_samples=obs_samples,
+                    n_plus_one=n_plus_one,
+                    unprotected_routes=unprotected_routes,
+                    missing_resp_model=missing_resp_model,
+                    test_smells=test_smells,
+                    counters=counters,
+                )
+
+    # Check #1: CodeScene Risk Matrix cross-join (Churn x McCabe x Low Coverage)
+    comp_map: dict[str, dict[str, Any]] = {}
+    for f in (complexity or {}).get("top_complex_files") or []:
+        if isinstance(f, dict) and f.get("path"):
+            comp_map[str(f["path"])] = f
+    cov_map: dict[str, float] = {}
+    for c in (coverage or {}).get("lowest_covered") or []:
+        if isinstance(c, dict) and c.get("path"):
+            cov_map[str(c["path"])] = float(c.get("coverage_pct", 0.0))
+    default_cov = float((coverage or {}).get("overall_pct") or 50.0)
+
+    hotspot_commits: dict[str, int] = {}
+    top_risks: list[dict[str, Any]] = []
+    bus_by_dom: dict[str, dict[str, Any]] = {}
+    for h in (git_crime_scene or {}).get("hotspots") or []:
+        if not isinstance(h, dict) or not h.get("path"):
+            continue
+        p = str(h["path"])
+        commits = int(h.get("commits", 0))
+        churn = int(h.get("lines_churned", 0))
+        authors = int(h.get("authors", 1))
+        hotspot_commits[p] = commits
+        dom = _domain_bucket(p)
+        if authors == 1 and commits >= 3:
+            b = bus_by_dom.setdefault(dom, {"domain": dom, "single_author_hotspots": 0, "max_commits": 0})
+            b["single_author_hotspots"] += 1
+            b["max_commits"] = max(b["max_commits"], commits)
+        mc = int(comp_map.get(p, {}).get("mccabe", 10))
+        cov_pct = cov_map.get(p, default_cov)
+        cov_factor = 1.0 - (min(100.0, max(0.0, cov_pct)) / 100.0) * 0.7
+        risk_score = round(commits * math.log1p(churn) * (max(1, mc) / 10.0) * cov_factor, 1)
+        top_risks.append({
+            "path": p,
+            "domain": dom,
+            "commits": commits,
+            "lines_churned": churn,
+            "mccabe": mc,
+            "coverage_pct": round(cov_pct, 1),
+            "risk_score": risk_score,
+        })
+    top_risks.sort(key=lambda r: -float(r["risk_score"]))
+
+    coupling_enriched: list[dict[str, Any]] = []
+    for tc in (git_crime_scene or {}).get("temporal_coupling") or []:
+        if isinstance(tc, dict):
+            fa = str(tc.get("file_a", ""))
+            fb = str(tc.get("file_b", ""))
+            co = int(tc.get("co_changes", 0))
+            denom = max(1, min(hotspot_commits.get(fa, co), hotspot_commits.get(fb, co)))
+            ratio = round(min(100.0, 100.0 * co / denom), 1)
+            coupling_enriched.append({"file_a": fa, "file_b": fb, "co_changes": co, "coupling_ratio_pct": ratio})
+
+    # Check #6: OpenAPI spec freshness
+    openapi_info: dict[str, Any] = {"present": False, "path": None, "age_days": None}
+    for cand_name in ("openapi.json", "openapi.yaml", "swagger.json", "backend/openapi.json", "docs/openapi.json"):
+        cp = project_dir / cand_name
+        if cp.is_file():
+            age_d = round(max(0.0, (time.time() - cp.stat().st_mtime) / 86400.0), 1)
+            openapi_info = {"present": True, "path": cand_name, "age_days": age_d}
+            break
+
+    # Check #7: Per-domain test-to-code ratio
+    all_doms = sorted(set(prod_by_domain.keys()) | set(test_by_domain.keys()))
+    by_domain: list[dict[str, Any]] = []
+    for d in all_doms:
+        pf = prod_by_domain[d]
+        tf = test_by_domain[d]
+        if pf == 0 and tf == 0:
+            continue
+        rp = round(100.0 * tf / pf, 1) if pf > 0 else 100.0
+        by_domain.append({"domain": d, "prod_files": pf, "test_files": tf, "ratio_pct": rp})
+    by_domain.sort(key=lambda x: (x["ratio_pct"], -x["prod_files"]))
+
+    # Check #8: Supply chain + Context bombs + llms.txt drift
+    sc_info = _check_pyproject_and_lockfiles(project_dir)
+    context_bombs.sort(key=lambda b: (-int(b["loc"]), -float(b["size_kb"])))
+    llms_drift = _check_llms_txt_drift(project_dir, data_dir)
+
+    # OWASP severity counts
+    sev_counts = Counter(f["severity"] for f in owasp_findings)
+    sev_order = {"CRITICAL": 0, "HIGH": 1, "MEDIUM": 2}
+    owasp_findings.sort(key=lambda f: (sev_order.get(f["severity"], 3), f["path"], f["line"]))
+
+    unreferenced_tables = sorted(t for t in schema_tables if t not in referenced_tables)
+
+    severity_summary = [
+        {"category": "OWASP", "critical": sev_counts["CRITICAL"], "high": sev_counts["HIGH"], "medium": sev_counts["MEDIUM"]},
+        {"category": "Reliability", "critical": len(async_blocking), "high": len(missing_timeout), "medium": len(silent_except)},
+        {"category": "DB & SQL", "critical": 0, "high": len(n_plus_one), "medium": len(unbounded_selects) + len(unreferenced_tables)},
+        {"category": "API Contract", "critical": 0, "high": len(unprotected_routes), "medium": len(missing_resp_model)},
+        {"category": "Observability", "critical": 0, "high": 0 if has_health_probe else 1, "medium": counters["prod_print_count"] + counters["prod_console_log_count"]},
+        {"category": "Test Smells", "critical": 0, "high": sum(1 for s in test_smells if s["rule"] == "ASSERT_LESS_TEST"), "medium": sum(1 for s in test_smells if s["rule"] != "ASSERT_LESS_TEST")},
+    ]
+
+    return {
+        "codescene_risk": {
+            "top_risks": top_risks[:25],
+            "temporal_coupling_enriched": coupling_enriched[:15],
+            "bus_factor_by_domain": sorted(bus_by_dom.values(), key=lambda b: -int(b["single_author_hotspots"]))[:12],
+        },
+        "owasp_audit": {
+            "findings_count": len(owasp_findings),
+            "by_severity": {"CRITICAL": sev_counts["CRITICAL"], "HIGH": sev_counts["HIGH"], "MEDIUM": sev_counts["MEDIUM"]},
+            "findings": owasp_findings[:40],
+        },
+        "reliability_ast": {
+            "total_issues": len(silent_except) + len(missing_timeout) + len(async_blocking),
+            "silent_except_count": len(silent_except),
+            "missing_timeout_count": len(missing_timeout),
+            "async_blocking_count": len(async_blocking),
+            "silent_except": silent_except[:25],
+            "missing_timeout": missing_timeout[:25],
+            "async_blocking": async_blocking[:25],
+        },
+        "observability": {
+            "prod_print_count": counters["prod_print_count"],
+            "prod_console_log_count": counters["prod_console_log_count"],
+            "has_health_probe": has_health_probe,
+            "has_ready_probe": has_ready_probe,
+            "probe_files": probe_files,
+            "samples": obs_samples[:20],
+        },
+        "db_governance": {
+            "n_plus_one_count": len(n_plus_one),
+            "n_plus_one_loops": n_plus_one[:25],
+            "unbounded_select_count": len(unbounded_selects),
+            "unbounded_selects": unbounded_selects[:20],
+            "unreferenced_tables_count": len(unreferenced_tables),
+            "unreferenced_tables": unreferenced_tables[:20],
+        },
+        "api_governance": {
+            "mutating_routes_scanned": counters["mutating_routes_scanned"],
+            "unprotected_count": len(unprotected_routes),
+            "unprotected_mutating_routes": unprotected_routes[:25],
+            "missing_response_model_count": len(missing_resp_model),
+            "missing_response_model": missing_resp_model[:25],
+            "openapi_spec": openapi_info,
+        },
+        "test_quality": {
+            "by_domain": by_domain[:20],
+            "test_smells_count": len(test_smells),
+            "test_smells": test_smells[:30],
+        },
+        "supply_chain_and_ai": {
+            **sc_info,
+            "context_bombs_count": len(context_bombs),
+            "context_bombs": context_bombs[:20],
+            "llms_txt_drift": llms_drift,
+        },
+        "severity_summary": severity_summary,
     }

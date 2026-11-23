@@ -54,8 +54,8 @@
   <div class="ah-wrap">
     <div class="ah-header">
       <div>
-        <h1 class="ah-title">Health &amp; Audit Center (8 Pillars)</h1>
-        <div class="ah-sub">Architecture · Complexity &amp; MI · Git Crime Scene Hotspots · Coverage · Perf/SQL · DB Health · AI Readiness · Historical Trend</div>
+        <h1 class="ah-title">Health &amp; Audit Center 4.0 (16 Zero-Dep Pillars)</h1>
+        <div class="ah-sub">Architecture · Complexity &amp; MI · CodeScene Risk · OWASP · SRE/Reliability · API &amp; DB N+1 · Observability · Test Quality · Supply Chain · AI Readiness</div>
       </div>
       <div class="ah-grade">
         <span>Health Score:</span>
@@ -71,7 +71,7 @@
       <button class="ah-tab" data-panel="p-arch">2. Architecture (Martin &amp; DSM)</button>
       <button class="ah-tab" data-panel="p-git">3. Complexity &amp; Git Hotspots</button>
       <button class="ah-tab" data-panel="p-tests">4. Tests &amp; Coverage</button>
-      <button class="ah-tab" data-panel="p-perf">5. Perf, SQL &amp; DB Health</button>
+      <button class="ah-tab" data-panel="p-perf">5. Security, SRE, API &amp; DB</button>
       <button class="ah-tab" data-panel="p-ai">6. AI Readiness &amp; Orphans</button>
     </div>
 
@@ -147,6 +147,18 @@
           <div class="ah-list" id="list-tc"></div>
         </section>
       </div>
+      <div class="ah-grid">
+        <section class="ah-card">
+          <h2>CodeScene Risk Matrix (Churn × McCabe × Low Cov) <span class="ah-badge" id="cnt-cs-risk">0</span></h2>
+          <div class="ah-hint">Rischio reale di regressione: bolle rosse = file complessi, modificati spesso e poco coperti. Clicca → Reader.</div>
+          <div class="ah-svg-box" id="chart-codescene-risk"></div>
+        </section>
+        <section class="ah-card">
+          <h2>Bus Factor by Domain (Single-Author Risk) <span class="ah-badge" id="cnt-bus-dom">0</span></h2>
+          <div class="ah-hint">Domini con hotspot modificati da un solo autore negli ultimi 90 giorni.</div>
+          <div class="ah-list" id="list-bus-dom"></div>
+        </section>
+      </div>
       <section class="ah-card">
         <h2>Most Complex Files (McCabe Cyclomatic, Cognitive &amp; Maintainability Index) <span class="ah-badge" id="cnt-cc">0</span></h2>
         <div class="ah-list" id="list-complex"></div>
@@ -157,8 +169,20 @@
     <div class="ah-panel" id="p-tests">
       <div class="ah-grid">
         <section class="ah-card">
-          <h2>Test-to-Code Ratio <span class="ah-badge" id="tr-badge">--%</span></h2>
-          <div class="ah-hint">Rapporto tra file di test e file di produzione nel repository (escluso frozen/).</div>
+          <h2>Per-Domain Test-to-Code Ratio <span class="ah-badge" id="tr-badge">--%</span></h2>
+          <div class="ah-hint">Barre rosse (&lt;20%) = domini scoperti da test; verdi (&ge;50%) = buona copertura strutturale.</div>
+          <div class="ah-svg-box" id="chart-domain-tests"></div>
+        </section>
+        <section class="ah-card">
+          <h2>Test Smells Audit (Assert-less · Skip · Sleep) <span class="ah-badge" id="cnt-test-smells">0</span></h2>
+          <div class="ah-hint">Test senza assert/pytest.raises, test skippati o con time.sleep() bloccanti.</div>
+          <div class="ah-list" id="list-test-smells"></div>
+        </section>
+      </div>
+      <div class="ah-grid">
+        <section class="ah-card">
+          <h2>Repository Test Summary</h2>
+          <div class="ah-hint">Rapporto globale tra file di test e file di produzione (escluso frozen/).</div>
           <div class="ah-list" id="list-tr"></div>
         </section>
         <section class="ah-card">
@@ -169,9 +193,44 @@
       </div>
     </div>
 
-    <!-- TAB 5: Perf, SQL, Security, Clones & Deps -->
+    <!-- TAB 5: Security, SRE, API, DB, Clones & Supply Chain -->
     <div class="ah-panel" id="p-perf">
+      <section class="ah-card" style="margin-bottom:18px;">
+        <h2>Enterprise Findings Severity Breakdown (OWASP · SRE · DB · API · Obs · Tests) <span class="ah-badge">Stacked Bar</span></h2>
+        <div class="ah-hint">Distribuzione globale per severità: Rosso = CRITICAL · Arancio = HIGH · Blu = MEDIUM.</div>
+        <div class="ah-svg-box" id="chart-severity" style="min-height:220px;"></div>
+      </section>
       <div class="ah-grid">
+        <section class="ah-card">
+          <h2>OWASP Quick-Audit (Secrets · SQLi AST · TLS · CORS · XSS) <span class="ah-badge" id="cnt-owasp">0</span></h2>
+          <div class="ah-hint">Secrets (AWS/GitHub/PEM/JWT + entropia Shannon), SQLi su .execute(), verify=False, CORS *, v-html.</div>
+          <div class="ah-list" id="list-owasp"></div>
+        </section>
+        <section class="ah-card">
+          <h2>Reliability &amp; Resilience AST <span class="ah-badge" id="cnt-rel">0</span></h2>
+          <div class="ah-hint">Async blocking I/O, HTTP/subprocess senza timeout=, silent except: pass.</div>
+          <div class="ah-list" id="list-rel"></div>
+        </section>
+        <section class="ah-card">
+          <h2>API Contract Governance <span class="ah-badge" id="cnt-api">0</span></h2>
+          <div class="ah-hint">Route mutanti (POST/PUT/PATCH/DELETE) senza Depends/auth o response_model + OpenAPI.</div>
+          <div class="ah-list" id="list-api"></div>
+        </section>
+        <section class="ah-card">
+          <h2>DB &amp; N+1 Query Governance <span class="ah-badge" id="cnt-db-gov">0</span></h2>
+          <div class="ah-hint">Query DB in loop (N+1 AST), SELECT senza WHERE/LIMIT, tabelle schema mai referenziate.</div>
+          <div class="ah-list" id="list-db-gov"></div>
+        </section>
+        <section class="ah-card">
+          <h2>Observability &amp; Health Probes <span class="ah-badge" id="cnt-obs">0</span></h2>
+          <div class="ah-hint">Presenza probe /health &amp; /ready e chiamate print()/console.log() in produzione.</div>
+          <div class="ah-list" id="list-obs"></div>
+        </section>
+        <section class="ah-card">
+          <h2>Supply Chain (pyproject.toml &amp; Lockfiles) <span class="ah-badge" id="cnt-sc">0</span></h2>
+          <div class="ah-hint">Dipendenze non pinnate in pyproject.toml (tomllib) e presenza lockfile riproducibili.</div>
+          <div class="ah-list" id="list-sc"></div>
+        </section>
         <section class="ah-card">
           <h2>Security Hygiene Quick-Scan <span class="ah-badge" id="cnt-sec">0</span></h2>
           <div class="ah-hint">Rileva eval/exec, pickle.loads, shell=True e yaml.load non sicuro in produzione.</div>
@@ -183,7 +242,7 @@
           <div class="ah-list" id="list-clones"></div>
         </section>
         <section class="ah-card">
-          <h2>Dependency Pinning Hygiene <span class="ah-badge" id="cnt-deps">0</span></h2>
+          <h2>Dependency Pinning Hygiene (req/pkg) <span class="ah-badge" id="cnt-deps">0</span></h2>
           <div class="ah-hint">Dipendenze non pinnate (senza == o */latest) in requirements/package.json.</div>
           <div class="ah-list" id="list-deps"></div>
         </section>
@@ -202,19 +261,24 @@
       </div>
     </div>
 
-    <!-- TAB 6: AI Readiness & Orphans -->
+    <!-- TAB 6: AI Readiness, Context Bombs & Orphans -->
     <div class="ah-panel" id="p-ai">
       <div class="ah-grid">
         <section class="ah-card">
-          <h2>AI Readiness Metrics <span class="ah-badge" id="ai-score-badge">--</span></h2>
+          <h2>AI Readiness &amp; llms.txt Drift <span class="ah-badge" id="ai-score-badge">--</span></h2>
           <div class="ah-list" id="list-ai"></div>
         </section>
         <section class="ah-card">
-          <h2>Orphan / Unconnected Files <span class="ah-badge" id="cnt-orphans">0</span></h2>
-          <input id="orphan-filter" class="ah-search" type="search" placeholder="Filter orphan paths...">
-          <div class="ah-list" id="list-orphans"></div>
+          <h2>AI Context Bombs (&gt;800 LOC / &gt;30 KB) <span class="ah-badge" id="cnt-bombs">0</span></h2>
+          <div class="ah-hint">File troppo grandi per le finestre di contesto LLM: candidati prioritari per split modulare.</div>
+          <div class="ah-list" id="list-bombs"></div>
         </section>
       </div>
+      <section class="ah-card">
+        <h2>Orphan / Unconnected Files <span class="ah-badge" id="cnt-orphans">0</span></h2>
+        <input id="orphan-filter" class="ah-search" type="search" placeholder="Filter orphan paths...">
+        <div class="ah-list" id="list-orphans"></div>
+      </section>
     </div>
   </div>
 
@@ -269,7 +333,8 @@
       { lbl: 'Module Edges', val: (s.total_edges || 0).toLocaleString() },
       { lbl: 'Cycles (SCC)', val: s.cycle_count || 0 },
       { lbl: 'Avg Maintainability', val: comp.avg_maintainability_index != null ? `${comp.avg_maintainability_index}/100` : 'N/A' },
-      { lbl: 'Git Hotspots (90d)', val: (git.hotspots || []).length },
+      { lbl: 'OWASP Findings', val: ((data.health_v4 || {}).owasp_audit || {}).findings_count ?? 0 },
+      { lbl: 'SRE / Reliability', val: ((data.health_v4 || {}).reliability_ast || {}).total_issues ?? 0 },
       { lbl: 'AI Readiness', val: ai.score != null ? `${ai.score}/100` : 'N/A' },
       { lbl: 'Orphan Files', val: (s.orphan_count || 0).toLocaleString() },
     ];
@@ -522,13 +587,165 @@
           : '<div class="ah-empty">All indexed DB tables have primary keys.</div>')
       : '<div class="ah-empty">No db-schema.json indexed.</div>';
 
-    // Tab 6: AI Readiness & Orphans
+    // Tab 6: AI Readiness, Context Bombs & Orphans
+    const hv4 = data.health_v4 || {};
+    const scAi = hv4.supply_chain_and_ai || {};
+    const drift = scAi.llms_txt_drift || {};
+    const driftBadge = drift.status === 'fresh' ? '<span style="color:#34d399;">fresh</span>' : (drift.status === 'stale' ? `<span style="color:#f59e0b;">stale (${drift.drift_hours}h behind git)</span>` : '<span style="color:#f87171;">missing</span>');
     document.getElementById('ai-score-badge').textContent = ai.score != null ? `${ai.score}/100` : 'N/A';
     document.getElementById('list-ai').innerHTML = [
       `<div class="ah-row"><strong>Python Docstring Coverage:</strong> ${ai.docstring_coverage_pct ?? 0}% (${ai.python_functions_analyzed ?? 0} functions analyzed)</div>`,
       `<div class="ah-row"><strong>Python Type-Hint Coverage:</strong> ${ai.type_hint_coverage_pct ?? 0}%</div>`,
+      `<div class="ah-row"><strong>llms.txt Freshness vs Git:</strong> ${driftBadge}${drift.path ? ` (<code>${drift.path}</code>)` : ''}</div>`,
       `<div class="ah-row"><strong>Machine-Readable Manifests:</strong> <a href="/llms.txt" target="_blank" style="color:#38bdf8;">/llms.txt</a> · <a href="/llms-full.txt" target="_blank" style="color:#38bdf8;">/llms-full.txt</a> · <code>/api/context-pack</code> · <code>MCP --code-mode</code></div>`,
     ].join('');
+
+    const bombs = scAi.context_bombs || [];
+    document.getElementById('cnt-bombs').textContent = scAi.context_bombs_count || 0;
+    document.getElementById('list-bombs').innerHTML = bombs.length
+      ? bombs.map(b => `<div class="ah-row" style="cursor:pointer;" onclick="openInReader('${b.path.replace(/'/g,"\\'")}')"><strong>${b.loc} LOC</strong> (${b.size_kb} KB) — <code>${b.path}</code></div>`).join('')
+      : '<div class="ah-empty">Zero oversized LLM Context Bombs (&gt;800 LOC / &gt;30KB) detected!</div>';
+
+    // ── Health Engine 4.0 Charts & Interactive Cards (ADR-075) ──
+    // Chart #1: CodeScene Risk Matrix Bubble Chart (Tab 3)
+    const csRisk = hv4.codescene_risk || {};
+    const topRisks = csRisk.top_risks || [];
+    document.getElementById('cnt-cs-risk').textContent = topRisks.length;
+    if (typeof d3 !== 'undefined' && topRisks.length) {
+      const W = 520, H = 230, pad = 38;
+      const svg = d3.select('#chart-codescene-risk').append('svg').attr('width', '100%').attr('viewBox', `0 0 ${W} ${H}`);
+      const x = d3.scaleLinear().domain([0, Math.max(5, d3.max(topRisks, d => d.commits) * 1.15)]).range([pad, W - 20]);
+      const y = d3.scaleLinear().domain([0, Math.max(10, d3.max(topRisks, d => d.risk_score) * 1.15)]).range([H - pad, 16]);
+      svg.append('g').attr('transform', `translate(0,${H - pad})`).call(d3.axisBottom(x).ticks(5)).attr('color', '#737373');
+      svg.append('g').attr('transform', `translate(${pad},0)`).call(d3.axisLeft(y).ticks(5)).attr('color', '#737373');
+      svg.append('text').attr('x', W/2).attr('y', H - 4).attr('fill', '#9ca3af').attr('font-size', 10).attr('text-anchor', 'middle').text('Git Commits (90d)');
+      svg.append('text').attr('x', 12).attr('y', H/2).attr('fill', '#9ca3af').attr('font-size', 10).attr('transform', `rotate(-90,12,${H/2})`).attr('text-anchor', 'middle').text('CodeScene Risk Score');
+      svg.selectAll('circle.cs').data(topRisks).join('circle').attr('class', 'cs')
+        .attr('cx', d => x(d.commits)).attr('cy', d => y(d.risk_score))
+        .attr('r', d => Math.min(18, Math.max(5, Math.sqrt(d.mccabe || 4) * 1.8)))
+        .attr('fill', d => d.risk_score >= 30 ? '#ef4444' : (d.risk_score >= 12 ? '#f59e0b' : '#38bdf8'))
+        .attr('fill-opacity', 0.75).attr('stroke', '#fff').attr('stroke-width', 0.8).style('cursor', 'pointer')
+        .on('mousemove', (ev, d) => showTip(ev, `<strong>${d.path}</strong><br>Risk: <strong>${d.risk_score}</strong> · Commits: ${d.commits} · McCabe: ${d.mccabe} · Cov: ${d.coverage_pct}%<br><em>Click → Reader</em>`))
+        .on('mouseleave', hideTip)
+        .on('click', (_, d) => openInReader(d.path));
+    } else {
+      document.getElementById('chart-codescene-risk').innerHTML = '<div class="ah-empty">No git churn hotspots available for CodeScene Risk Matrix.</div>';
+    }
+
+    const busDoms = csRisk.bus_factor_by_domain || [];
+    document.getElementById('cnt-bus-dom').textContent = busDoms.length;
+    document.getElementById('list-bus-dom').innerHTML = busDoms.length
+      ? busDoms.map(b => `<div class="ah-row"><strong>${b.domain}</strong> — ${b.single_author_hotspots} single-author hotspot(s) (max ${b.max_commits} commits)</div>`).join('')
+      : '<div class="ah-empty">No single-author domain hotspots detected in last 90d.</div>';
+
+    // Enrich temporal coupling with coupling ratio % if available
+    const tcEnriched = csRisk.temporal_coupling_enriched || [];
+    if (tcEnriched.length) {
+      document.getElementById('list-tc').innerHTML = tcEnriched.map(t =>
+        `<div class="ah-row"><strong>${t.co_changes}×</strong> (${t.coupling_ratio_pct}% ratio): <code style="cursor:pointer;color:#38bdf8;" onclick="openInReader('${t.file_a.replace(/'/g, "\\'")}')">${t.file_a}</code> ↔ <code style="cursor:pointer;color:#38bdf8;" onclick="openInReader('${t.file_b.replace(/'/g, "\\'")}')">${t.file_b}</code></div>`
+      ).join('');
+    }
+
+    // Chart #2: Per-Domain Test-to-Code Ratio Horizontal Bar Chart (Tab 4)
+    const tq = hv4.test_quality || {};
+    const domTests = (tq.by_domain || []).slice(0, 14);
+    if (typeof d3 !== 'undefined' && domTests.length) {
+      const W = 500, rowH = 20, H = Math.max(160, domTests.length * rowH + 34), lp = 150, rp = 46;
+      const svg = d3.select('#chart-domain-tests').append('svg').attr('width', '100%').attr('viewBox', `0 0 ${W} ${H}`);
+      const x = d3.scaleLinear().domain([0, Math.max(100, d3.max(domTests, d => d.ratio_pct) || 100)]).range([lp, W - rp]);
+      const y = d3.scaleBand().domain(domTests.map(d => d.domain)).range([10, H - 24]).padding(0.24);
+      svg.selectAll('rect.dt').data(domTests).join('rect').attr('class', 'dt')
+        .attr('x', lp).attr('y', d => y(d.domain))
+        .attr('width', d => Math.max(3, x(d.ratio_pct) - lp)).attr('height', y.bandwidth()).attr('rx', 3)
+        .attr('fill', d => d.ratio_pct < 20 ? '#ef4444' : (d.ratio_pct < 50 ? '#f59e0b' : '#34d399'))
+        .on('mousemove', (ev, d) => showTip(ev, `<strong>${d.domain}</strong><br>Test files: ${d.test_files} / Prod files: ${d.prod_files} (${d.ratio_pct}%)`))
+        .on('mouseleave', hideTip);
+      svg.selectAll('text.dl').data(domTests).join('text').attr('class', 'dl')
+        .attr('x', lp - 6).attr('y', d => y(d.domain) + y.bandwidth() * 0.72).attr('text-anchor', 'end').attr('fill', '#d4d4d8').attr('font-size', 10)
+        .text(d => d.domain.length > 22 ? d.domain.slice(0, 21) + '…' : d.domain);
+      svg.selectAll('text.dv').data(domTests).join('text').attr('class', 'dv')
+        .attr('x', d => Math.max(lp + 6, x(d.ratio_pct) + 5)).attr('y', d => y(d.domain) + y.bandwidth() * 0.72).attr('fill', '#9ca3af').attr('font-size', 10)
+        .text(d => `${d.ratio_pct}%`);
+    } else {
+      document.getElementById('chart-domain-tests').innerHTML = '<div class="ah-empty">No per-domain test ratio data available.</div>';
+    }
+
+    const tSmells = tq.test_smells || [];
+    document.getElementById('cnt-test-smells').textContent = tq.test_smells_count || 0;
+    document.getElementById('list-test-smells').innerHTML = tSmells.length
+      ? tSmells.map(sm => `<div class="ah-row" style="cursor:pointer;" onclick="openInReader('${sm.path.replace(/'/g,"\\'")}')"><strong>[${sm.rule}]</strong> <code>${sm.path}:${sm.line}</code> — ${sm.detail}</div>`).join('')
+      : '<div class="ah-empty">Zero test smells (assert-less, skipped, or sleep) detected!</div>';
+
+    // Chart #3: Enterprise Findings Severity Breakdown Stacked Bar Chart (Tab 5)
+    const sevSum = hv4.severity_summary || [];
+    if (typeof d3 !== 'undefined' && sevSum.length) {
+      const W = 760, H = 205, pad = 38;
+      const svg = d3.select('#chart-severity').append('svg').attr('width', '100%').attr('viewBox', `0 0 ${W} ${H}`);
+      const keys = ['critical', 'high', 'medium'];
+      const colors = { critical: '#ef4444', high: '#f59e0b', medium: '#38bdf8' };
+      const stacked = d3.stack().keys(keys)(sevSum);
+      const x = d3.scaleBand().domain(sevSum.map(d => d.category)).range([pad, W - 20]).padding(0.32);
+      const maxY = Math.max(5, d3.max(sevSum, d => (d.critical || 0) + (d.high || 0) + (d.medium || 0)) * 1.15);
+      const y = d3.scaleLinear().domain([0, maxY]).range([H - pad, 18]);
+      svg.append('g').attr('transform', `translate(0,${H - pad})`).call(d3.axisBottom(x)).attr('color', '#9ca3af');
+      svg.append('g').attr('transform', `translate(${pad},0)`).call(d3.axisLeft(y).ticks(4)).attr('color', '#737373');
+      stacked.forEach(layer => {
+        svg.selectAll(`rect.s-${layer.key}`).data(layer).join('rect')
+          .attr('x', d => x(d.data.category)).attr('y', d => y(d[1]))
+          .attr('height', d => Math.max(0, y(d[0]) - y(d[1]))).attr('width', x.bandwidth()).attr('rx', 2)
+          .attr('fill', colors[layer.key])
+          .on('mousemove', (ev, d) => showTip(ev, `<strong>${d.data.category}</strong><br>CRITICAL: ${d.data.critical} · HIGH: ${d.data.high} · MEDIUM: ${d.data.medium}`))
+          .on('mouseleave', hideTip);
+      });
+    } else {
+      document.getElementById('chart-severity').innerHTML = '<div class="ah-empty">No severity summary available yet.</div>';
+    }
+
+    // Tab 5 Health Engine 4.0 Cards
+    const owasp = hv4.owasp_audit || {};
+    const owList = owasp.findings || [];
+    document.getElementById('cnt-owasp').textContent = owasp.findings_count || 0;
+    document.getElementById('list-owasp').innerHTML = owList.length
+      ? owList.map(f => `<div class="ah-row" style="cursor:pointer;" onclick="openInReader('${f.path.replace(/'/g,"\\'")}')"><span class="ah-prio ${f.severity === 'CRITICAL' ? 'ah-p0' : (f.severity === 'HIGH' ? 'ah-p1' : 'ah-p2')}">${f.severity}</span><strong>[${f.rule}]</strong> <code>${f.path}:${f.line}</code> — ${f.detail}</div>`).join('')
+      : '<div class="ah-empty">Zero OWASP secrets, SQLi AST, verify=False, CORS *, or XSS sinks detected!</div>';
+
+    const relAst = hv4.reliability_ast || {};
+    document.getElementById('cnt-rel').textContent = relAst.total_issues || 0;
+    const relRows = []
+      .concat((relAst.async_blocking || []).map(x => `<div class="ah-row" style="cursor:pointer;" onclick="openInReader('${x.path.replace(/'/g,"\\'")}')"><span class="ah-prio ah-p0">ASYNC</span><code>${x.path}:${x.line}</code> — blocking <code>${x.call}</code> in <code>${x.func}()</code></div>`))
+      .concat((relAst.missing_timeout || []).map(x => `<div class="ah-row" style="cursor:pointer;" onclick="openInReader('${x.path.replace(/'/g,"\\'")}')"><span class="ah-prio ah-p1">TIMEOUT</span><code>${x.path}:${x.line}</code> — <code>${x.call}()</code> without timeout=</div>`))
+      .concat((relAst.silent_except || []).map(x => `<div class="ah-row" style="cursor:pointer;" onclick="openInReader('${x.path.replace(/'/g,"\\'")}')"><span class="ah-prio ah-p2">${x.kind}</span><code>${x.path}:${x.line}</code></div>`));
+    document.getElementById('list-rel').innerHTML = relRows.length ? relRows.slice(0, 30).join('') : '<div class="ah-empty">Zero reliability/resilience AST anti-patterns detected!</div>';
+
+    const apiGov = hv4.api_governance || {};
+    document.getElementById('cnt-api').textContent = `${apiGov.unprotected_count || 0} unauth / ${apiGov.mutating_routes_scanned || 0}`;
+    const apiRows = []
+      .concat([`<div class="ah-row"><strong>OpenAPI Spec:</strong> ${(apiGov.openapi_spec || {}).present ? `<code>${apiGov.openapi_spec.path}</code> (age ${apiGov.openapi_spec.age_days}d)` : 'Not found in repo root'}</div>`])
+      .concat((apiGov.unprotected_mutating_routes || []).map(r => `<div class="ah-row" style="cursor:pointer;" onclick="openInReader('${r.path.replace(/'/g,"\\'")}')"><span class="ah-prio ah-p1">NO AUTH</span><strong>${r.method}</strong> <code>${r.route}</code> (${r.path}:${r.line})</div>`))
+      .concat((apiGov.missing_response_model || []).slice(0, 10).map(r => `<div class="ah-row" style="cursor:pointer;" onclick="openInReader('${r.path.replace(/'/g,"\\'")}')"><span class="ah-prio ah-p2">NO MODEL</span><strong>${r.method}</strong> <code>${r.route}</code> (${r.path}:${r.line})</div>`));
+    document.getElementById('list-api').innerHTML = apiRows.join('');
+
+    const dbGov = hv4.db_governance || {};
+    document.getElementById('cnt-db-gov').textContent = (dbGov.n_plus_one_count || 0) + (dbGov.unbounded_select_count || 0) + (dbGov.unreferenced_tables_count || 0);
+    const dbGovRows = []
+      .concat((dbGov.n_plus_one_loops || []).map(x => `<div class="ah-row" style="cursor:pointer;" onclick="openInReader('${x.path.replace(/'/g,"\\'")}')"><span class="ah-prio ah-p1">N+1 LOOP</span><code>${x.path}:${x.line}</code> — <code>${x.call}</code></div>`))
+      .concat((dbGov.unbounded_selects || []).map(x => `<div class="ah-row" style="cursor:pointer;" onclick="openInReader('${x.path.replace(/'/g,"\\'")}')"><span class="ah-prio ah-p2">UNBOUNDED</span><code>${x.path}:${x.line}</code> — ${x.snippet}</div>`))
+      .concat((dbGov.unreferenced_tables || []).map(t => `<div class="ah-row"><span class="ah-prio ah-p2">UNUSED TBL</span>Table <code>${t}</code> not referenced in production source</div>`));
+    document.getElementById('list-db-gov').innerHTML = dbGovRows.length ? dbGovRows.slice(0, 30).join('') : '<div class="ah-empty">Zero N+1 loops, unbounded SELECTs, or unreferenced DB tables!</div>';
+
+    const obs = hv4.observability || {};
+    document.getElementById('cnt-obs').textContent = (obs.prod_print_count || 0) + (obs.prod_console_log_count || 0);
+    const obsRows = [
+      `<div class="ah-row"><strong>Health Probe (/health):</strong> ${obs.has_health_probe ? '<span style="color:#34d399;">Present</span>' : '<span style="color:#f59e0b;">Missing</span>'} · <strong>Readiness (/ready):</strong> ${obs.has_ready_probe ? '<span style="color:#34d399;">Present</span>' : '<span style="color:#f59e0b;">Missing</span>'}</div>`,
+      `<div class="ah-row"><strong>Prod print():</strong> ${obs.prod_print_count || 0} · <strong>Prod console.log():</strong> ${obs.prod_console_log_count || 0}</div>`,
+    ].concat((obs.samples || []).slice(0, 12).map(x => `<div class="ah-row" style="cursor:pointer;" onclick="openInReader('${x.path.replace(/'/g,"\\'")}')"><code>${x.kind}</code> — <code>${x.path}:${x.line}</code></div>`));
+    document.getElementById('list-obs').innerHTML = obsRows.join('');
+
+    document.getElementById('cnt-sc').textContent = `${scAi.pyproject_unpinned_count || 0} unpinned`;
+    const scRows = [
+      `<div class="ah-row"><strong>Lockfiles:</strong> ${scAi.has_lockfile ? (scAi.lockfiles_present || []).map(l => `<code>${l}</code>`).join(', ') : '<span style="color:#f59e0b;">No lockfile detected</span>'}</div>`,
+    ].concat((scAi.pyproject_unpinned || []).map(d => `<div class="ah-row"><strong>${d.file}</strong>: <code>${d.dep}</code></div>`));
+    document.getElementById('list-sc').innerHTML = scRows.join('');
 
     const orphans = data.orphans || [];
     document.getElementById('cnt-orphans').textContent = s.orphan_count || orphans.length;

@@ -334,6 +334,7 @@ def generate_arch_health(data_dir: Path, project_dir: Path | None = None) -> dic
         analyze_db_health,
         analyze_extended_health_checks,
         analyze_git_crime_scene,
+        analyze_health_v4,
         build_actionable_fix_queue,
         record_health_history,
     )
@@ -354,11 +355,29 @@ def generate_arch_health(data_dir: Path, project_dir: Path | None = None) -> dic
         report["git_crime_scene"] = analyze_git_crime_scene(pdir, days=90)
         report["coverage"] = analyze_coverage_reports(pdir)
         report["extended_checks"] = analyze_extended_health_checks(pdir)
+        report["health_v4"] = analyze_health_v4(
+            pdir,
+            data_dir=data_dir,
+            complexity=report["complexity"],
+            git_crime_scene=report["git_crime_scene"],
+            coverage=report["coverage"],
+        )
     else:
         report["complexity"] = {"files_analyzed": 0, "avg_maintainability_index": None, "avg_mccabe": None, "top_complex_files": [], "perf_bloat": {"large_files_count": 0, "large_files": [], "sql_select_star_files": 0, "sql_smells": []}, "ai_readiness": {"score": None, "docstring_coverage_pct": 0.0, "type_hint_coverage_pct": 0.0, "python_functions_analyzed": 0}}
         report["git_crime_scene"] = {"available": False, "hotspots": [], "temporal_coupling": [], "bus_factor_risks": []}
         report["coverage"] = {"available": False, "overall_pct": None, "files_measured": 0, "lowest_covered": []}
         report["extended_checks"] = {"code_clones": {"count": 0, "top_clones": []}, "dependency_hygiene": {"unpinned_count": 0, "unpinned": []}, "security_hygiene": {"findings_count": 0, "findings": []}, "test_ratio": {"prod_files": 0, "test_files": 0, "ratio_pct": 0.0}}
+        report["health_v4"] = {
+            "codescene_risk": {"top_risks": [], "temporal_coupling_enriched": [], "bus_factor_by_domain": []},
+            "owasp_audit": {"findings_count": 0, "by_severity": {"CRITICAL": 0, "HIGH": 0, "MEDIUM": 0}, "findings": []},
+            "reliability_ast": {"total_issues": 0, "silent_except_count": 0, "missing_timeout_count": 0, "async_blocking_count": 0, "silent_except": [], "missing_timeout": [], "async_blocking": []},
+            "observability": {"prod_print_count": 0, "prod_console_log_count": 0, "has_health_probe": False, "has_ready_probe": False, "probe_files": [], "samples": []},
+            "db_governance": {"n_plus_one_count": 0, "n_plus_one_loops": [], "unbounded_select_count": 0, "unbounded_selects": [], "unreferenced_tables_count": 0, "unreferenced_tables": []},
+            "api_governance": {"mutating_routes_scanned": 0, "unprotected_count": 0, "unprotected_mutating_routes": [], "missing_response_model_count": 0, "missing_response_model": [], "openapi_spec": {"present": False, "path": None, "age_days": None}},
+            "test_quality": {"by_domain": [], "test_smells_count": 0, "test_smells": []},
+            "supply_chain_and_ai": {"pyproject_unpinned_count": 0, "pyproject_unpinned": [], "lockfiles_present": [], "has_lockfile": False, "context_bombs_count": 0, "context_bombs": [], "llms_txt_drift": {"status": "missing", "path": None, "drift_hours": None}},
+            "severity_summary": [],
+        }
 
     report["db_health"] = analyze_db_health(data_dir)
     report["history"] = record_health_history(data_dir, report["summary"])
