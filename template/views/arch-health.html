@@ -123,11 +123,18 @@
 
     <!-- TAB 3: Complexity & Git Crime Scene -->
     <div class="ah-panel" id="p-git">
-      <section class="ah-card" style="margin-bottom:16px;">
-        <h2>Hotspot Bubble Map (Git Churn 90d × McCabe Complexity) <span class="ah-badge">Bubble</span></h2>
-        <div class="ah-hint">In alto a destra = file complessi modificati spesso (rischio massimo di bug). Clicca un punto per aprirlo nel Reader.</div>
-        <div class="ah-svg-box" id="chart-hotspots"></div>
-      </section>
+      <div class="ah-grid">
+        <section class="ah-card">
+          <h2>Hotspot Bubble Map (Git Churn 90d × McCabe) <span class="ah-badge">Bubble</span></h2>
+          <div class="ah-hint">In alto a destra = file complessi modificati spesso. Clicca un punto per aprirlo nel Reader.</div>
+          <div class="ah-svg-box" id="chart-hotspots"></div>
+        </section>
+        <section class="ah-card">
+          <h2>Parallel Coordinates (Multi-Metric Profile) <span class="ah-badge">4 Axes</span></h2>
+          <div class="ah-hint">Confronta LOC · McCabe · Cognitive · Maintainability Index sui file più complessi.</div>
+          <div class="ah-svg-box" id="chart-parallel"></div>
+        </section>
+      </div>
       <div class="ah-grid">
         <section class="ah-card">
           <h2>Git Churn × Complexity Hotspots (90d) <span class="ah-badge" id="cnt-hot">0</span></h2>
@@ -389,6 +396,40 @@
           .on('mouseleave', hideTip)
           .on('click', (_, d) => openInReader(d.path));
       }
+    }
+
+    // Tab 3b: Parallel Coordinates (LOC, McCabe, Cognitive, MI)
+    if (typeof d3 !== 'undefined' && cfiles.length) {
+      const dims = ['loc', 'mccabe', 'cognitive', 'maintainability_index'];
+      const labels = { loc: 'LOC', mccabe: 'McCabe', cognitive: 'Cognitive', maintainability_index: 'MI (0-100)' };
+      const W = 440, H = 225, padX = 36, padY = 26;
+      const svg = d3.select('#chart-parallel').append('svg').attr('width', '100%').attr('viewBox', `0 0 ${W} ${H}`);
+      const x = d3.scalePoint().domain(dims).range([padX, W - padX]);
+      const yScales = {};
+      dims.forEach(d => {
+        const mx = d === 'maintainability_index' ? 100 : Math.max(10, d3.max(cfiles, f => f[d] || 0));
+        yScales[d] = d3.scaleLinear().domain([0, mx]).range([H - padY, padY]);
+      });
+      const lineGen = d3.line();
+      svg.selectAll('path.pc').data(cfiles.slice(0, 25)).join('path').attr('class', 'pc')
+        .attr('fill', 'none')
+        .attr('d', f => lineGen(dims.map(d => [x(d), yScales[d](f[d] || 0)])))
+        .attr('stroke', f => f.mccabe >= 60 ? '#ef4444' : (f.mccabe >= 30 ? '#fbbf24' : '#38bdf8'))
+        .attr('stroke-opacity', 0.45).attr('stroke-width', 1.4).style('cursor', 'pointer')
+        .on('mouseenter', function (ev, f) {
+          d3.select(this).attr('stroke-opacity', 1).attr('stroke-width', 2.8);
+          showTip(ev, `<strong>${f.path}</strong><br>LOC:${f.loc} · McCabe:${f.mccabe} · Cog:${f.cognitive} · MI:${f.maintainability_index}`);
+        })
+        .on('mouseleave', function () {
+          d3.select(this).attr('stroke-opacity', 0.45).attr('stroke-width', 1.4);
+          hideTip();
+        })
+        .on('click', (_, f) => openInReader(f.path));
+
+      dims.forEach(d => {
+        const gx = svg.append('g').attr('transform', `translate(${x(d)},0)`).call(d3.axisLeft(yScales[d]).ticks(4)).attr('color', '#737373');
+        gx.append('text').attr('y', 14).attr('text-anchor', 'middle').attr('fill', '#e5e7eb').attr('font-size', 10).attr('font-weight', 600).text(labels[d]);
+      });
     }
 
     document.getElementById('cnt-hot').textContent = hots.length;

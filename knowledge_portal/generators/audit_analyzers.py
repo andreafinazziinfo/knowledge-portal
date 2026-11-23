@@ -118,6 +118,8 @@ def analyze_code_complexity_and_ai_readiness(project_dir: Path, max_files: int =
             ext = os.path.splitext(fname)[1].lower()
             if ext not in (".py", ".ts", ".tsx", ".js", ".jsx", ".vue", ".sql"):
                 continue
+            if fname.endswith((".min.js", ".min.css", ".bundle.js", ".d.ts")):
+                continue
             fpath = Path(root) / fname
             rel = str(fpath.relative_to(project_dir)).replace("\\", "/")
             if _is_ignored_path(rel):

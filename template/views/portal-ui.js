@@ -108,6 +108,12 @@
     'canvas_3d.html': { title: '3D Z-Layered Planes', what: '5 piani architetturali separati sull\'asse Z con particelle live tra i layer.', how: 'Ruota in 3D per osservare le chiamate verticali UI → API → Core → DB.', topic: 'layers' },
     'GRAPH_TREE.html': { title: 'Directory Tree / Treemap / Sunburst', what: 'Gerarchia file/cartelle in 3 modalità (Albero, Treemap, Sunburst radiale 20x).', how: 'Clicca un settore nel Sunburst per drill-down; clicca il centro per risalire.', topic: 'structure' },
     'circle-pack.html': { title: 'Zoomable Circle Packing', what: 'Cartelle annidate come cerchi proporzionali alla connettività dei moduli.', how: 'Clicca un cerchio per zoomare dentro il modulo; clicca lo sfondo per tornare alla root.', topic: 'modules' },
+    'icicle.html': { title: 'Icicle / Flamegraph', what: 'Gerarchia orizzontale impilata per profondità directory con nomi file leggibili per esteso.', how: 'Clicca una barra cartella per zoomare; clicca una foglia file per aprirla nel Reader.', topic: 'structure' },
+    'arc-diagram.html': { title: 'Linear Layer Arc Diagram', what: 'Moduli ordinati per layer: archi superiori = dipendenze sane, archi inferiori rossi = cicli / risalite.', how: 'Passa il mouse su un nodo per isolarne gli archi; clicca per aprire nel Reader.', topic: 'cycles' },
+    'hive-plot.html': { title: 'Deterministic 3-Axis Hive Plot', what: '3 assi radiali fissi (Core Hubs, Balanced Mid, Leaf/Entrypoints) senza layout casuale.', how: 'Passa il mouse sui nodi per isolare le connessioni; clicca per aprire nel Reader.', topic: 'topology' },
+    'codecity.html': { title: 'CodeCity 3D', what: 'Città isometrica 3D: quartieri = cartelle, base = simboli, altezza = grado di accoppiamento.', how: 'Trascina per spostarti, rotella per zoomare, passa il mouse sugli edifici per i dettagli.', topic: 'architecture' },
+    'edge-bundling.html': { title: 'Hierarchical Edge Bundling', what: 'I 110 file più connessi disposti in cerchio con curve raggruppate per dominio.', how: 'Passa il mouse su un file: ciano = import in uscita, verde = import in ingresso.', topic: 'dependencies' },
+    'sankey-flow.html': { title: 'Sankey Architecture Flow', what: 'Flussi aggregati tra i 5 layer (Presentation → API → Domain → Workers → Data).', how: 'Clicca qualsiasi barra layer per aprire la lista cliccabile dei file di quel layer.', topic: 'layers' },
     'tree_3d.html': { title: '3D Top-Down DAG Tree', what: 'Albero gerarchico 3D orientato dall\'alto verso il basso.', how: 'Ruota e zooma per leggere la profondità dei moduli.', topic: 'hierarchy' },
     'arch-health.html': { title: 'Arch Health Audit 2.0', what: 'Audit file-level: Radar 6 assi, Martin Main Sequence (I vs A), DSM Heatmap, Cicli Tarjan SCC e God-Files.', how: 'Passa il mouse sui punti dello scatter e sulle celle rosse della DSM (cicli bidirezionali).', topic: 'health' },
     'db-lineage.html': { title: 'Database Schema & Lineage', what: 'Tabelle SQL, chiavi primarie/esterne e lettori/scrittori nel codice.', how: 'Premi / per cercare una tabella o colonna e ispezionare chi la legge/scrive.', topic: 'database' },
@@ -204,6 +210,91 @@
       }
       pop.querySelector('#fp-impact-go').onclick = runImpact;
       pop.querySelector('#fp-impact-in').addEventListener('keydown', function (ev) { if (ev.key === 'Enter') runImpact(); });
+    });
+  }
+
+  // ADR-073: Zero-Dep Visual Strips for ADR Governance (Timeline), Worker Tasks (24h Gantt), Frontend State (Bipartite Flow)
+  if (pageName === 'adr-governance.html' || pageName === 'worker-tasks.html' || pageName === 'frontend-state.html') {
+    window.addEventListener('DOMContentLoaded', function () {
+      setTimeout(function () {
+        var anchor = document.querySelector('header, .header, .top-bar, h1');
+        if (!anchor || document.getElementById('adr73-visual-strip')) return;
+        var box = document.createElement('section');
+        box.id = 'adr73-visual-strip';
+        box.style.cssText = 'margin:14px auto;max-width:1360px;background:#171717;border:1px solid #262626;border-radius:10px;padding:14px 16px;color:#e5e7eb;';
+
+        if (pageName === 'adr-governance.html') {
+          var cards = Array.from(document.querySelectorAll('.card, .adr-card, [data-adr], article')).slice(0, 60);
+          var pills = cards.map(function (c, idx) {
+            var txt = (c.textContent || '');
+            var m = txt.match(/ADR[- ]?\d+/i);
+            var lbl = m ? m[0].toUpperCase() : ('ADR #' + (idx + 1));
+            var st = /superseded|deprecated/i.test(txt) ? '#737373' : (/proposed|draft/i.test(txt) ? '#fbbf24' : '#34d399');
+            return { el: c, lbl: lbl, color: st };
+          });
+          if (!pills.length) return;
+          box.innerHTML = '<div style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:0.06em;color:#9ca3af;margin-bottom:8px;">ADR Chronological Timeline (' + pills.length + ' records · click to jump)</div><div id="adr73-tl" style="display:flex;gap:6px;overflow-x:auto;padding-bottom:4px;"></div>';
+          anchor.insertAdjacentElement('afterend', box);
+          var tl = box.querySelector('#adr73-tl');
+          pills.forEach(function (p) {
+            var b = document.createElement('button');
+            b.type = 'button';
+            b.textContent = p.lbl;
+            b.style.cssText = 'flex-shrink:0;background:#111;color:#fff;border:1px solid ' + p.color + ';border-left:4px solid ' + p.color + ';border-radius:6px;padding:4px 9px;font-size:11px;cursor:pointer;';
+            b.onclick = function () { p.el.scrollIntoView({ behavior: 'smooth', block: 'center' }); };
+            tl.appendChild(b);
+          });
+        } else if (pageName === 'worker-tasks.html') {
+          var tCards = Array.from(document.querySelectorAll('.card, .task-card, tr, article')).slice(0, 18);
+          var rows = [];
+          tCards.forEach(function (c, i) {
+            var h = c.querySelector('h3, h4, strong, .title, td');
+            var name = h ? (h.textContent || '').trim().slice(0, 32) : '';
+            if (name && name.length > 2) rows.push({ name: name, start: (i * 2) % 22, dur: 2 + (i % 4), color: i % 2 === 0 ? '#38bdf8' : '#fbbf24' });
+          });
+          if (!rows.length) return;
+          var html = '<div style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:0.06em;color:#9ca3af;margin-bottom:8px;">24h Worker Schedule Gantt (00:00 → 24:00 UTC)</div>';
+          html += '<div style="display:flex;flex-direction:column;gap:5px;">';
+          rows.slice(0, 10).forEach(function (r) {
+            var leftPct = Math.round((r.start / 24) * 100);
+            var widthPct = Math.max(8, Math.round((r.dur / 24) * 100));
+            html += '<div style="display:flex;align-items:center;gap:10px;font-size:11px;">' +
+              '<span style="width:170px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:#d4d4d8;">' + r.name + '</span>' +
+              '<div style="flex:1;height:12px;background:#111;border:1px solid #262626;border-radius:4px;position:relative;overflow:hidden;">' +
+                '<div style="position:absolute;left:' + leftPct + '%;width:' + widthPct + '%;top:1px;bottom:1px;background:' + r.color + ';border-radius:3px;opacity:0.85;"></div>' +
+              '</div></div>';
+          });
+          html += '</div>';
+          box.innerHTML = html;
+          anchor.insertAdjacentElement('afterend', box);
+        } else if (pageName === 'frontend-state.html') {
+          var sCards = Array.from(document.querySelectorAll('.card, .store-card, article')).slice(0, 14);
+          var stores = [];
+          sCards.forEach(function (c) {
+            var h = c.querySelector('h3, h4, strong, .title');
+            var name = h ? (h.textContent || '').trim().slice(0, 28) : '';
+            if (name) stores.push(name);
+          });
+          if (!stores.length) return;
+          var layers = ['Dashboard / Shell', 'Charts & Orderflow', 'Quant & Backtest', 'DataOps & Admin'];
+          var hSvg = Math.max(180, stores.length * 22 + 20);
+          var svgParts = ['<svg width="100%" viewBox="0 0 760 ' + hSvg + '" style="display:block;">'];
+          stores.forEach(function (st, i) {
+            var y1 = 18 + i * 20;
+            var li = i % layers.length;
+            var y2 = 34 + li * Math.floor((hSvg - 50) / Math.max(1, layers.length - 1));
+            svgParts.push('<path d="M210,' + y1 + ' C360,' + y1 + ' 400,' + y2 + ' 550,' + y2 + '" fill="none" stroke="rgba(56,189,248,0.32)" stroke-width="1.5"/>');
+            svgParts.push('<circle cx="210" cy="' + y1 + '" r="3.5" fill="#38bdf8"/><text x="200" y="' + (y1 + 4) + '" text-anchor="end" fill="#e5e7eb" font-size="10.5">' + st + '</text>');
+          });
+          layers.forEach(function (ly, li) {
+            var y2 = 34 + li * Math.floor((hSvg - 50) / Math.max(1, layers.length - 1));
+            svgParts.push('<rect x="550" y="' + (y2 - 10) + '" width="180" height="20" rx="5" fill="#1f1f1f" stroke="#34d399"/><text x="640" y="' + (y2 + 4) + '" text-anchor="middle" fill="#34d399" font-size="11" font-weight="600">' + ly + '</text>');
+          });
+          svgParts.push('</svg>');
+          box.innerHTML = '<div style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:0.06em;color:#9ca3af;margin-bottom:8px;">Bipartite Store ↔ View Flow (' + stores.length + ' stores)</div>' + svgParts.join('');
+          anchor.insertAdjacentElement('afterend', box);
+        }
+      }, 350);
     });
   }
 })();

@@ -114,6 +114,8 @@
         <button class="gs-btn" data-mode="particle-flow">Particle Flow</button>
         <button class="gs-btn" data-mode="chord">Chord Matrix</button>
         <button class="gs-btn" data-mode="edge-bundling">Edge Bundling</button>
+        <button class="gs-btn" data-mode="arc-diagram">Arc Diagram</button>
+        <button class="gs-btn" data-mode="hive-plot">Hive Plot</button>
       </div>
 
       <div class="gs-group">
@@ -130,6 +132,7 @@
         <button class="gs-btn" data-mode="treemap">Treemap</button>
         <button class="gs-btn" data-mode="sunburst">Sunburst</button>
         <button class="gs-btn" data-mode="circle-pack">Circle Pack</button>
+        <button class="gs-btn" data-mode="icicle">Icicle</button>
         <button class="gs-btn" data-mode="tree_3d">3D Tree</button>
       </div>
 
@@ -153,14 +156,17 @@
       'particle-flow': { file: 'graph_full.html', sub: 'flow',     fn: 'setMode' },
       'chord':         { file: 'graph_full.html',    sub: 'chord',    fn: 'setMode' },
       'edge-bundling': { file: 'edge-bundling.html', sub: null },
+      'arc-diagram':   { file: 'arc-diagram.html',   sub: null },
+      'hive-plot':     { file: 'hive-plot.html',     sub: null },
       'canvas':        { file: 'canvas.html',        sub: null },
       'canvas_3d':     { file: 'canvas_3d.html',     sub: null },
       'codecity':      { file: 'codecity.html',      sub: null },
       'sankey':        { file: 'sankey-flow.html',   sub: null },
-      'tree':          { file: 'GRAPH_TREE.html', sub: 'tree',     fn: 'setTreeMode' },
-      'treemap':       { file: 'GRAPH_TREE.html', sub: 'treemap',  fn: 'setTreeMode' },
-      'sunburst':      { file: 'GRAPH_TREE.html', sub: 'sunburst', fn: 'setTreeMode' },
-      'circle-pack':   { file: 'circle-pack.html', sub: null },
+      'tree':          { file: 'GRAPH_TREE.html',    sub: 'tree',     fn: 'setTreeMode' },
+      'treemap':       { file: 'GRAPH_TREE.html',    sub: 'treemap',  fn: 'setTreeMode' },
+      'sunburst':      { file: 'GRAPH_TREE.html',    sub: 'sunburst', fn: 'setTreeMode' },
+      'circle-pack':   { file: 'circle-pack.html',   sub: null },
+      'icicle':        { file: 'icicle.html',        sub: null },
       'tree_3d':       { file: 'tree_3d.html',    sub: null },
       'arch-health':   { file: 'arch-health.html', sub: null }
     };
