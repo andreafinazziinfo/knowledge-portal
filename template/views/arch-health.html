@@ -1,0 +1,278 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Architectural Health Audit</title>
+  <link rel="stylesheet" href="portal-theme.css?v=fp3">
+  <style>
+    * { box-sizing: border-box; }
+    html, body {
+      margin: 0;
+      padding: 0;
+      background: #0f0f0f;
+      color: #f3f4f6;
+      font-family: 'Inter', system-ui, sans-serif;
+      min-height: 100%;
+    }
+    .ah-wrap {
+      max-width: 1280px;
+      margin: 0 auto;
+      padding: 20px 24px 48px;
+    }
+    .ah-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      flex-wrap: wrap;
+      gap: 14px;
+      margin-bottom: 20px;
+      padding-bottom: 14px;
+      border-bottom: 1px solid #262626;
+    }
+    .ah-title { font-size: 20px; font-weight: 700; color: #ffffff; margin: 0; }
+    .ah-sub { font-size: 12px; color: #9ca3af; margin-top: 4px; }
+    .ah-grade {
+      display: inline-flex;
+      align-items: center;
+      gap: 10px;
+      padding: 8px 16px;
+      border-radius: 10px;
+      background: #191919;
+      border: 1px solid #333333;
+      font-size: 14px;
+      font-weight: 700;
+    }
+    .ah-grade-pill {
+      padding: 2px 10px;
+      border-radius: 6px;
+      font-size: 15px;
+      font-weight: 800;
+      color: #0f0f0f;
+    }
+    .ah-kpis {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(165px, 1fr));
+      gap: 12px;
+      margin-bottom: 22px;
+    }
+    .ah-kpi {
+      background: #191919;
+      border: 1px solid #262626;
+      border-radius: 10px;
+      padding: 14px 16px;
+    }
+    .ah-kpi-val { font-size: 24px; font-weight: 700; color: #ffffff; }
+    .ah-kpi-lbl { font-size: 11px; text-transform: uppercase; letter-spacing: 0.06em; color: #9ca3af; margin-top: 4px; }
+    .ah-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(360px, 1fr));
+      gap: 16px;
+    }
+    .ah-card {
+      background: #191919;
+      border: 1px solid #262626;
+      border-radius: 10px;
+      padding: 16px;
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+    }
+    .ah-card h2 {
+      margin: 0;
+      font-size: 13px;
+      text-transform: uppercase;
+      letter-spacing: 0.06em;
+      color: #e5e7eb;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+    .ah-badge {
+      font-size: 11px;
+      padding: 2px 8px;
+      border-radius: 999px;
+      background: #262626;
+      color: #d4d4d8;
+    }
+    .ah-cycle {
+      background: #141414;
+      border: 1px solid rgba(248, 113, 113, 0.35);
+      border-radius: 8px;
+      padding: 10px 12px;
+      font-size: 12px;
+      color: #fca5a5;
+      word-break: break-word;
+      line-height: 1.5;
+    }
+    .ah-bar-row {
+      display: flex;
+      flex-direction: column;
+      gap: 4px;
+      padding: 6px 0;
+      border-bottom: 1px solid #222222;
+    }
+    .ah-bar-head {
+      display: flex;
+      justify-content: space-between;
+      gap: 8px;
+      font-size: 12px;
+    }
+    .ah-bar-path {
+      color: #e5e7eb;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+    .ah-bar-meta { color: #9ca3af; font-size: 11px; white-space: nowrap; }
+    .ah-bar-track { height: 5px; background: #262626; border-radius: 999px; overflow: hidden; }
+    .ah-bar-fill { height: 100%; background: linear-gradient(90deg, #38bdf8, #818cf8); border-radius: 999px; }
+    .ah-list {
+      max-height: 320px;
+      overflow-y: auto;
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+    }
+    .ah-row {
+      font-size: 12px;
+      padding: 6px 10px;
+      background: #141414;
+      border: 1px solid #242424;
+      border-radius: 6px;
+      color: #d4d4d8;
+      word-break: break-all;
+    }
+    .ah-search {
+      background: #141414;
+      border: 1px solid #303030;
+      border-radius: 6px;
+      padding: 6px 10px;
+      color: #ffffff;
+      font-size: 12px;
+      width: 100%;
+    }
+    .ah-empty { color: #737373; font-size: 12px; padding: 8px 0; }
+  </style>
+</head>
+<body>
+  <div class="ah-wrap">
+    <div class="ah-header">
+      <div>
+        <h1 class="ah-title">Architectural Health Audit</h1>
+        <div class="ah-sub">Tarjan SCC dependency cycles, high-coupling hubs (god-files), UI→DB layer violations &amp; orphan modules</div>
+      </div>
+      <div class="ah-grade" id="ah-grade-box">
+        <span>Health Score:</span>
+        <span id="ah-score">--/100</span>
+        <span class="ah-grade-pill" id="ah-grade" style="background:#34d399;">--</span>
+      </div>
+    </div>
+
+    <div class="ah-kpis" id="ah-kpis"></div>
+
+    <div class="ah-grid">
+      <section class="ah-card">
+        <h2>Dependency Cycles (Tarjan SCC) <span class="ah-badge" id="cnt-cycles">0</span></h2>
+        <div class="ah-list" id="list-cycles"></div>
+      </section>
+
+      <section class="ah-card">
+        <h2>Top Architectural Hubs / God-Files <span class="ah-badge" id="cnt-hubs">0</span></h2>
+        <div class="ah-list" id="list-hubs"></div>
+      </section>
+
+      <section class="ah-card">
+        <h2>Layer Violations (UI → DB) <span class="ah-badge" id="cnt-viol">0</span></h2>
+        <div class="ah-list" id="list-viol"></div>
+      </section>
+
+      <section class="ah-card">
+        <h2>Orphan / Unconnected Modules <span class="ah-badge" id="cnt-orphans">0</span></h2>
+        <input id="orphan-filter" class="ah-search" type="search" placeholder="Filter orphan paths...">
+        <div class="ah-list" id="list-orphans"></div>
+      </section>
+    </div>
+  </div>
+
+  <script src="portal-ui.js?v=fp3"></script>
+  <script src="live-reload.js"></script>
+  <script>
+  (async function () {
+    let data = null;
+    for (const url of ['/api/health-audit', '../data/arch-health.json']) {
+      try {
+        const res = await fetch(url);
+        if (res.ok) {
+          const json = await res.json();
+          if (json && json.summary) { data = json; break; }
+        }
+      } catch (_) {}
+    }
+    if (!data) {
+      document.getElementById('ah-kpis').innerHTML = '<div class="ah-empty">No arch-health.json data available yet. Run a portal scan.</div>';
+      return;
+    }
+
+    const s = data.summary || {};
+    const gradeColor = s.grade === 'A' ? '#34d399' : (s.grade === 'B' ? '#38bdf8' : (s.grade === 'C' ? '#fbbf24' : '#f87171'));
+    document.getElementById('ah-score').textContent = `${s.health_score ?? '--'}/100`;
+    const gEl = document.getElementById('ah-grade');
+    gEl.textContent = `Grade ${s.grade ?? '-'}`;
+    gEl.style.background = gradeColor;
+
+    const kpis = [
+      { lbl: 'Total Nodes', val: (s.total_nodes || 0).toLocaleString() },
+      { lbl: 'Resolved Edges', val: (s.total_edges || 0).toLocaleString() },
+      { lbl: 'Dependency Cycles', val: s.cycle_count || 0 },
+      { lbl: 'God-Files / Hubs', val: s.god_file_count || 0 },
+      { lbl: 'Layer Violations', val: s.layer_violation_count || 0 },
+      { lbl: 'Orphan Modules', val: (s.orphan_count || 0).toLocaleString() },
+    ];
+    document.getElementById('ah-kpis').innerHTML = kpis.map(k =>
+      `<div class="ah-kpi"><div class="ah-kpi-val">${k.val}</div><div class="ah-kpi-lbl">${k.lbl}</div></div>`
+    ).join('');
+
+    const cycles = data.cycles || [];
+    document.getElementById('cnt-cycles').textContent = cycles.length;
+    document.getElementById('list-cycles').innerHTML = cycles.length
+      ? cycles.map((c, i) => `<div class="ah-cycle"><strong>Cycle #${i + 1}:</strong> ${c.join(' → ')} → ${c[0]}</div>`).join('')
+      : '<div class="ah-empty">No dependency cycles detected.</div>';
+
+    const hubs = data.god_files || [];
+    document.getElementById('cnt-hubs').textContent = hubs.length;
+    const maxDeg = Math.max(1, ...hubs.map(h => h.total_degree || 1));
+    document.getElementById('list-hubs').innerHTML = hubs.length
+      ? hubs.map(h => {
+          const pct = Math.max(6, Math.round(100 * (h.total_degree || 1) / maxDeg));
+          return `<div class="ah-bar-row">
+            <div class="ah-bar-head">
+              <span class="ah-bar-path" title="${h.path || h.id}">${h.path || h.label || h.id}</span>
+              <span class="ah-bar-meta">in:${h.in_degree} · out:${h.out_degree}</span>
+            </div>
+            <div class="ah-bar-track"><div class="ah-bar-fill" style="width:${pct}%"></div></div>
+          </div>`;
+        }).join('')
+      : '<div class="ah-empty">No high-coupling god-files detected.</div>';
+
+    const viols = data.layer_violations || [];
+    document.getElementById('cnt-viol').textContent = viols.length;
+    document.getElementById('list-viol').innerHTML = viols.length
+      ? viols.map(v => `<div class="ah-row"><strong>${v.rule}</strong><br>${v.detail}</div>`).join('')
+      : '<div class="ah-empty">Zero UI → DB layer violations.</div>';
+
+    const orphans = data.orphans || [];
+    document.getElementById('cnt-orphans').textContent = s.orphan_count || orphans.length;
+    function renderOrphans(q) {
+      const low = (q || '').trim().toLowerCase();
+      const filtered = low ? orphans.filter(o => (o.path || o.id).toLowerCase().includes(low)) : orphans;
+      document.getElementById('list-orphans').innerHTML = filtered.length
+        ? filtered.slice(0, 50).map(o => `<div class="ah-row">${o.path || o.id}</div>`).join('')
+        : '<div class="ah-empty">No matching orphan modules.</div>';
+    }
+    renderOrphans('');
+    document.getElementById('orphan-filter').addEventListener('input', e => renderOrphans(e.target.value));
+  })();
+  </script>
+</body>
+</html>

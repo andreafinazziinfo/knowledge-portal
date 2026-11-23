@@ -931,6 +931,34 @@
     }
     .view-hub-card { border-radius: 12px !important; }
     
+  
+    /* ADR-069 Grouped Header Navigation */
+    .tabs-header, .tabs-left { overflow: visible !important; }
+    .nav-dd { position: relative; display: inline-flex; align-items: center; }
+    .nav-dd-btn {
+      background: transparent; color: #a3a3a3; border: 1px solid transparent;
+      border-radius: 6px; padding: 6px 11px; font-size: 13px; font-weight: 500;
+      cursor: pointer; display: inline-flex; align-items: center; gap: 5px;
+      white-space: nowrap; transition: all 0.15s ease;
+    }
+    .nav-dd-btn:hover, .nav-dd.open .nav-dd-btn { color: #ffffff; background: #1f1f1f; border-color: #333333; }
+    .nav-dd-btn.active { background: #ffffff; color: #0f0f0f; font-weight: 600; }
+    .nav-dd-menu {
+      display: none; position: absolute; top: calc(100% + 6px); left: 0; min-width: 210px;
+      background: #171717; border: 1px solid #2e2e2e; border-radius: 10px;
+      padding: 6px; box-shadow: 0 14px 36px rgba(0,0,0,0.65); z-index: 9999;
+      flex-direction: column; gap: 2px;
+    }
+    .nav-dd:hover .nav-dd-menu, .nav-dd.open .nav-dd-menu { display: flex; }
+    .nav-dd-item {
+      width: 100%; text-align: left; background: transparent; color: #d4d4d8;
+      border: 1px solid transparent; border-radius: 6px; padding: 7px 10px;
+      font-size: 12px; font-weight: 500; cursor: pointer; display: flex;
+      align-items: center; justify-content: space-between; white-space: nowrap;
+    }
+    .nav-dd-item:hover { background: #262626; color: #ffffff; border-color: #383838; }
+    .nav-dd-item.active { background: #ffffff; color: #0f0f0f; font-weight: 600; }
+
   </style>
 
     <script src="assets/marked.min.js"></script>
@@ -1004,26 +1032,41 @@
         <button class="tab-button active" data-tab="home" onclick="switchTab('home')">Home</button>
         <button class="tab-button" data-tab="reader" onclick="switchTab('reader')">Reader</button>
         <button class="tab-button" data-tab="graph-studio" onclick="switchTab('graph-studio')">Graph Studio</button>
-        <button class="tab-button" data-tab="graph" style="display:none" onclick="switchTab('graph')">Graph</button>
-        <button class="tab-button" data-tab="canvas" style="display:none" onclick="switchTab('canvas')">Canvas</button>
-        <button class="tab-button" data-tab="tree" style="display:none" onclick="switchTab('tree')">Tree</button>
-        <button class="tab-button" data-tab="floorplan" onclick="switchTab('floorplan')">Floorplan</button>
-        <button class="tab-button" data-tab="stack-ecosystem" onclick="switchTab('stack-ecosystem')">Stack &amp; Deps</button>
-        <button class="tab-button" data-tab="data-explorer" onclick="switchTab('data-explorer')">Pivot Explorer</button>
-        <button class="tab-button" data-tab="db-lineage" onclick="switchTab('db-lineage')">DB Lineage</button>
-        <button class="tab-button" data-tab="async-topology" onclick="switchTab('async-topology')">Async &amp; WS</button>
-        <button class="tab-button" data-tab="visual-explainer" onclick="switchTab('visual-explainer')">Visual Explainers</button>
-        <button class="tab-button" data-tab="api-catalog" onclick="switchTab('api-catalog')">API Catalog</button>
-        <button class="tab-button" data-tab="adr-governance" onclick="switchTab('adr-governance')">ADR Governance</button>
-        <button class="tab-button" data-tab="quant-codex" onclick="switchTab('quant-codex')">Quant Codex</button>
-        <button class="tab-button" data-tab="framework-constitution" onclick="switchTab('framework-constitution')">Costituzione</button>
-        <button class="tab-button" data-tab="frontend-state" onclick="switchTab('frontend-state')">UI Stores</button>
-        <button class="tab-button" data-tab="worker-tasks" onclick="switchTab('worker-tasks')">Worker Tasks</button>
-        <button class="tab-button" data-tab="threat-matrix" onclick="switchTab('threat-matrix')">Threat Matrix</button>
-        <button class="tab-button" data-tab="data-ingestion" onclick="switchTab('data-ingestion')">Data Ingestion</button>
-        <button class="tab-button" data-tab="runbook-ops" onclick="switchTab('runbook-ops')">Ops Runbook</button>
-        <button class="tab-button" data-tab="live-telemetry" onclick="switchTab('live-telemetry')">Live Telemetry</button>
-        <button class="tab-button" data-tab="console" onclick="switchTab('console')">Console</button>
+
+        <div class="nav-dd" data-group="architecture">
+          <button class="nav-dd-btn" type="button" onclick="toggleNavDropdown(this)">Architecture ▾</button>
+          <div class="nav-dd-menu">
+            <button class="nav-dd-item tab-button" data-tab="floorplan" onclick="switchTabFromMenu('floorplan')">Floorplan SVG</button>
+            <button class="nav-dd-item tab-button" data-tab="stack-ecosystem" onclick="switchTabFromMenu('stack-ecosystem')">Stack &amp; Deps</button>
+            <button class="nav-dd-item tab-button" data-tab="data-explorer" onclick="switchTabFromMenu('data-explorer')">Pivot Explorer</button>
+            <button class="nav-dd-item tab-button" data-tab="db-lineage" onclick="switchTabFromMenu('db-lineage')">DB Lineage</button>
+          </div>
+        </div>
+
+        <div class="nav-dd" data-group="runtime">
+          <button class="nav-dd-btn" type="button" onclick="toggleNavDropdown(this)">Runtime &amp; Flows ▾</button>
+          <div class="nav-dd-menu">
+            <button class="nav-dd-item tab-button" data-tab="async-topology" onclick="switchTabFromMenu('async-topology')">Async &amp; WS</button>
+            <button class="nav-dd-item tab-button" data-tab="frontend-state" onclick="switchTabFromMenu('frontend-state')">UI Stores</button>
+            <button class="nav-dd-item tab-button" data-tab="worker-tasks" onclick="switchTabFromMenu('worker-tasks')">Worker Tasks</button>
+            <button class="nav-dd-item tab-button" data-tab="data-ingestion" onclick="switchTabFromMenu('data-ingestion')">Data Ingestion</button>
+            <button class="nav-dd-item tab-button" data-tab="live-telemetry" onclick="switchTabFromMenu('live-telemetry')">Live Telemetry</button>
+          </div>
+        </div>
+
+        <div class="nav-dd" data-group="governance">
+          <button class="nav-dd-btn" type="button" onclick="toggleNavDropdown(this)">Governance &amp; Ops ▾</button>
+          <div class="nav-dd-menu">
+            <button class="nav-dd-item tab-button" data-tab="api-catalog" onclick="switchTabFromMenu('api-catalog')">API Catalog</button>
+            <button class="nav-dd-item tab-button" data-tab="adr-governance" onclick="switchTabFromMenu('adr-governance')">ADR Governance</button>
+            <button class="nav-dd-item tab-button" data-tab="quant-codex" onclick="switchTabFromMenu('quant-codex')">Quant Codex</button>
+            <button class="nav-dd-item tab-button" data-tab="framework-constitution" onclick="switchTabFromMenu('framework-constitution')">Costituzione</button>
+            <button class="nav-dd-item tab-button" data-tab="threat-matrix" onclick="switchTabFromMenu('threat-matrix')">Threat Matrix</button>
+            <button class="nav-dd-item tab-button" data-tab="runbook-ops" onclick="switchTabFromMenu('runbook-ops')">Ops Runbook</button>
+            <button class="nav-dd-item tab-button" data-tab="visual-explainer" onclick="switchTabFromMenu('visual-explainer')">Visual Explainers</button>
+            <button class="nav-dd-item tab-button" data-tab="console" onclick="switchTabFromMenu('console')">Console</button>
+          </div>
+        </div>
       </div>
       <div class="tabs-right">
         <label style="display: flex; align-items: center; gap: 4px; font-size: 11px; color: var(--text-muted); cursor: pointer; user-select: none; margin-right: 4px;">
@@ -2193,6 +2236,35 @@
       if (bd) bd.classList.remove("active");
     }
 
+
+    function toggleNavDropdown(btn) {
+      const wrap = btn.closest('.nav-dd');
+      const wasOpen = wrap.classList.contains('open');
+      document.querySelectorAll('.nav-dd.open').forEach(d => d.classList.remove('open'));
+      if (!wasOpen) wrap.classList.add('open');
+    }
+    function switchTabFromMenu(tabId) {
+      document.querySelectorAll('.nav-dd.open').forEach(d => d.classList.remove('open'));
+      switchTab(tabId);
+      syncNavGroupActive(tabId);
+    }
+    function syncNavGroupActive(tabId) {
+      document.querySelectorAll('.nav-dd-btn').forEach(b => b.classList.remove('active'));
+      const activeItem = document.querySelector(`.nav-dd-item[data-tab="${tabId}"]`);
+      if (activeItem) {
+        const grp = activeItem.closest('.nav-dd');
+        if (grp) {
+          const btn = grp.querySelector('.nav-dd-btn');
+          if (btn) btn.classList.add('active');
+        }
+      }
+    }
+    document.addEventListener('click', (e) => {
+      if (!e.target.closest('.nav-dd')) {
+        document.querySelectorAll('.nav-dd.open').forEach(d => d.classList.remove('open'));
+      }
+    });
+
     function switchTab(tabId) {
       const _studioRedirectMap = {
         'graph': 'graph',
@@ -2247,6 +2319,7 @@
       closeMobileSidebar();
       activeTab = tabId;
       document.querySelectorAll(".tab-button").forEach(btn => btn.classList.remove("active"));
+      if (typeof syncNavGroupActive === "function") syncNavGroupActive(tabId);
       document.querySelectorAll(".tab-pane").forEach(pane => pane.classList.remove("active"));
       const btn = document.querySelector(`[onclick="switchTab('${tabId}')"]`);
       if (btn) {
