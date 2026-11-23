@@ -283,15 +283,15 @@ class _SafeAstEvaluator:
                 if k is not None
             }
         if isinstance(node, ast.UnaryOp):
-            op_fn = _UNARY_OPS.get(type(node.op))
-            if op_fn is None:
+            unary_fn = _UNARY_OPS.get(type(node.op))
+            if unary_fn is None:
                 raise CodeModeSecurityError(f"Disallowed unary operator: {type(node.op).__name__}")
-            return op_fn(self._eval_expr(node.operand))
+            return unary_fn(self._eval_expr(node.operand))
         if isinstance(node, ast.BinOp):
-            op_fn = _BIN_OPS.get(type(node.op))
-            if op_fn is None:
+            bin_fn = _BIN_OPS.get(type(node.op))
+            if bin_fn is None:
                 raise CodeModeSecurityError(f"Disallowed binary operator: {type(node.op).__name__}")
-            return op_fn(self._eval_expr(node.left), self._eval_expr(node.right))
+            return bin_fn(self._eval_expr(node.left), self._eval_expr(node.right))
         if isinstance(node, ast.BoolOp):
             if isinstance(node.op, ast.And):
                 val: Any = True
