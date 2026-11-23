@@ -314,41 +314,46 @@
     const nodesIn = raw.nodes || [];
     const linksIn = raw.links || raw.edges || [];
 
+    // Collapse symbols to file-level modules so Particle Flow & Chord show 1,400 clean modules (93% connected) instead of 23k floating symbol dots
     commCounts = {};
-    rawNodes = nodesIn.map(n => {
+    const fileMap = new Map();
+    const idToFile = new Map();
+    const pathToId = new Map();
+    const stemToId = new Map();
+    const labelToId = new Map();
+
+    for (const n of nodesIn) {
       const cid = Number.isFinite(Number(n.community)) ? Number(n.community) : 0;
-      commCounts[cid] = (commCounts[cid] || 0) + 1;
-      return {
-        id: String(n.id),
-        name: n.label || n.name || String(n.id),
-        path: n.path || '',
-        community: cid,
-        degree: n.degree || 1,
-        color: n.color || COMMUNITY_COLORS[Math.abs(cid) % COMMUNITY_COLORS.length],
-      };
-    });
+      const rawPath = String(n.path || n.label || n.id).replace(/\\/g, '/');
+      const key = (rawPath.includes('/') || rawPath.includes('.')) ? rawPath : String(n.id);
+      if (!fileMap.has(key)) {
+        commCounts[cid] = (commCounts[cid] || 0) + 1;
+        fileMap.set(key, {
+          id: key,
+          name: rawPath.split('/').pop() || n.label || key,
+          path: rawPath,
+          community: cid,
+          degree: n.degree || 1,
+          color: n.color || COMMUNITY_COLORS[Math.abs(cid) % COMMUNITY_COLORS.length],
+        });
+      }
+      idToFile.set(String(n.id), key);
+      const p = rawPath.toLowerCase();
+      if (!pathToId.has(p)) pathToId.set(p, key);
+      const noExt = p.replace(/\.[^/.]+$/, '');
+      if (!stemToId.has(noExt)) stemToId.set(noExt, key);
+      const lbl = String(n.label || n.name || '').toLowerCase().replace(/\(\)$/, '');
+      if (lbl && !labelToId.has(lbl)) labelToId.set(lbl, key);
+    }
+    rawNodes = Array.from(fileMap.values());
 
     const derived = deriveCommunityLabels(rawNodes);
     labelsMap = { ...derived, ...(raw.labels || {}), ...(window.GRAPH_LABELS || {}) };
 
-    // Resolve edges by node.id OR file path OR path stem OR label
-    const validIds = new Set(rawNodes.map(n => n.id));
-    const pathToId = new Map();
-    const stemToId = new Map();
-    const labelToId = new Map();
-    for (const n of rawNodes) {
-      const p = String(n.path || '').replace(/\\/g, '/').toLowerCase();
-      if (p) {
-        if (!pathToId.has(p)) pathToId.set(p, n.id);
-        const noExt = p.replace(/\.[^/.]+$/, '');
-        if (!stemToId.has(noExt)) stemToId.set(noExt, n.id);
-      }
-      const lbl = String(n.name || '').toLowerCase().replace(/\(\)$/, '');
-      if (lbl && !labelToId.has(lbl)) labelToId.set(lbl, n.id);
-    }
     function resolveRef(ref) {
       const s = String(ref || '');
-      if (validIds.has(s)) return s;
+      if (fileMap.has(s)) return s;
+      if (idToFile.has(s)) return idToFile.get(s);
       const norm = s.replace(/\\/g, '/').toLowerCase();
       if (pathToId.has(norm)) return pathToId.get(norm);
       const noExt = norm.replace(/\.[^/.]+$/, '');
@@ -356,13 +361,19 @@
       return labelToId.get(norm) || null;
     }
 
-    rawLinks = linksIn
-      .map(l => {
-        const sRaw = typeof (l.source ?? l.from) === 'object' ? (l.source ?? l.from).id : (l.source ?? l.from);
-        const tRaw = typeof (l.target ?? l.to) === 'object' ? (l.target ?? l.to).id : (l.target ?? l.to);
-        return { source: resolveRef(sRaw), target: resolveRef(tRaw), type: l.type || 'link' };
-      })
-      .filter(l => l.source && l.target && l.source !== l.target);
+    const seenPairs = new Set();
+    rawLinks = [];
+    for (const l of linksIn) {
+      const sRaw = typeof (l.source ?? l.from) === 'object' ? (l.source ?? l.from).id : (l.source ?? l.from);
+      const tRaw = typeof (l.target ?? l.to) === 'object' ? (l.target ?? l.to).id : (l.target ?? l.to);
+      const s = resolveRef(sRaw);
+      const t = resolveRef(tRaw);
+      if (!s || !t || s === t) continue;
+      const pk = s + '->' + t;
+      if (seenPairs.has(pk)) continue;
+      seenPairs.add(pk);
+      rawLinks.push({ source: s, target: t, type: l.type || 'link' });
+    }
 
     commIds = Object.keys(commCounts).map(Number).sort((a, b) => (commCounts[b] - commCounts[a]));
 

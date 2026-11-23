@@ -97,21 +97,39 @@
     const layerCounts = new Map(LAYERS.map(l => [l.id, 0]));
     const layerBuckets = new Map(LAYERS.map(l => [l.id, []]));
 
-    allNodes = nodesIn.map(n => {
-      const layer = classifyLayer(n);
-      layerCounts.set(layer.id, (layerCounts.get(layer.id) || 0) + 1);
-      const item = {
-        id: n.id,
-        name: n.label || n.name || n.id,
-        path: n.path || '',
-        layerId: layer.id,
-        layerName: layer.name,
-        color: layer.color,
-        val: Math.min(10, Math.max(1.5, (n.degree || 1) * 0.9)),
-      };
-      layerBuckets.get(layer.id).push(item);
-      return item;
-    });
+    // Collapse symbols into file-level module nodes so edges connect cleanly without 23k floating symbol dots
+    const fileNodesMap = new Map();
+    const idToFileId = new Map();
+    const pathToFileId = new Map();
+    const stemToFileId = new Map();
+    for (const n of nodesIn) {
+      const rawPath = String(n.path || n.label || n.id).replace(/\\/g, '/');
+      const key = rawPath.includes('/') || rawPath.includes('.') ? rawPath : String(n.id);
+      if (!fileNodesMap.has(key)) {
+        const layer = classifyLayer(n);
+        layerCounts.set(layer.id, (layerCounts.get(layer.id) || 0) + 1);
+        const item = {
+          id: key,
+          name: rawPath.split('/').pop() || n.label || key,
+          path: rawPath,
+          layerId: layer.id,
+          layerName: layer.name,
+          color: layer.color,
+          symbols: 1,
+          val: Math.min(12, Math.max(2, (n.degree || 1) * 0.8)),
+        };
+        fileNodesMap.set(key, item);
+        layerBuckets.get(layer.id).push(item);
+      } else {
+        fileNodesMap.get(key).symbols += 1;
+      }
+      idToFileId.set(String(n.id), key);
+      const pLow = rawPath.toLowerCase();
+      if (!pathToFileId.has(pLow)) pathToFileId.set(pLow, key);
+      const noExt = pLow.replace(/\.[^/.]+$/, '');
+      if (!stemToFileId.has(noExt)) stemToFileId.set(noExt, key);
+    }
+    allNodes = Array.from(fileNodesMap.values());
 
     // Arrange each layer as an organized 2D disc on its Z plane
     LAYERS.forEach(l => {
@@ -126,13 +144,31 @@
       });
     });
 
-    const validIds = new Set(allNodes.map(n => n.id));
-    allLinks = linksIn
-      .slice(0, 3000)
-      .map(l => ({ source: typeof l.source === 'object' ? l.source.id : l.source, target: typeof l.target === 'object' ? l.target.id : l.target }))
-      .filter(l => validIds.has(l.source) && validIds.has(l.target));
+    function resolveRef(ref) {
+      const s = String(ref || '');
+      if (fileNodesMap.has(s)) return s;
+      if (idToFileId.has(s)) return idToFileId.get(s);
+      const norm = s.replace(/\\/g, '/').toLowerCase();
+      if (pathToFileId.has(norm)) return pathToFileId.get(norm);
+      return stemToFileId.get(norm.replace(/\.[^/.]+$/, '')) || null;
+    }
 
-    document.getElementById('hud-sub').textContent = `${allNodes.length.toLocaleString()} nodes across 5 Z-planes • ${allLinks.length.toLocaleString()} cross-layer links`;
+    const seenL = new Set();
+    allLinks = [];
+    for (const l of linksIn) {
+      const sRaw = typeof (l.source ?? l.from) === 'object' ? (l.source ?? l.from).id : (l.source ?? l.from);
+      const tRaw = typeof (l.target ?? l.to) === 'object' ? (l.target ?? l.to).id : (l.target ?? l.to);
+      const s = resolveRef(sRaw);
+      const t = resolveRef(tRaw);
+      if (!s || !t || s === t) continue;
+      const k = s + '->' + t;
+      if (seenL.has(k)) continue;
+      seenL.add(k);
+      allLinks.push({ source: s, target: t });
+      if (allLinks.length >= 2500) break;
+    }
+
+    document.getElementById('hud-sub').textContent = `${allNodes.length.toLocaleString()} modules across 5 Z-planes • ${allLinks.length.toLocaleString()} live animated links`;
 
     const btnWrap = document.getElementById('layer-btns');
     btnWrap.innerHTML = `<button class="btn active" data-lid="ALL" onclick="filterLayer('ALL')">All 5 Planes</button>` +
@@ -152,10 +188,11 @@
       .nodeLabel(n => `${n.name} [${n.layerName}]`)
       .nodeColor('color')
       .nodeVal('val')
-      .linkColor(() => 'rgba(255, 255, 255, 0.14)')
-      .linkDirectionalParticles(1)
-      .linkDirectionalParticleSpeed(0.005)
-      .linkOpacity(0.22);
+      .linkColor(() => 'rgba(56, 189, 248, 0.28)')
+      .linkDirectionalParticles(3)
+      .linkDirectionalParticleSpeed(0.009)
+      .linkDirectionalParticleWidth(2.4)
+      .linkOpacity(0.32);
 
     fg.cameraPosition({ x: 420, y: 240, z: 620 }, { x: 0, y: 0, z: 0 });
   });
