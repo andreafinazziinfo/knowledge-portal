@@ -81,7 +81,7 @@ for (const vp of [{ width: 1440, height: 900 }, { width: 768, height: 1024 }, { 
   page.on('pageerror', e => errs.push(e.message));
   await page.goto(`${BASE}/views/graph-studio.html`, { waitUntil: 'domcontentloaded', timeout: 15000 });
   await page.waitForTimeout(300);
-  for (const mode of ['particle-flow', 'chord', '2d-board', 'tree', 'treemap', 'sunburst', '2d-galaxy']) {
+  for (const mode of ['particle-flow', 'chord', 'canvas', 'tree', 'treemap', 'sunburst', 'graph']) {
     await page.click(`.gs-btn[data-mode="${mode}"]`);
     await page.waitForTimeout(150);
   }
