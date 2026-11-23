@@ -143,6 +143,22 @@ class PortalRequestHandler(SimpleHTTPRequestHandler):
             self.handle_api(path, query)
             return
 
+        if path in ("/llms.txt", "/llms-full.txt"):
+            fname = path.lstrip("/")
+            candidate = self.template_dir / fname
+            if not candidate.exists():
+                from knowledge_portal.generators.llms_txt import generate_llms_manifests
+                generate_llms_manifests(self.project_dir, self.template_dir / "data", self.template_dir)
+            if candidate.exists() and candidate.is_file():
+                data = candidate.read_bytes()
+                self.send_response(200)
+                self.send_cors_headers()
+                self.send_header("Content-Type", "text/plain; charset=utf-8")
+                self.send_header("Content-Length", str(len(data)))
+                self.end_headers()
+                self.wfile.write(data)
+                return
+
         if path == "/" or path == "/index.html":
             path = "/dashboard.html"
 
@@ -276,6 +292,25 @@ class PortalRequestHandler(SimpleHTTPRequestHandler):
             q = query.get("q", [""])[0]
             engine = FtsSearchEngine(self.template_dir / "data")
             self.send_json(engine.search(q, limit=30))
+
+        elif path == "/api/context-pack":
+            from knowledge_portal.mcp_server import PortalMcpEngine
+            q = query.get("q", [""])[0]
+            max_tok = int(query.get("max_tokens", ["4000"])[0] or 4000)
+            eng = PortalMcpEngine(self.project_dir, self.template_dir / "data")
+            self.send_json(eng.context_pack(q, max_tokens=max_tok))
+
+        elif path == "/api/impact":
+            from knowledge_portal.mcp_server import PortalMcpEngine
+            target = query.get("target", [""])[0]
+            depth = int(query.get("depth", ["3"])[0] or 3)
+            eng = PortalMcpEngine(self.project_dir, self.template_dir / "data")
+            self.send_json(eng.impact(target, max_depth=depth))
+
+        elif path == "/api/health-audit":
+            from knowledge_portal.mcp_server import PortalMcpEngine
+            eng = PortalMcpEngine(self.project_dir, self.template_dir / "data")
+            self.send_json(eng.health_audit())
 
         elif path == "/api/file":
             filepath = query.get("path", [""])[0]

@@ -1,0 +1,29 @@
+# sample_project — Knowledge Portal
+
+> Interactive software architecture, AST knowledge graph, and AI query engine.
+
+## Snapshot Metrics
+- Graph Nodes: 13
+- Graph Edges: 0
+- Architectural Health: 94/100 (Grade A)
+- Dependency Cycles: 0 | Orphans: 13
+
+## Primary Views
+- `/dashboard.html` — Main portal shell & live search
+- `/views/graph-studio.html` — Unified Graph Studio (2D/3D Network, Z-Planes, Chord, Tree/Treemap/Sunburst)
+- `/views/floorplan.html` — Architectural Vector Floorplan
+- `/views/database-schema.html` — Interactive DB Schema & ERD
+- `/views/process-flows.html` — Execution & Process Flows
+- `/views/live-telemetry.html` — Live System Telemetry & Sync Status
+
+## AI & Machine-Readable Endpoints
+- `GET /api/search?q=<term>&limit=15` — SQLite FTS5 BM25 instant search
+- `GET /api/context-pack?q=<topic>&max_tokens=4000` — Compressed single-call AI briefing
+- `GET /api/impact?target=<symbol_or_file>&depth=3` — Reverse-dependency blast radius
+- `GET /api/health-audit` — Architectural health audit (cycles, orphans, god-files)
+- `GET /api/telemetry` — Live host & portal status
+- `GET /llms-full.txt` — Extended full-context snapshot
+
+## MCP Integration (Stdio JSON-RPC 2.0)
+- Standard mode (10+ tools): `knowledge-portal mcp --dir .`
+- Compact Code Mode (2 tools, ~1k token schema): `knowledge-portal mcp --dir . --code-mode`

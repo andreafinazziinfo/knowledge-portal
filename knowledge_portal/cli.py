@@ -45,6 +45,7 @@ def main():
     mcp_p.add_argument("--dir", "-d", default=".", help="Project root directory (default: current directory)")
     mcp_p.add_argument("--data-dir", default=None, help="Portal data directory (default: template/data)")
     mcp_p.add_argument("--url", default="http://127.0.0.1:8000", help="Running portal URL for live telemetry")
+    mcp_p.add_argument("--code-mode", action="store_true", help="Expose compact 2-tool Cloudflare-style Code Mode MCP (~1k token schema)")
 
     # Command: status
     status_p = subparsers.add_parser("status", help="Inspect live portal telemetry or static snapshot status")
@@ -55,7 +56,7 @@ def main():
     # Command: query
     query_p = subparsers.add_parser("query", help="Query portal knowledge artifacts (search, flow, schema, stack)")
     query_p.add_argument("term", nargs="?", default="", help="Search term or table/symbol name")
-    query_p.add_argument("--type", "-t", choices=["search", "flow", "schema", "stack"], default="search", help="Query target")
+    query_p.add_argument("--type", "-t", choices=["search", "flow", "schema", "stack", "impact", "health", "context-pack"], default="search", help="Query target")
     query_p.add_argument("--limit", "-l", type=int, default=15, help="Max results")
     query_p.add_argument("--data-dir", default=None, help="Portal data directory (default: template/data)")
     query_p.add_argument("--dir", "-d", default=".", help="Project root directory")
@@ -77,7 +78,11 @@ def main():
             stats = scan_polyglot_codebase(target, out)
 
         from knowledge_portal.generators.stack_inventory import generate_stack_inventory
+        from knowledge_portal.generators.arch_health import generate_arch_health
+        from knowledge_portal.generators.llms_txt import generate_llms_manifests
         generate_stack_inventory(target, out)
+        generate_arch_health(out)
+        generate_llms_manifests(target, out, template_dir)
 
         from knowledge_portal.indexer.search_index import generate_search_index
         omni_file = template_dir / "views" / "data" / "omni-search-index.json"
@@ -121,7 +126,7 @@ def main():
         from knowledge_portal.mcp_server import run_mcp_stdio
         from knowledge_portal.server import get_template_dir
         data_dir = Path(args.data_dir).resolve() if args.data_dir else (get_template_dir() / "data")
-        run_mcp_stdio(project_dir=Path(args.dir), data_dir=data_dir, portal_url=args.url)
+        run_mcp_stdio(project_dir=Path(args.dir), data_dir=data_dir, portal_url=args.url, code_mode=getattr(args, "code_mode", False))
 
     elif args.command == "status":
         import json
@@ -148,6 +153,9 @@ def main():
             "flow": lambda: engine.process_flow(args.term, args.limit),
             "schema": lambda: engine.db_schema(args.term),
             "stack": lambda: engine.stack(args.term),
+            "impact": lambda: engine.impact(args.term),
+            "health": lambda: engine.health_audit(),
+            "context-pack": lambda: engine.context_pack(args.term),
         }
         print(json.dumps(dispatch[args.type](), indent=2, ensure_ascii=False))
     else:

@@ -23,6 +23,68 @@ def sanitize_id(s: str) -> str:
     return re.sub(r"[^a-zA-Z0-9_]", "_", s)
 
 
+
+def _try_treesitter_extract(content: str, rel_path: str, lang: str) -> Tuple[bool, List[Dict[str, Any]]]:
+    """Optional tree-sitter AST extraction when the [treesitter] extra is installed.
+    Returns (True, extracted_nodes) if tree-sitter parsed the file, else (False, []).
+    """
+    try:
+        from tree_sitter import Language, Parser  # type: ignore
+    except Exception:
+        return False, []
+
+    mod_map = {
+        "typescript": ("tree_sitter_typescript", "language_typescript"),
+        "javascript": ("tree_sitter_javascript", "language"),
+        "rust": ("tree_sitter_rust", "language"),
+        "go": ("tree_sitter_go", "language"),
+        "java": ("tree_sitter_java", "language"),
+        "cpp": ("tree_sitter_cpp", "language"),
+    }
+    spec = mod_map.get(lang)
+    if not spec:
+        return False, []
+    try:
+        import importlib
+        gram_mod = importlib.import_module(spec[0])
+        lang_fn = getattr(gram_mod, spec[1])
+        parser = Parser(Language(lang_fn()))
+        tree = parser.parse(content.encode("utf-8", errors="ignore"))
+    except Exception:
+        return False, []
+
+    target_types = {
+        "function_declaration": "function",
+        "method_definition": "method",
+        "class_declaration": "class",
+        "interface_declaration": "interface",
+        "function_item": "function",
+        "struct_item": "struct",
+        "impl_item": "class",
+        "method_declaration": "method",
+        "type_spec": "struct",
+    }
+    extracted: List[Dict[str, Any]] = []
+    stack = [tree.root_node]
+    while stack:
+        node = stack.pop()
+        if node.type in target_types:
+            name_node = node.child_by_field_name("name")
+            if name_node is not None:
+                sym = content.encode("utf-8", errors="ignore")[name_node.start_byte:name_node.end_byte].decode("utf-8", errors="ignore").strip()
+                if sym:
+                    extracted.append({
+                        "id": f"ts_{lang}_{sanitize_id(rel_path)}_{sanitize_id(sym)}",
+                        "label": sym,
+                        "type": target_types[node.type],
+                        "lang": lang,
+                        "path": rel_path,
+                        "parser": "tree-sitter",
+                    })
+        stack.extend(node.children)
+    return (len(extracted) > 0), extracted
+
+
 class PolyglotScanner:
     def __init__(self, target_dir: Path):
         self.target_dir = target_dir.resolve()
@@ -147,6 +209,10 @@ class PolyglotScanner:
                     })
 
     def parse_typescript_javascript(self, content: str, rel_path: str):
+        ts_lang = "typescript" if rel_path.endswith((".ts", ".tsx")) else "javascript"
+        ok_ts, ts_nodes = _try_treesitter_extract(content, rel_path, ts_lang)
+        if ok_ts:
+            self.nodes.extend(ts_nodes)
         lines = content.splitlines()
         cls_pattern = re.compile(r"^\s*(?:export\s+)?(?:default\s+)?(?:abstract\s+)?(class|interface)\s+([A-Za-z0-9_]+)")
         pinia_pattern = re.compile(r"^\s*(?:export\s+)?const\s+(use[A-Za-z0-9_]*Store)\s*=\s*defineStore\s*\(\s*['\"]([^'\"]+)['\"]")

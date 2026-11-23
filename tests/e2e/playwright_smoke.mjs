@@ -72,6 +72,37 @@ for (const vp of [{ width: 1440, height: 900 }, { width: 768, height: 1024 }, { 
   await ctx.close();
 }
 
+
+// 4. Unified Graph Studio mode switching & mobile overflow check
+{
+  const ctx = await browser.newContext({ viewport: { width: 1440, height: 900 } });
+  const page = await ctx.newPage();
+  const errs = [];
+  page.on('pageerror', e => errs.push(e.message));
+  await page.goto(`${BASE}/views/graph-studio.html`, { waitUntil: 'domcontentloaded', timeout: 15000 });
+  await page.waitForTimeout(300);
+  for (const mode of ['particle-flow', 'chord', '2d-board', 'tree', 'treemap', 'sunburst', '2d-galaxy']) {
+    await page.click(`.gs-btn[data-mode="${mode}"]`);
+    await page.waitForTimeout(150);
+  }
+  if (errs.length > 0) {
+    console.error('FAIL graph-studio mode switch errors:', errs);
+    failures++;
+  }
+  await ctx.close();
+
+  const mobCtx = await browser.newContext({ viewport: { width: 390, height: 844 } });
+  const mobPage = await mobCtx.newPage();
+  await mobPage.goto(`${BASE}/views/graph-studio.html?mode=sunburst`, { waitUntil: 'domcontentloaded', timeout: 15000 });
+  await mobPage.waitForTimeout(300);
+  const mobOverflow = await mobPage.evaluate(() => document.documentElement.scrollWidth > window.innerWidth);
+  if (mobOverflow) {
+    console.error('FAIL graph-studio mobile 390x844 overflow');
+    failures++;
+  }
+  await mobCtx.close();
+}
+
 await browser.close();
 console.log(`Playwright E2E Smoke complete. Failures: ${failures}`);
 process.exit(failures > 0 ? 1 : 0);

@@ -11,6 +11,8 @@ from knowledge_portal.server import get_template_dir
 from knowledge_portal.scanner.polyglot import scan_polyglot_codebase
 from knowledge_portal.indexer.search_index import generate_search_index
 from knowledge_portal.generators.floorplan import generate_floorplan_from_yaml
+from knowledge_portal.generators.arch_health import generate_arch_health
+from knowledge_portal.generators.llms_txt import generate_llms_manifests
 
 def export_static_portal(source_dir: Path, output_dir: Path, project_name: Optional[str] = None) -> Dict[str, Any]:
     source_dir = source_dir.resolve()
@@ -40,6 +42,10 @@ def export_static_portal(source_dir: Path, output_dir: Path, project_name: Optio
     data_dir = output_dir / "data"
     print(f"🔍 Scanning polyglot codebase: {source_dir}")
     stats = scan_polyglot_codebase(source_dir, data_dir)
+
+    # 2b. Generate Architectural Health & llms.txt manifests
+    generate_arch_health(data_dir)
+    generate_llms_manifests(source_dir, data_dir, output_dir, project_name=project_name)
 
     # 3. Generate Search Index into output_dir/views/data/omni-search-index.json
     omni_dir = output_dir / "views" / "data"

@@ -976,6 +976,7 @@
       <select id="mobile-view-picker" onchange="if(this.value){switchTab(this.value); this.value='';}" title="Seleziona Vista Rapida">
         <option value="" disabled selected>Viste (21) ▾</option>
         <optgroup label="Grafi &amp; 3D">
+          <option value="graph-studio">★ Graph Studio (All 10 Modes)</option>
           <option value="graph">2D Network Graph</option>
           <option value="graph_3d">3D WebGL Graph</option>
           <option value="canvas">2D Whiteboard Canvas</option>
@@ -1009,6 +1010,7 @@
       <div class="tabs-left">
         <button class="tab-button active" data-tab="home" onclick="switchTab('home')">Home</button>
         <button class="tab-button" data-tab="reader" onclick="switchTab('reader')">Reader</button>
+        <button class="tab-button" data-tab="graph-studio" onclick="switchTab('graph-studio')">Graph Studio</button>
         <button class="tab-button" data-tab="graph" onclick="switchTab('graph')">Graph</button>
         <button class="tab-button" data-tab="canvas" onclick="switchTab('canvas')">Canvas</button>
         <button class="tab-button" data-tab="tree" onclick="switchTab('tree')">Tree</button>
@@ -1076,6 +1078,14 @@
             <span>🌌</span> Visualizzazioni a Grafo &amp; 3D WebGL
           </div>
           <div class="views-hub-grid">
+            <div class="view-hub-card" data-view-id="graph-studio" onclick="switchTab('graph-studio')">
+              <div class="hub-card-icon">🧭</div>
+              <div class="hub-card-content">
+                <div class="hub-card-title">Graph Studio (Unified)</div>
+                <div class="hub-card-desc">Tutte le 10 viste (2D/3D Galaxy, Particle Flow, Chord, Z-Planes, Board, Tree, Treemap, Sunburst, 3D Tree) con stato condiviso.</div>
+              </div>
+              <span class="hub-card-badge">10 Modes</span>
+            </div>
             <div class="view-hub-card" data-view-id="graph" onclick="switchTab('graph')">
               <div class="hub-card-icon">🔗</div>
               <div class="hub-card-content">
@@ -1325,6 +1335,11 @@
     </div>
 
     <!-- Tab 2: Interactive Graph -->
+    <div class="tab-pane" id="pane-graph-studio">
+      <button class="fullscreen-btn" onclick="toggleFullscreen('pane-graph-studio')" title="Fullscreen">⛶</button>
+      <iframe id="graph-studio-iframe" data-src="views/graph-studio.html?mode=2d-galaxy" title="Unified Graph Studio" style="width:100%; height:100%; border:none; background:#0f0f0f;"></iframe>
+    </div>
+
     <div class="tab-pane" id="pane-graph">
       <div style="position: absolute; right: 60px; top: 15px; z-index: 10;">
         <button class="action-btn" onclick="toggleGraphDimension()" style="font-size: 11px; padding: 4px 8px; border: 1px solid #ececec; background: rgba(255, 255, 255, 0.22); color: #ececec; border-radius: 6px; cursor: pointer;">🌐 Switch to 3D</button>
