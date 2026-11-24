@@ -105,12 +105,6 @@ python3 -m knowledge_portal.cli export . --output ./dist --name "My Project"
 - **Tab 10 (`🧬 Deep Audit: Dead Code, Migrations, FE & Telemetry`)**: **Symbol-Level Dead Code** (`Python`, `JS/TS`, `Vue`), **Migration Safety & SRE Resilience** (`SQL_INDEX_WITHOUT_CONCURRENTLY`, `SQL_LOCK_TIMEOUT_MISSING`, `SRE_FSTRING_LOGGING`), **Frontend Hygiene & Static a11y** (Pinia/Vuex God-Stores, `A11Y_*`), **Quality Telemetry** (JUnit, Coverage, Ruff, Mypy, TSC) e **AST Semantic Clones** (rilevamento funzioni strutturalmente duplicate via fingerprint AST normalizzato).
 - **Export & CI Gate**: Pulsanti `🖨️ Print / PDF`, `⬇ Markdown`, `⬇ SARIF 2.1` + CLI `knowledge-portal report --format md|sarif` e `knowledge-portal gate --min-score 75 --max-cycles 0 --max-critical 0`.
 
-### 🎛️ Vista 10: Control Hub OSS (4 Viste Air-Gapped — ADR-081)
-- **Mission Control (`views/mission-control.html`)**: Cruscotto operativo unificato con KPI architetturali/Git/governance, radar anomalie `P0/P1/P2` e jump rapidi ai sottosistemi.
-- **Git & PR DAG (`views/git-pr-dag.html`)**: Matrice completa dei Git worktree (`clean`, `dirty`, `stale`, `detached`, `locked`), igiene branch locali, workflow CI e grafi PR.
-- **ADR & Runbook Hub (`views/adr-runbook-hub.html`)**: Grafo delle Architecture Decision Records (`Accepted`/`Proposed`/`Superseded`) e catalogo runbook operativi cliccabile verso il Reader.
-- **AI Mission Launcher (`views/ai-mission-launcher.html`)**: Generatore interattivo di missioni AI con selezione scope, context-pack mirati e prompt pronti per agenti autonomi.
-
 ### ⚡ Vista 8: End-to-End Sequence Tracer & 💥 What-If Impact Simulator
 - **Sequence Tracer (`views/sequence-tracer.html`)**: visualizza le catene di chiamata reali estratte via AST (`Route → Handler → Service Callees → DB Tables`) con diagramma sequenziale D3 cliccabile verso il Reader.
 - **Impact Simulator (`views/impact-simulator.html`)**: digita qualsiasi file o simbolo per accendere i cerchi concentrici **`d=1` / `d=2` / `d=3`**, il badge di rischio e il comando `pytest` mirato da eseguire prima del commit.
@@ -119,6 +113,18 @@ python3 -m knowledge_portal.cli export . --output ./dist --name "My Project"
 - **Live API Explorer (`views/api-catalog.html`)**: estrazione polyglot automatica (FastAPI, Flask, Express, Go, OpenAPI 3.1) con filtri metodo/tag, auth badge e download `openapi.json`.
 - **SBOM & Licenze (`views/stack-ecosystem.html`)**: inventario licenze (`Permissive`/`Copyleft`) e download 1-click **CycloneDX 1.5** (`data/sbom.cdx.json`).
 - **UX Enterprise**: Command Palette universale **`Ctrl+K`** (viste + doc + endpoint API con frecce `↑/↓/Enter`), **Guided Onboarding Paths** nella Home, **Deep-Linking** (`?tab=reader&file=...`, `?tab=impact-simulator&target=...`) e toggle tema **`🌙 Dark / ☀️ Light`**.
+
+### 🎛️ Vista 10: Control Hub OSS (4 Viste Air-Gapped — ADR-081)
+- **Mission Control (`views/mission-control.html`)**: Cruscotto operativo unificato con KPI architetturali/Git/governance, radar anomalie `P0/P1/P2` e jump rapidi ai sottosistemi.
+- **Git & PR DAG (`views/git-pr-dag.html`)**: Matrice completa dei Git worktree (`clean`, `dirty`, `stale`, `detached`, `locked`), igiene branch locali, workflow CI e grafi PR.
+- **ADR & Runbook Hub (`views/adr-runbook-hub.html`)**: Grafo delle Architecture Decision Records (`Accepted`/`Proposed`/`Superseded`) e catalogo runbook operativi cliccabile verso il Reader.
+- **AI Mission Launcher (`views/ai-mission-launcher.html`)**: Generatore interattivo di missioni AI con selezione scope, context-pack mirati e prompt pronti per agenti autonomi.
+
+### ⚡ Vista 11: Cross-Stack Intelligence, Test Oracle & Data Contracts (ADR-082 — 40 Viste HTML Totali)
+- **Vertical Slices (`views/vertical-slices.html`)**: traccia in end-to-end i collegamenti `UI Component / Store → REST API → Backend Handler → Worker → Database Table` con archi `FE_CALLS_API`.
+- **Test-to-Code Reverse Oracle (`views/test-oracle.html`)**: mappa inversa `modulo/simbolo → test diretti veloci` e rilevamento automatico dei blind spot ad alto rischio privi di copertura.
+- **Data Contracts & Runtime Modes (`views/data-contracts.html`)**: registro di schema drift Pydantic↔TypeScript, Error Taxonomy, matrice lettori/scrittori DB e matrice dei runtime mode (`offline/dev/paper/shadow/live`).
+- **Viste Data-Driven 0-CDN Convertite**: `views/async-topology.html` (task Celery/Beat, chiavi Redis, Pub/Sub, WS/SSE), `views/worker-tasks.html`, `views/frontend-state.html` e `views/data-ingestion.html` — per un totale di **40 viste HTML interattive** in `template/views/`, 100% air-gapped senza CDN.
 
 ---
 
@@ -157,9 +163,17 @@ Tutti i file descrittivi risiedono nella cartella `data/` del portale:
 | `data/mission-control.json` | **Mission Control (ADR-081)**: KPI esecutivi, stato sottosistemi e lista anomalie prioritizzate. | `kpis`, `subsystems`, `anomalies`, `quick_jumps` |
 | `data/git-dag.json` | **Git & PR DAG (ADR-081)**: inventario worktree, branch locali/stale/merged, PR e workflow CI. | `summary`, `worktrees`, `branches`, `prs`, `workflows` |
 | `data/adr-graph.json` | **ADR & Runbook Graph (ADR-081)**: grafo decisioni architetturali, stati e runbook operativi. | `summary`, `adrs`, `edges`, `runbooks` |
+| `data/module-cards.json` | **Compact Module Cards (ADR-082)**: schede compatte `≤180` token/file per slicing AI ad alta efficienza. | `cards`, `summary` |
+| `data/test-oracle.json` | **Test-to-Code Reverse Oracle (ADR-082)**: mappa inversa file/simboli → test veloci e blind spot. | `summary`, `file_to_tests`, `blind_spots` |
+| `data/agent-instructions-audit.json` | **Agent Instructions Audit (ADR-082)**: verifica token bloat e path morti in `CLAUDE.md`/`AGENTS.md`. | `summary`, `files`, `dead_paths`, `hygiene_score` |
+| `data/sarif-findings.json` | **Universal SARIF 2.1.0 (ADR-082)**: findings normalizzati da CodeQL, Semgrep, Trivy, Ruff, Bandit. | `summary`, `runs`, `findings` |
+| `data/vertical-slices.json` | **Cross-Stack Vertical Slices (ADR-082)**: slice 6-layer `UI → Store → API → Backend → Task → DB`. | `summary`, `slices`, `fe_calls_api` |
+| `data/async-topology.json` | **Async Topology (ADR-082)**: worker task, Beat schedule, chiavi/lock Redis, Pub/Sub, WS/SSE. | `summary`, `tasks`, `schedules`, `channels` |
+| `data/data-contracts.json` | **Data Contracts & Drift (ADR-082)**: schema drift Pydantic↔TS, Error Taxonomy e DB readers/writers. | `summary`, `schema_drift`, `error_taxonomy`, `db_rw` |
+| `data/runtime-modes.json` | **Runtime Modes Matrix (ADR-082)**: matrice modalità operative, servizi richiesti e feature flags. | `modes`, `guards`, `feature_flags` |
 
-### 🔌 Protocollo MCP v2 (28 Tool · 14 Risorse), Code Mode & CLI AI-Native
-- **Server MCP Standard (`knowledge-portal mcp`)**: espone **28 tool** (26 tool standard tra cui `portal_mission_control`, `portal_git_dag`, `portal_adr_graph`, `portal_deep_audit`, `portal_dead_code`, `portal_cve_report`, `portal_config_matrix`, `portal_iac_topology`, `portal_ai_registry`, `portal_compliance`, `portal_mission_pack`, `portal_call_chain`, `portal_validate_change`, `portal_pr_context`, `portal_api_catalog`, `portal_arch_diff`, `portal_health_audit`, `portal_impact` + 2 tool Code Mode), **14 risorse `portal://`** (`portal://llms.txt`, `portal://health`, `portal://mission-control`, `portal://git-dag`, `portal://adr-graph`, `portal://dead-code`, `portal://cve-report`, `portal://quality-telemetry`, `portal://compliance`, `portal://api-catalog`, `portal://arch-diff`, `portal://sbom`, `portal://invariants`, `portal://ownership`) e **prompt guidati** (`audit_pr_impact`, `onboard_module`).
+### 🔌 Protocollo MCP v3 (37 Tool OSS · 22 Risorse `portal://` · Token-Budget Engine), Code Mode & CLI AI-Native
+- **Server MCP Standard (`knowledge-portal mcp`)**: espone **37 tool OSS read-only** (35 standard + 2 tool Code Mode `portal_discover` e `portal_codemode`), governati dal **Token-Budget Engine (`-98,7%` payload, default `detail="summary"`)**, inclusi i tool ADR-081/082 (`portal_slice_for_task`, `portal_check_diff`, `portal_agent_instructions_audit`, `portal_handoff_pack`, `portal_test_oracle`, `portal_sarif_findings`, `portal_vertical_slice`, `portal_async_topology`, `portal_contract`, `portal_mission_control`, `portal_git_dag`, `portal_adr_graph`, `portal_deep_audit`, `portal_dead_code`, `portal_cve_report`, `portal_config_matrix`, `portal_iac_topology`, `portal_ai_registry`, `portal_compliance`, `portal_mission_pack`, `portal_call_chain`, `portal_validate_change`, `portal_pr_context`, `portal_api_catalog`, `portal_arch_diff`, `portal_health_audit`, `portal_impact`), **22 risorse `portal://`** (`portal://llms.txt`, `portal://health`, `portal://api-catalog`, `portal://arch-diff`, `portal://sbom`, `portal://invariants`, `portal://ownership`, `portal://compliance`, `portal://cve-report`, `portal://dead-code`, `portal://quality-telemetry`, `portal://git-dag`, `portal://adr-graph`, `portal://mission-control`, `portal://module-cards`, `portal://test-oracle`, `portal://agent-instructions-audit`, `portal://sarif-findings`, `portal://vertical-slices`, `portal://async-topology`, `portal://data-contracts`, `portal://runtime-modes`) e **prompt guidati** (`audit_pr_impact`, `onboard_module`).
 - **Cloudflare-Style Code Mode (`knowledge-portal mcp --code-mode`)**: riduce lo schema MCP a 2 soli tool (`portal_discover` + `portal_codemode`) con interprete AST Python strettamente read-only per pipeline multi-step in un singolo round-trip.
 - **Ricerca Ibrida & PR Bot**: `GET /api/search?q=...&expand=1` espande i risultati FTS5 BM25 con i vicini 1-hop del grafo; `knowledge-portal pr-comment --base main` genera un commento PR con **Doc-Drift** e test impattati.
 
@@ -243,10 +257,11 @@ Il Knowledge Portal include un gate di verifica continuo:
 - **Design System Floorplan Carbon-Black**: Tutte le viste condividono canvas `#0f0f0f` con griglia a pallini, card `#191919` con bordo bianco su `:hover`, header trasparenti sfumati e controlli monocromatici.
 - **Ergonomia da Tastiera (`portal-ui.js`)**: Premere `/` per focalizzare istantaneamente il campo di ricerca della vista attiva; premere `Esc` per svuotare il filtro o chiudere drawer/modali.
 - **Vista `Live Telemetry & Auto-Sync`**: Interroga `/api/telemetry` per visualizzare CPU, RAM, Disco, avanzamento rebuild e stato watcher/servizi, degradando a `Static Snapshot` in modalità offline.
-- **Comandi CLI & Server MCP Nativo (`stdio` JSON-RPC 2.0)**:
+- **Comandi CLI (11 Subcomandi) & Server MCP Nativo (`stdio` JSON-RPC 2.0)**:
+  - Subcomandi disponibili: `scan`, `export`, `serve`, `floorplan`, `audit`, `mcp`, `status`, `query`, `report`, `gate`, `pr-comment`.
   - `knowledge-portal status --json`: stato live `/api/telemetry` o snapshot statico.
   - `knowledge-portal query "<term>" --type search|flow|schema|stack`: query diretta sui JSON del portale.
-  - `knowledge-portal mcp --dir . --url http://127.0.0.1:8000`: espone i 7 tool MCP read-only (`portal_search` su SQLite FTS5 BM25, `portal_process_flow`, `portal_db_schema`, `portal_stack`, `portal_telemetry`, `portal_read_doc`, `portal_graph_neighbors`) configurabili in qualsiasi client MCP:
+  - `knowledge-portal mcp --dir . --url http://127.0.0.1:8000`: espone i **37 tool MCP OSS read-only** e le **22 risorse `portal://`** (oppure 2 tool con `--code-mode`) configurabili in qualsiasi client MCP:
     ```json
     {
       "mcpServers": {
@@ -259,8 +274,6 @@ Il Knowledge Portal include un gate di verifica continuo:
     ```
 
 ---
-
-*Knowledge Portal v2.7 — Floorplan Carbon-Black & Production Hardened Edition — Realizzato per massimizzare la sinergia tra intelligenza umana e intelligenza artificiale.*
 
 ## ADR-069 / 070 / 071 / 072 / 073 — Graph Studio (18 Modalità), Health & Audit Center (8 Pilastri), AI Intelligence & Code Mode MCP
 
@@ -292,4 +305,9 @@ Il Knowledge Portal include un gate di verifica continuo:
 - **Async Topology (`views/async-topology.html`, `/api/async-topology`)**: mappa worker task, job schedulati, chiavi/lock Redis, canali Pub/Sub, WebSocket e stream SSE (`portal_async_topology`).
 - **Data Contracts & Runtime Modes (`views/data-contracts.html`, `/api/data-contracts`, `/api/runtime-modes`)**: rileva schema drift Pydantic↔TypeScript, rotte API non tipizzate, tassonomia errori, lettori/scrittori DB e matrice dei runtime mode (`portal_contract`).
 - **6+ Viste Nuove/Convertite Data-Driven 0-CDN**: `vertical-slices.html`, `test-oracle.html`, `data-contracts.html`, `async-topology.html`, `worker-tasks.html`, `frontend-state.html` e `data-ingestion.html` — 100% air-gapped senza alcuna richiesta CDN esterna.
-- **Server MCP Esteso**: **37 tool OSS** nativi (estensibili a **43 tool** con plugin domain-hub opzionali), tutti read-only e governati dal Token-Budget Engine.
+- **Server MCP Esteso**: **37 tool OSS** nativi e **22 risorse `portal://`** (estensibili a **43 tool** con plugin domain-hub opzionali), tutti read-only e governati dal Token-Budget Engine.
+- **CI/CD & Sicurezza (3 Workflow GitHub Actions)**: `.github/workflows/ci.yml` (`CI Suite`: Ruff, Mypy, Bandit, `verify_sanitization.py`, Pytest, Playwright E2E), `.github/workflows/docker.yml` (`Docker Publish GHCR`) e `.github/workflows/codeql.yml` (`CodeQL Security Analysis`).
+
+---
+
+*Knowledge Portal v3.0.0 Enterprise Edition — 40 Viste Air-Gapped · 37 Tool MCP OSS · 22 Risorse `portal://` — Realizzato per massimizzare la sinergia tra intelligenza umana e intelligenza artificiale.*
