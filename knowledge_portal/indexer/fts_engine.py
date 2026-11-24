@@ -128,7 +128,11 @@ class FtsSearchEngine:
                     item_path = str(item.get("path") or "")
                     if any(seg.startswith(".") or seg == "frozen" for seg in item_path.replace("\\", "/").split("/") if seg):
                         continue
-                    title = str(item.get("title") or item.get("name") or "")
+                    title = str(item.get("title") or item.get("name") or "").strip()
+                    if not title or title == "---":
+                        fallback_src = item_path or str(item.get("subtitle") or "")
+                        if fallback_src:
+                            title = Path(fallback_src).stem.replace("-", " ").replace("_", " ").title()
                     subtitle = str(item.get("subtitle") or "")
                     stext = str(item.get("search_text") or item.get("summary") or item.get("tags") or "")
                     rows.append((

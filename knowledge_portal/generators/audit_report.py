@@ -52,6 +52,8 @@ def render_markdown_report(report: dict[str, Any], project_name: str = "Reposito
     for k, v in radar.items():
         lines.append(f"| {k} | {v}/100 |")
 
+    cov_raw = qt.get("coverage_pct")
+    cov_display = f"{cov_raw}%" if cov_raw is not None else "N/A"
     lines.extend([
         "",
         "## 2. Health Engine 4.0 Summary (16 Zero-Dep Pillars)",
@@ -70,7 +72,7 @@ def render_markdown_report(report: dict[str, Any], project_name: str = "Reposito
         f"| **Dead Code (Py + JS/Vue)** | `{dc.get('total', 0)}` total (`Python: {dc.get('python_count', 0)}`, `JS/TS exports: {dc.get('js_export_count', 0)}`, `Vue components: {dc.get('vue_component_count', 0)}`) |",
         f"| **Migration Safety & SRE** | `{ms_mig.get('total_issues', 0)}` migration issues · SRE score: `{ms_sre.get('score_pct', 0)}/100` · f-string logs: `{ms_sre.get('fstring_logging_count', 0)}` |",
         f"| **Frontend & a11y Hygiene** | `{feh.get('total_issues', 0)}` issues (`lazy routes: {feh.get('lazy_route_coverage_pct', 100.0)}%`, `god-stores: {feh.get('god_stores_count', 0)}`, `a11y: {feh.get('a11y_issues_count', 0)}`) |",
-        f"| **Quality Telemetry** | `{qt.get('sources_count', 0)}` local CI sources (`coverage: {qt.get('coverage_pct')}%`, `JUnit: {qt.get('junit_total', 0)}`, `ruff: {qt.get('ruff_issues', 0)}`, `mypy/tsc: {int(qt.get('mypy_errors', 0)) + int(qt.get('tsc_errors', 0))}`) |",
+        f"| **Quality Telemetry** | `{qt.get('sources_count', 0)}` local CI sources (`coverage: {cov_display}`, `JUnit: {qt.get('junit_total', 0)}`, `ruff: {qt.get('ruff_issues', 0)}`, `mypy/tsc: {int(qt.get('mypy_errors', 0)) + int(qt.get('tsc_errors', 0))}`) |",
         f"| **AST Semantic Clones** | `{scl.get('clone_groups_count', 0)}` groups (`{scl.get('duplicated_functions_count', 0)}` duplicated functions out of `{scl.get('functions_analyzed', 0)}`) |",
         "",
         "## 3. Top Prioritized ROI Fix Queue",

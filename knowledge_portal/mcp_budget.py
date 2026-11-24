@@ -477,7 +477,9 @@ def _build_summary_view(tool_name: str, data: dict[str, Any]) -> dict[str, Any]:
         }
 
     if tool_name == "portal_async_topology":
-        return {
+        kind = str(data.get("kind") or "all").lower()
+        redis_items = [r for r in (data.get("redis_keys") or []) if isinstance(r, dict)]
+        out_async: dict[str, Any] = {
             "_detail": "summary",
             "summary": data.get("summary") or {},
             "sample_tasks": [
@@ -497,6 +499,138 @@ def _build_summary_view(tool_name: str, data: dict[str, Any]) -> dict[str, Any]:
                 for s in ((data.get("ws_streams") or []) + (data.get("sse_streams") or []))[:5] if isinstance(s, dict)
             ],
             "_drilldown_hint": "Pass kind='celery'|'beat'|'redis'|'pubsub'|'ws'|'sse', query='<term>', or detail='compact' for details.",
+        }
+        if kind in ("all", "redis"):
+            out_async["sample_redis_keys"] = [
+                {"key": r.get("key_pattern") or r.get("key") or r.get("name"), "ttl": r.get("ttl"), "ops": (r.get("operations") or [])[:4]}
+                for r in redis_items if str(r.get("kind", "")).lower() != "lock"
+            ][:8]
+            out_async["sample_redis_locks"] = [
+                {"key": r.get("key_pattern") or r.get("key") or r.get("name"), "ttl": r.get("ttl"), "ops": (r.get("operations") or [])[:4]}
+                for r in redis_items if str(r.get("kind", "")).lower() == "lock"
+            ][:6]
+        return out_async
+
+    if tool_name == "portal_pr_context":
+        changed = data.get("changed_files") or []
+        stale_docs = data.get("stale_docs") or data.get("doc_drift") or []
+        impacted_tests = data.get("impacted_tests") or []
+        return {
+            "_detail": "summary",
+            "base": data.get("base", "main"),
+            "changed_files_count": len(changed) if isinstance(changed, list) else 0,
+            "sample_changed_files": changed[:12] if isinstance(changed, list) else [],
+            "stale_docs_count": len(stale_docs) if isinstance(stale_docs, list) else 0,
+            "sample_stale_docs": stale_docs[:6] if isinstance(stale_docs, list) else [],
+            "impacted_tests_count": len(impacted_tests) if isinstance(impacted_tests, list) else 0,
+            "sample_impacted_tests": impacted_tests[:8] if isinstance(impacted_tests, list) else [],
+            "_drilldown_hint": "Pass detail='compact' or detail='full' for complete PR context.",
+        }
+
+    if tool_name == "portal_hub_runtime":
+        units = data.get("units") or []
+        return {
+            "_detail": "summary",
+            "generated_at": data.get("generated_at", ""),
+            "systemd_available": data.get("systemd_available", False),
+            "git_head": data.get("git_head") or {},
+            "summary": data.get("summary") or {},
+            "host": data.get("host") or {},
+            "units_brief": [
+                {"unit": u.get("unit"), "state": u.get("active_state"), "mem_mb": u.get("memory_mb")}
+                for u in units[:12] if isinstance(u, dict)
+            ],
+            "_drilldown_hint": "Pass detail='compact' or detail='full' for all unit details and topology edges.",
+        }
+
+    if tool_name == "portal_hub_dataops":
+        tsdb = data.get("timescaledb") or {}
+        return {
+            "_detail": "summary",
+            "generated_at": data.get("generated_at", ""),
+            "summary": data.get("summary") or {},
+            "hypertables": [h.get("name") for h in (tsdb.get("hypertables") or [])[:12] if isinstance(h, dict)],
+            "caggs": [c.get("name") for c in (tsdb.get("caggs") or [])[:12] if isinstance(c, dict)],
+            "sample_feeds": [
+                {"id": f.get("id"), "provider": f.get("provider")}
+                for f in (data.get("feeds") or [])[:10] if isinstance(f, dict)
+            ],
+            "backup_status": (data.get("backup_321") or {}).get("pgbackrest", {}).get("status", "unknown"),
+            "_drilldown_hint": "Pass detail='compact' or detail='full' for complete feeds, pipelines & 3-2-1 tiers.",
+        }
+
+    if tool_name == "portal_hub_quant_factory":
+        return {
+            "_detail": "summary",
+            "generated_at": data.get("generated_at", ""),
+            "summary": data.get("summary") or {},
+            "swimlane": data.get("swimlane") or [],
+            "p4_frozen_seal": {
+                k: (data.get("p4_frozen_seal") or {}).get(k)
+                for k in ("status", "files_count", "total_bytes")
+            },
+            "sample_adapters": [
+                {"name": a.get("name") or a.get("id"), "family": a.get("family")}
+                for a in (data.get("adapters") or [])[:10] if isinstance(a, dict)
+            ],
+            "_drilldown_hint": "Pass detail='compact' or detail='full' for full adapter catalog & registry.",
+        }
+
+    if tool_name == "portal_impact":
+        d1 = data.get("d1") or data.get("direct") or []
+        d2 = data.get("d2") or data.get("indirect") or []
+        d3 = data.get("d3") or []
+        return {
+            "_detail": "summary",
+            "target": data.get("target", ""),
+            "matched": (data.get("matched") or [])[:5],
+            "counts": {
+                "d1": len(d1) if isinstance(d1, list) else 0,
+                "d2": len(d2) if isinstance(d2, list) else 0,
+                "d3": len(d3) if isinstance(d3, list) else 0,
+                "total_impacted": data.get("total_impacted", 0),
+            },
+            "sample_d1": d1[:10] if isinstance(d1, list) else [],
+            "sample_d2": d2[:8] if isinstance(d2, list) else [],
+            "_drilldown_hint": "Pass detail='compact' or detail='full' for complete blast-radius tree.",
+        }
+
+    if tool_name == "portal_search":
+        res_items = data.get("results") or []
+        return {
+            "_detail": "summary",
+            "query": data.get("query", ""),
+            "engine": data.get("engine", ""),
+            "count": data.get("count", len(res_items) if isinstance(res_items, list) else 0),
+            "results": [
+                {
+                    "name": r.get("name") or r.get("title") or "",
+                    "category": r.get("category", ""),
+                    "path": r.get("path", ""),
+                }
+                for r in (res_items[:12] if isinstance(res_items, list) else [])
+                if isinstance(r, dict)
+            ],
+            "_drilldown_hint": "Pass detail='full' for full subtitles/snippets.",
+        }
+
+    if tool_name == "portal_process_flow":
+        flows = data.get("flows") or []
+        return {
+            "_detail": "summary",
+            "query": data.get("query", ""),
+            "count": data.get("count", len(flows) if isinstance(flows, list) else 0),
+            "flows": [
+                {
+                    "id": f.get("id", ""),
+                    "name": f.get("name") or f.get("title") or "",
+                    "steps_count": len(f.get("steps") or []),
+                    "sample_steps": (f.get("steps") or [])[:4],
+                }
+                for f in (flows[:8] if isinstance(flows, list) else [])
+                if isinstance(f, dict)
+            ],
+            "_drilldown_hint": "Pass detail='full' for full process flow traces.",
         }
 
     if tool_name == "portal_contract":
@@ -923,8 +1057,29 @@ def ai_slop_and_cheat_guard(project_dir: Path, files: list[str], base: str, data
                     m_low = mod.lower()
                     if m_low in _STDLIB_MODULES or m_low in local_tops or m_low in known_pkgs:
                         continue
-                    # Common alias mapping
-                    if m_low in ("yaml", "dotenv", "cv2", "pil", "bs4", "sklearn", "dateutil", "jwt", "psycopg2"):
+                    # Common pip distribution → import alias mapping (QA-5)
+                    _PIP_IMPORT_ALIASES: dict[str, tuple[str, ...]] = {
+                        "jose": ("python_jose", "jose"),
+                        "yaml": ("pyyaml", "yaml"),
+                        "dotenv": ("python_dotenv", "dotenv"),
+                        "cv2": ("opencv_python", "opencv_python_headless", "cv2"),
+                        "pil": ("pillow", "pil"),
+                        "bs4": ("beautifulsoup4", "bs4"),
+                        "sklearn": ("scikit_learn", "sklearn"),
+                        "dateutil": ("python_dateutil", "dateutil"),
+                        "jwt": ("pyjwt", "python_jose", "jwt"),
+                        "psycopg2": ("psycopg2_binary", "psycopg2"),
+                        "psycopg": ("psycopg_binary", "psycopg"),
+                        "multipart": ("python_multipart", "multipart"),
+                        "git": ("gitpython", "git"),
+                        "websocket": ("websocket_client", "websocket"),
+                        "attr": ("attrs", "attr"),
+                        "google": ("google_genai", "google_generativeai", "google_auth", "protobuf"),
+                        "nautilus_trader": ("nautilus_trader",),
+                        "pydantic_settings": ("pydantic_settings",),
+                        "starlette": ("starlette", "fastapi"),
+                    }
+                    if m_low in _PIP_IMPORT_ALIASES:
                         continue
                     alerts.append({
                         "rule": "PHANTOM_IMPORT",
@@ -1211,6 +1366,14 @@ def query_vertical_slice(
 
     q = (query or "").strip().lower()
     lyr = (layer or "all").strip().lower()
+    allowed_layers = ("all", "frontend", "api", "backend", "storage")
+    if lyr not in allowed_layers:
+        return {
+            "ok": False,
+            "error": "invalid_layer",
+            "layer": layer,
+            "allowed": list(allowed_layers),
+        }
     slices = list(data.get("slices") or [])
     stores = list(data.get("stores") or [])
 
@@ -1281,6 +1444,14 @@ def query_async_topology(
         data = {}
 
     k = (kind or "all").strip().lower()
+    allowed_kinds = ("all", "celery", "beat", "redis", "pubsub", "ws", "sse")
+    if k not in allowed_kinds:
+        return {
+            "ok": False,
+            "error": "invalid_kind",
+            "kind": kind,
+            "allowed": list(allowed_kinds),
+        }
     q = (query or "").strip().lower()
 
     def _matches(item: Any) -> bool:

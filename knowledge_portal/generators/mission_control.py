@@ -63,19 +63,48 @@ def generate_mission_control(
     cycle_count = int(h_sum.get("cycle_count", 0) or 0)
     orphan_count = int(h_sum.get("orphan_count", 0) or 0)
 
-    # Runtime Bugs v2 (from arch-health runtime_bugs / sre_findings / security_findings)
+    # Runtime Bugs v2 (ADR-080: prefer health_v4 structured telemetry, fallback to legacy top-level lists)
+    hv4 = health.get("health_v4") or {}
     runtime_bugs = health.get("runtime_bugs") or []
     sre_findings = health.get("sre_findings") or []
     sec_findings = health.get("security_findings") or []
-    runtime_bugs_count = len(runtime_bugs) if isinstance(runtime_bugs, list) else int(h_sum.get("runtime_bugs_count", 0) or 0)
-    critical_findings = sum(
+
+    rb_v2 = hv4.get("runtime_bugs_v2") or {}
+    rel_ast = hv4.get("reliability_ast") or {}
+    fe_bugs = hv4.get("frontend_runtime_bugs") or {}
+    owasp_audit = hv4.get("owasp_audit") or {}
+    mig_sre = hv4.get("migration_sre") or {}
+    sre_gaps = (mig_sre.get("sre_resilience") or {}).get("gaps") or []
+
+    v4_rb_count = int(rb_v2.get("total_issues", 0) or 0)
+    if v4_rb_count == 0 and (rel_ast or fe_bugs):
+        v4_rb_count = int(rel_ast.get("total_issues", 0) or 0) + int(fe_bugs.get("total_issues", 0) or 0)
+
+    legacy_rb_count = len(runtime_bugs) if isinstance(runtime_bugs, list) else int(h_sum.get("runtime_bugs_count", 0) or 0)
+    runtime_bugs_count = v4_rb_count if v4_rb_count > 0 else legacy_rb_count
+
+    legacy_crit = sum(
         1
         for f in (list(runtime_bugs) + list(sre_findings) + list(sec_findings))
         if isinstance(f, dict) and str(f.get("severity", "")).upper() == "CRITICAL"
     )
+    rb_v2_crit = int(((rb_v2.get("by_severity") or {}).get("CRITICAL", 0)) or 0)
+    if rb_v2_crit == 0 and rel_ast:
+        rb_v2_crit = int(rel_ast.get("async_blocking_count", 0) or 0)
+    owasp_crit = int(((owasp_audit.get("by_severity") or {}).get("CRITICAL", 0)) or 0)
+    mig_crit = int((((mig_sre.get("migration_safety") or {}).get("by_severity") or {}).get("CRITICAL", 0)) or 0)
+    sev_sum_crit = sum(
+        int(row.get("critical", 0) or 0)
+        for row in (hv4.get("severity_summary") or [])
+        if isinstance(row, dict)
+    )
+    v4_crit = max(sev_sum_crit, rb_v2_crit + owasp_crit + mig_crit)
+    critical_findings = v4_crit if v4_crit > 0 else legacy_crit
+
+    sre_count = len(sre_gaps) if isinstance(sre_gaps, list) and sre_gaps else (len(sre_findings) if isinstance(sre_findings, list) else 0)
+    owasp_count = int(owasp_audit.get("findings_count", 0) or 0) or (len(sec_findings) if isinstance(sec_findings, list) else 0)
 
     # Dead code (ADR-080 P1)
-    hv4 = health.get("health_v4") or {}
     dc_block = hv4.get("dead_code_symbols") or _load_json_safe(data_dir / "dead-code.json")
     dc_sum = dc_block.get("summary") or {} if isinstance(dc_block, dict) else {}
     dead_code_count = int(dc_sum.get("total_dead_symbols", dc_sum.get("total", 0)) or 0)
@@ -86,10 +115,14 @@ def generate_mission_control(
     cve_high = int(cve_sum.get("high", 0) or 0)
     cve_total = int(cve_sum.get("total_vulnerabilities", cve_sum.get("total", 0)) or 0)
 
-    # Compliance Readiness
+    # Compliance Readiness (support overall_readiness_pct/pass_count + legacy keys)
     comp_sum = compliance.get("summary") or {}
-    compliance_score = round(float(comp_sum.get("readiness_pct", comp_sum.get("overall_score", 0.0)) or 0.0), 1)
-    controls_passed = int(comp_sum.get("passed", 0) or 0)
+    raw_comp_score = comp_sum.get(
+        "overall_readiness_pct",
+        comp_sum.get("readiness_pct", comp_sum.get("overall_score", 0.0)),
+    )
+    compliance_score = round(float(raw_comp_score or 0.0), 1)
+    controls_passed = int(comp_sum.get("pass_count", comp_sum.get("passed", 0)) or 0)
     controls_total = int(comp_sum.get("total_controls", comp_sum.get("total", 0)) or 0)
 
     # Git / PR DAG
@@ -163,7 +196,7 @@ def generate_mission_control(
             "title": "Runtime Bugs & SRE",
             "status": "red" if critical_findings > 0 else ("amber" if runtime_bugs_count > 5 else "green"),
             "metric": f"{runtime_bugs_count} findings",
-            "detail": f"{critical_findings} CRITICAL · {len(sre_findings)} SRE · {len(sec_findings)} OWASP",
+            "detail": f"{critical_findings} CRITICAL · {sre_count} SRE · {owasp_count} OWASP",
             "view": "arch-health",
         },
         {

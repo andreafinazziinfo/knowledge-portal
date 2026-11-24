@@ -1186,6 +1186,10 @@ _HEAVY_DETAIL_TOOLS = frozenset({
     "portal_compliance",
     "portal_cve_report",
     "portal_arch_diff",
+    "portal_pr_context",
+    "portal_impact",
+    "portal_search",
+    "portal_process_flow",
 })
 
 # Attach universal detail/pagination schema properties to all heavy tools

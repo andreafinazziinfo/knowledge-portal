@@ -54,10 +54,12 @@ def generate_compliance_evidence(project_dir: Path, data_dir: Path) -> dict[str,
     obs = hv4.get("observability") or {}
     sc = hv4.get("supply_chain_and_ai") or {}
     h_sum = health.get("summary") or {}
+    cve_available = bool(cve.get("available", False))
     cve_sum = cve.get("summary") or {}
     cve_crit = int(cve_sum.get("critical", 0))
     cve_high = int(cve_sum.get("high", 0))
     cve_total = int(cve_sum.get("total", 0))
+    rel_issues = int(rel.get("total_issues", 0) or 0)
     sarif_sum = sarif.get("summary") or {}
     sarif_crit = int(sarif_sum.get("critical", 0))
     sarif_total = int(sarif_sum.get("total", 0))
@@ -89,16 +91,16 @@ def generate_compliance_evidence(project_dir: Path, data_dir: Path) -> dict[str,
               "PASS" if (ow_crit == 0 and cve_crit == 0 and sarif_crit == 0) else "FAIL",
               f"{ow_crit} CRITICAL OWASP, {cve_crit} CRITICAL CVEs ({cve_total} total), {sarif_crit} CRITICAL SARIF ({sarif_total} total)"),
         _ctrl("SOC2", "CC7.1", "System Monitoring & Health Probes",
-              "PASS" if has_probes else "WARN",
-              f"/health probe present={has_probes}, Reliability AST issues={rel.get('total_issues', 0)}"),
+              "PASS" if (has_probes and rel_issues == 0) else ("WARN" if (has_probes and rel_issues <= 25) else "FAIL"),
+              f"/health probe present={has_probes}, Reliability AST issues={rel_issues}"),
         _ctrl("SOC2", "CC8.1", "Change Management (CI Gates & Ownership)",
               "PASS" if (has_ci and has_codeowners) else ("WARN" if has_ci else "FAIL"),
               f"CI workflows={has_ci}, CODEOWNERS={has_codeowners}, Cycles={cycles}"),
 
         # ISO 27001:2022
         _ctrl("ISO27001", "A.8.8", "Software Supply Chain, SBOM & CVE Management",
-              "FAIL" if cve_crit > 0 else ("WARN" if (cve_high > 0 or not (has_sbom and has_lockfile)) else "PASS"),
-              f"CycloneDX SBOM={has_sbom} ({len(sbom.get('components') or [])} components), lockfile={has_lockfile}, CVEs={cve_total} (CRITICAL={cve_crit}, HIGH={cve_high})"),
+              "FAIL" if cve_crit > 0 else ("WARN" if (not cve_available or cve_high > 0 or not (has_sbom and has_lockfile)) else "PASS"),
+              f"CycloneDX SBOM={has_sbom} ({len(sbom.get('components') or [])} components), lockfile={has_lockfile}, cve_available={cve_available}, CVEs={cve_total} (CRITICAL={cve_crit}, HIGH={cve_high})"),
         _ctrl("ISO27001", "A.8.9", "Infrastructure & Container Hardening",
               "PASS" if iac_misconfigs == 0 else ("WARN" if iac_misconfigs <= 3 else "FAIL"),
               f"{iac_misconfigs} IaC/Docker/GHA misconfigurations (iac-topology.json)"),

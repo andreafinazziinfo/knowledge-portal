@@ -13,10 +13,13 @@ Outputs `data/git-dag.json` and `data/git_dag.js`.
 from __future__ import annotations
 
 import json
+import os
 import re
 import shutil
 import subprocess  # nosec B404
 import time
+import urllib.error
+import urllib.request
 from collections import defaultdict, deque
 from datetime import datetime, timezone
 from pathlib import Path
@@ -230,12 +233,78 @@ def _normalize_ci_status(rollup: Any) -> str:
     return "unknown"
 
 
+def _parse_github_owner_repo(project_dir: Path) -> str | None:
+    """Extract GitHub `owner/repo` slug from git origin remote URL (read-only)."""
+    git_bin = shutil.which("git")
+    if not git_bin:
+        return None
+    rc, out, _ = _run_cmd([git_bin, "remote", "get-url", "origin"], project_dir, timeout=3.0)
+    if rc != 0 or not out.strip():
+        return None
+    url = out.strip()
+    m = re.search(r"github\.com[:/]([A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+?)(?:\.git)?$", url)
+    return m.group(1) if m else None
+
+
+def _fetch_open_prs_rest_api(project_dir: Path, timeout: float = 5.0) -> tuple[bool, list[dict[str, Any]]]:
+    """Read-only GitHub REST API fallback when `gh` CLI is unavailable (NEW-11)."""
+    token = os.environ.get("GITHUB_TOKEN") or os.environ.get("GH_TOKEN") or ""
+    if not token:
+        return False, []
+    slug = _parse_github_owner_repo(project_dir)
+    if not slug:
+        return False, []
+    api_url = f"https://api.github.com/repos/{slug}/pulls?state=open&per_page=50"
+    req = urllib.request.Request(
+        api_url,
+        headers={
+            "Authorization": f"Bearer {token}",
+            "Accept": "application/vnd.github+json",
+            "User-Agent": "knowledge-portal-git-dag",
+            "X-GitHub-Api-Version": "2022-11-28",
+        },
+        method="GET",
+    )
+    try:
+        with urllib.request.urlopen(req, timeout=timeout) as resp:  # nosec B310
+            if getattr(resp, "status", 200) >= 400:
+                return False, []
+            raw = json.loads(resp.read().decode("utf-8", errors="replace"))
+    except (urllib.error.URLError, OSError, TimeoutError, json.JSONDecodeError, ValueError):
+        return False, []
+    if not isinstance(raw, list):
+        return False, []
+
+    prs: list[dict[str, Any]] = []
+    for item in raw:
+        if not isinstance(item, dict):
+            continue
+        is_draft = bool(item.get("draft", False))
+        head_obj = item.get("head") or {}
+        base_obj = item.get("base") or {}
+        prs.append({
+            "number": int(item.get("number", 0)),
+            "title": str(item.get("title", "")),
+            "head": str(head_obj.get("ref", "")) if isinstance(head_obj, dict) else "",
+            "base": str(base_obj.get("ref", "")) if isinstance(base_obj, dict) else "",
+            "state": str(item.get("state", "open")).upper(),
+            "is_draft": is_draft,
+            "additions": int(item.get("additions", 0) or 0),
+            "deletions": int(item.get("deletions", 0) or 0),
+            "ci_status": "draft" if is_draft else "unknown",
+            "url": str(item.get("html_url", "")),
+            "updated_at": str(item.get("updated_at", "")),
+        })
+    prs.sort(key=lambda p: p["number"])
+    return True, prs
+
+
 def _fetch_open_prs(project_dir: Path, include_gh: bool = True) -> tuple[bool, list[dict[str, Any]]]:
     if not include_gh:
         return False, []
     gh_bin = shutil.which("gh")
     if not gh_bin:
-        return False, []
+        return _fetch_open_prs_rest_api(project_dir, timeout=5.0)
     fields = "number,title,headRefName,baseRefName,state,isDraft,additions,deletions,statusCheckRollup,url,updatedAt"
     rc, out, _ = _run_cmd(
         [gh_bin, "pr", "list", "--state", "open", "--limit", "50", "--json", fields],
@@ -243,13 +312,13 @@ def _fetch_open_prs(project_dir: Path, include_gh: bool = True) -> tuple[bool, l
         timeout=6.0,
     )
     if rc != 0 or not out.strip():
-        return False, []
+        return _fetch_open_prs_rest_api(project_dir, timeout=5.0)
     try:
         raw = json.loads(out)
     except json.JSONDecodeError:
-        return False, []
+        return _fetch_open_prs_rest_api(project_dir, timeout=5.0)
     if not isinstance(raw, list):
-        return False, []
+        return _fetch_open_prs_rest_api(project_dir, timeout=5.0)
 
     prs: list[dict[str, Any]] = []
     for item in raw:

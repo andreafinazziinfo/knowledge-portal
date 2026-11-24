@@ -19,7 +19,10 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
 
-_ADR_ID_RE = re.compile(r"\bADR[-_ ]?(\d{1,4}|[A-Z0-9]{2,6})\b", re.IGNORECASE)
+_ADR_ID_RE = re.compile(
+    r"\bADR[-_ ]?((?:[A-Z][A-Z0-9]{0,5}[-_])+\d{1,4}|\d{1,4})\b",
+    re.IGNORECASE,
+)
 _STATUS_RE = re.compile(
     r"^\s*(?:[-*]\s*)?(?:\*\*)?(?:status|stato)(?:\*\*)?\s*[:\-]\s*(.+)$",
     re.IGNORECASE | re.MULTILINE,
@@ -73,15 +76,19 @@ def _infer_domain(title: str, text: str) -> str:
     return "General"
 
 
+def _normalize_adr_token(raw_token: str) -> tuple[str, int | None]:
+    token = raw_token.upper().replace("_", "-")
+    if token.isdigit():
+        num = int(token)
+        return f"ADR-{num:03d}", num
+    return f"ADR-{token}", None
+
+
 def _extract_adr_id(fpath: Path, title: str) -> tuple[str, int | None]:
     for source in (fpath.stem, title):
         m = _ADR_ID_RE.search(source)
         if m:
-            token = m.group(1).upper()
-            if token.isdigit():
-                num = int(token)
-                return f"ADR-{num:03d}", num
-            return f"ADR-{token}", None
+            return _normalize_adr_token(m.group(1))
     return fpath.stem.upper(), None
 
 
@@ -196,6 +203,7 @@ def generate_adr_graph(project_dir: Path, output_dir: Path | None = None) -> dic
     adr_files = _discover_adr_files(project_dir)
     nodes: list[dict[str, Any]] = []
     node_ids: set[str] = set()
+    id_to_paths: dict[str, list[str]] = {}
     raw_refs: list[tuple[str, list[str], list[str]]] = []
 
     for fpath in adr_files:
@@ -206,9 +214,11 @@ def generate_adr_graph(project_dir: Path, output_dir: Path | None = None) -> dic
         rel = str(fpath.relative_to(project_dir)).replace("\\", "/")
         m_title = _HEADING_RE.search(text)
         title = m_title.group(1).strip() if m_title else fpath.stem
-        adr_id, adr_num = _extract_adr_id(fpath, title)
+        base_adr_id, adr_num = _extract_adr_id(fpath, title)
+        id_to_paths.setdefault(base_adr_id, []).append(rel)
 
-        # Ensure unique ID
+        # Ensure unique ID while recording duplicates (NEW-10)
+        adr_id = base_adr_id
         if adr_id in node_ids:
             adr_id = f"{adr_id}-{fpath.stem[:12]}"
         node_ids.add(adr_id)
@@ -224,13 +234,13 @@ def generate_adr_graph(project_dir: Path, output_dir: Path | None = None) -> dic
         supersedes: list[str] = []
         for sm in _SUPERSEDES_RE.finditer(text):
             for ref in _ADR_ID_RE.findall(sm.group(1)):
-                norm = f"ADR-{int(ref):03d}" if ref.isdigit() else f"ADR-{ref.upper()}"
+                norm, _ = _normalize_adr_token(ref)
                 if norm != adr_id and norm not in supersedes:
                     supersedes.append(norm)
 
         references: list[str] = []
         for ref in _ADR_ID_RE.findall(text):
-            norm = f"ADR-{int(ref):03d}" if ref.isdigit() else f"ADR-{ref.upper()}"
+            norm, _ = _normalize_adr_token(ref)
             if norm != adr_id and norm not in supersedes and norm not in references:
                 references.append(norm)
 
@@ -269,11 +279,14 @@ def generate_adr_graph(project_dir: Path, output_dir: Path | None = None) -> dic
     by_status = dict(Counter(n["status"] for n in nodes))
     by_domain = dict(Counter(n["domain"] for n in nodes))
 
+    duplicate_ids = {k: paths for k, paths in sorted(id_to_paths.items()) if len(paths) > 1}
+
     summary = {
         "total_adrs": len(nodes),
         "accepted_count": by_status.get("Accepted", 0),
         "proposed_count": by_status.get("Proposed", 0) + by_status.get("Draft", 0),
         "superseded_count": by_status.get("Superseded", 0) + by_status.get("Deprecated", 0),
+        "duplicate_ids_count": len(duplicate_ids),
         "edges_count": len(edges),
         "total_runbooks": len(runbooks),
         "total_runbook_steps": sum(r["step_count"] for r in runbooks),
@@ -285,6 +298,7 @@ def generate_adr_graph(project_dir: Path, output_dir: Path | None = None) -> dic
         "total_adrs": len(nodes),
         "by_status": by_status,
         "by_domain": by_domain,
+        "duplicate_ids": duplicate_ids,
         "summary": summary,
         "nodes": nodes,
         "edges": edges,
