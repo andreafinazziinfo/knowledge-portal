@@ -279,3 +279,17 @@ Il Knowledge Portal include un gate di verifica continuo:
 - **Cloudflare-Style Code Mode MCP**:
   - Avvio compatto (2 tool, ~1k token di schema): `knowledge-portal mcp --dir . --code-mode`
   - Espone `portal_discover` e `portal_codemode` (interprete AST Python read-only senza `eval`/`exec`, senza `import` e senza I/O).
+
+---
+
+## ADR-082 — Token-Budget Engine (`-98,7%`), Cross-Stack Intelligence & Viste 0-CDN
+
+- **Token-Budget Engine (`-98,7%`)**: i tool MCP più pesanti restituiscono di default payload compatti (`detail="summary"`, `≤800` token) affiancati da `data/module-cards.json` (`/api/module-cards`, `≤180` tok/file), `portal_slice_for_task` (budget configurabile) e `portal_check_diff` per verificare l'impatto dei diff Git.
+- **Test-to-Code Reverse Oracle (`views/test-oracle.html`, `/api/test-oracle`)**: mappa inversa `modulo/simbolo → test diretti veloci` e rilevamento automatico dei blind spot ad alto rischio (`portal_test_oracle`).
+- **Agent Instructions Audit (`/api/agent-instructions-audit`)**: analizza file di istruzioni, regole e skill per agenti AI rilevando peso in token, path morti e hygiene score.
+- **Universal SARIF 2.1.0 & CodeQL (`/api/sarif-findings`, `.github/workflows/codeql.yml`)**: ingestione unificata di report SARIF 2.1.0 (CodeQL, Semgrep, Trivy, Ruff, Bandit) nella dashboard di salute e sicurezza.
+- **Vertical Slices Cross-Stack (`views/vertical-slices.html`, `/api/vertical-slices`)**: collega componenti UI e store frontend agli endpoint API, handler backend e tabelle DB (`portal_vertical_slice`).
+- **Async Topology (`views/async-topology.html`, `/api/async-topology`)**: mappa worker task, job schedulati, chiavi/lock Redis, canali Pub/Sub, WebSocket e stream SSE (`portal_async_topology`).
+- **Data Contracts & Runtime Modes (`views/data-contracts.html`, `/api/data-contracts`, `/api/runtime-modes`)**: rileva schema drift Pydantic↔TypeScript, rotte API non tipizzate, tassonomia errori, lettori/scrittori DB e matrice dei runtime mode (`portal_contract`).
+- **6+ Viste Nuove/Convertite Data-Driven 0-CDN**: `vertical-slices.html`, `test-oracle.html`, `data-contracts.html`, `async-topology.html`, `worker-tasks.html`, `frontend-state.html` e `data-ingestion.html` — 100% air-gapped senza alcuna richiesta CDN esterna.
+- **Server MCP Esteso**: **37 tool OSS** nativi (estensibili a **43 tool** con plugin domain-hub opzionali), tutti read-only e governati dal Token-Budget Engine.
