@@ -21,6 +21,7 @@ import os
 import re
 import subprocess
 import time
+import warnings
 import xml.etree.ElementTree as ET
 from collections import Counter, defaultdict
 from itertools import combinations
@@ -33,7 +34,7 @@ except ImportError:  # pragma: no cover
     tomllib = None  # type: ignore[assignment]
 
 _IGNORE_DIRS = frozenset({
-    ".git", "node_modules", "dist", "build", ".venv", "venv",
+    ".git", "node_modules", "dist", "dev-dist", "build", ".venv", "venv",
     "__pycache__", ".idea", ".vscode", "target", "vendor", "bin", "obj", "frozen",
 })
 _SELECT_STAR_RE = re.compile(r"\bSELECT\s+\*\s+FROM\b", re.IGNORECASE)
@@ -43,6 +44,13 @@ _JS_BRANCH_RE = re.compile(r"\b(if|else\s+if|for|while|case|catch|\?\?|\&\&|\|\|
 def _is_ignored_path(rel_path: str) -> bool:
     parts = [p.lower() for p in rel_path.replace("\\", "/").split("/")]
     return any(p in _IGNORE_DIRS or p.startswith(".") for p in parts[:-1]) or "frozen" in parts
+
+
+def _is_generated_asset(fname: str) -> bool:
+    low = fname.lower()
+    return low.endswith((".min.js", ".min.css", ".bundle.js", ".d.ts")) or (
+        low.startswith("workbox-") and low.endswith(".js")
+    )
 
 
 def _python_complexity(source: str) -> dict[str, Any]:
@@ -123,7 +131,7 @@ def analyze_code_complexity_and_ai_readiness(project_dir: Path, max_files: int =
             ext = os.path.splitext(fname)[1].lower()
             if ext not in (".py", ".ts", ".tsx", ".js", ".jsx", ".vue", ".sql"):
                 continue
-            if fname.endswith((".min.js", ".min.css", ".bundle.js", ".d.ts")):
+            if _is_generated_asset(fname):
                 continue
             fpath = Path(root) / fname
             rel = str(fpath.relative_to(project_dir)).replace("\\", "/")
@@ -502,12 +510,186 @@ def build_actionable_fix_queue(report: dict[str, Any]) -> list[dict[str, Any]]:
     return queue[:12]
 
 
+_PY_EVAL_EXEC_FALLBACK_RE = re.compile(r"(?<![.\w])(?:(?:builtins|__builtins__)\.)?(?:eval|exec)\s*\(")
+_JS_EVAL_RE = re.compile(r"(?<![.\w$])(?:(?:window|globalThis)\.)?eval\s*\(")
 _SEC_PATTERNS = [
-    ("EVAL_EXEC", re.compile(r"\b(eval|exec)\s*\(")),
     ("PICKLE_LOADS", re.compile(r"\bpickle\.loads?\s*\(")),
     ("SHELL_TRUE", re.compile(r"shell\s*=\s*True")),
     ("UNSAFE_YAML", re.compile(r"\byaml\.load\s*\([^)]*\)(?!.*SafeLoader)")),
 ]
+
+
+def _python_docstring_lines(tree: ast.AST) -> set[int]:
+    """Return 1-based line numbers belonging to module, class, or function docstrings."""
+    doc_lines: set[int] = set()
+    for node in ast.walk(tree):
+        if isinstance(node, (ast.Module, ast.ClassDef, ast.FunctionDef, ast.AsyncFunctionDef)):
+            if node.body and isinstance(node.body[0], ast.Expr):
+                val = node.body[0].value
+                if isinstance(val, ast.Constant) and isinstance(val.value, str):
+                    start = getattr(node.body[0], "lineno", 0)
+                    end = getattr(node.body[0], "end_lineno", start) or start
+                    if start > 0:
+                        doc_lines.update(range(start, end + 1))
+    return doc_lines
+
+
+def _strip_python_comment(line: str) -> str:
+    """Strip trailing # comment outside string literals on a single Python line."""
+    in_quote: str | None = None
+    escaped = False
+    for idx, ch in enumerate(line):
+        if escaped:
+            escaped = False
+            continue
+        if in_quote is not None:
+            if ch == "\\":
+                escaped = True
+            elif ch == in_quote:
+                in_quote = None
+            continue
+        if ch in ("'", '"'):
+            in_quote = ch
+        elif ch == "#":
+            return line[:idx]
+    return line
+
+
+def _strip_js_comments(src: str) -> list[tuple[int, str]]:
+    """Strip /* ... */ block comments and // line comments from JS/TS/Vue source, preserving 1-based line numbers."""
+    out: list[tuple[int, str]] = []
+    in_block = False
+    in_template = False
+    for lineno, line in enumerate(src.splitlines(), 1):
+        buf: list[str] = []
+        in_quote: str | None = None
+        escaped = False
+        i = 0
+        n = len(line)
+        while i < n:
+            ch = line[i]
+            nxt = line[i + 1] if i + 1 < n else ""
+            if in_block:
+                if ch == "*" and nxt == "/":
+                    in_block = False
+                    i += 2
+                else:
+                    i += 1
+                continue
+            if escaped:
+                buf.append(ch)
+                escaped = False
+                i += 1
+                continue
+            if in_template:
+                buf.append(ch)
+                if ch == "\\":
+                    escaped = True
+                elif ch == "`":
+                    in_template = False
+                i += 1
+                continue
+            if in_quote is not None:
+                buf.append(ch)
+                if ch == "\\":
+                    escaped = True
+                elif ch == in_quote:
+                    in_quote = None
+                i += 1
+                continue
+            if ch == "/" and nxt == "*":
+                in_block = True
+                i += 2
+                continue
+            if ch == "/" and nxt == "/":
+                break
+            if ch == "`":
+                in_template = True
+                buf.append(ch)
+                i += 1
+                continue
+            if ch in ("'", '"'):
+                in_quote = ch
+                buf.append(ch)
+                i += 1
+                continue
+            buf.append(ch)
+            i += 1
+        out.append((lineno, "".join(buf)))
+    return out
+
+
+def _scan_security_hygiene(src: str, ext: str, rel: str) -> list[dict[str, Any]]:
+    """Language-aware security quick-scan avoiding false positives on docstrings, comments, and .exec()/.eval() method calls."""
+    findings: list[dict[str, Any]] = []
+    raw_lines = src.splitlines()
+    if ext == ".py":
+        try:
+            with warnings.catch_warnings():
+                warnings.simplefilter("ignore", SyntaxWarning)
+                tree = ast.parse(src)
+        except SyntaxError:
+            for lineno, line in enumerate(raw_lines, 1):
+                if "nosec" in line:
+                    continue
+                code = _strip_python_comment(line).strip()
+                if not code:
+                    continue
+                if _PY_EVAL_EXEC_FALLBACK_RE.search(code):
+                    findings.append({"rule": "EVAL_EXEC", "path": rel, "line": lineno})
+                    continue
+                for rule_name, rx in _SEC_PATTERNS:
+                    if rx.search(code):
+                        findings.append({"rule": rule_name, "path": rel, "line": lineno})
+                        break
+            return findings
+
+        doc_lines = _python_docstring_lines(tree)
+        eval_lines: set[int] = set()
+        for node in ast.walk(tree):
+            if isinstance(node, ast.Call):
+                is_eval_exec = (
+                    isinstance(node.func, ast.Name) and node.func.id in ("eval", "exec")
+                ) or (
+                    isinstance(node.func, ast.Attribute)
+                    and node.func.attr in ("eval", "exec")
+                    and isinstance(node.func.value, ast.Name)
+                    and node.func.value.id in ("builtins", "__builtins__")
+                )
+                if is_eval_exec:
+                    ln = getattr(node, "lineno", 0)
+                    if 1 <= ln <= len(raw_lines) and "nosec" not in raw_lines[ln - 1]:
+                        eval_lines.add(ln)
+
+        for ln in sorted(eval_lines):
+            findings.append({"rule": "EVAL_EXEC", "path": rel, "line": ln})
+
+        for lineno, line in enumerate(raw_lines, 1):
+            if lineno in doc_lines or lineno in eval_lines or "nosec" in line:
+                continue
+            code = _strip_python_comment(line).strip()
+            if not code:
+                continue
+            for rule_name, rx in _SEC_PATTERNS:
+                if rx.search(code):
+                    findings.append({"rule": rule_name, "path": rel, "line": lineno})
+                    break
+        return findings
+
+    # JS / TS / JSX / TSX / Vue
+    for lineno, code in _strip_js_comments(src):
+        raw = raw_lines[lineno - 1] if lineno <= len(raw_lines) else ""
+        s = code.strip()
+        if not s or "nosec" in raw:
+            continue
+        if _JS_EVAL_RE.search(s):
+            findings.append({"rule": "EVAL_EXEC", "path": rel, "line": lineno})
+            continue
+        for rule_name, rx in _SEC_PATTERNS:
+            if rx.search(s):
+                findings.append({"rule": rule_name, "path": rel, "line": lineno})
+                break
+    return findings
 
 
 def analyze_extended_health_checks(project_dir: Path, max_files: int = 2000) -> dict[str, Any]:
@@ -532,7 +714,7 @@ def analyze_extended_health_checks(project_dir: Path, max_files: int = 2000) -> 
             ext = os.path.splitext(fname)[1].lower()
             if ext not in (".py", ".ts", ".tsx", ".js", ".jsx", ".vue"):
                 continue
-            if fname.endswith((".min.js", ".bundle.js", ".d.ts")):
+            if _is_generated_asset(fname):
                 continue
             fpath = Path(root) / fname
             rel = str(fpath.relative_to(project_dir)).replace("\\", "/")
@@ -556,14 +738,7 @@ def analyze_extended_health_checks(project_dir: Path, max_files: int = 2000) -> 
 
             # 1. Security quick-scan (production code only)
             if not is_test:
-                for lineno, line in enumerate(src.splitlines(), 1):
-                    stripped = line.strip()
-                    if not stripped or stripped.startswith(("#", "//", "*")):
-                        continue
-                    for rule_name, rx in _SEC_PATTERNS:
-                        if rx.search(stripped) and "nosec" not in stripped:
-                            sec_findings.append({"rule": rule_name, "path": rel, "line": lineno})
-                            break
+                sec_findings.extend(_scan_security_hygiene(src, ext, rel))
 
             # 2. 6-line normalized clone detection
             norm_lines = [
@@ -1032,7 +1207,7 @@ def analyze_health_v4(
             ext = os.path.splitext(fname)[1].lower()
             if ext not in (".py", ".ts", ".tsx", ".js", ".jsx", ".vue", ".sql"):
                 continue
-            if fname.endswith((".min.js", ".min.css", ".bundle.js", ".d.ts")):
+            if _is_generated_asset(fname):
                 continue
             fpath = Path(root) / fname
             rel = str(fpath.relative_to(project_dir)).replace("\\", "/")
