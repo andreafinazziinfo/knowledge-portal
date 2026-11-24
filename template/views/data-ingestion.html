@@ -5,7 +5,6 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Data Ingestion &amp; Storage Pipeline</title>
   <link rel="stylesheet" href="portal-theme.css?v=fp3">
-  <script src="../data/hub_dataops.js" onerror="void(0)"></script>
   <script src="../data/async_topology.js" onerror="void(0)"></script>
   <script src="../data/db_schema.js" onerror="void(0)"></script>
   <script src="live-reload.js"></script>
@@ -154,12 +153,8 @@
     }
 
     async function boot() {
-      try {
-        const r = await fetch('../data/hub-dataops.json', { cache: 'no-store' });
-        if (r.ok) DATAOPS = await r.json();
-        else if (window.HUB_DATAOPS_DATA) DATAOPS = window.HUB_DATAOPS_DATA;
-      } catch (_) {
-        if (window.HUB_DATAOPS_DATA) DATAOPS = window.HUB_DATAOPS_DATA;
+      if (window.HUB_DATAOPS_DATA) {
+        DATAOPS = window.HUB_DATAOPS_DATA;
       }
       try {
         const r2 = await fetch('../data/async-topology.json', { cache: 'no-store' });
