@@ -152,6 +152,26 @@ def _seed_large_dataset(root: Path) -> Path:
         "ws_streams": [{"protocol": "websocket", "path": f"/ws/s{i}", "consumers": [{"file": "App.vue"}]} for i in range(6)],
         "sse_streams": [{"protocol": "sse", "path": f"/sse/e{i}", "consumers": []} for i in range(2)],
     }), encoding="utf-8")
+    (data / "data-contracts.json").write_text(json.dumps({
+        "summary": {"pydantic_models_count": 200, "ts_types_count": 350, "matched_schemas_count": 80, "schema_drift_count": 35, "untyped_routes_count": 60, "untyped_routes_pct": 42.0, "http_exceptions_count": 150, "custom_exceptions_count": 20, "db_rw_tables_count": 35},
+        "pydantic_models": [{"name": f"Model{i}", "file": f"backend/app/schemas/m{i}.py", "line": 10, "bases": ["BaseModel"], "fields": [{"name": "id", "type": "int", "optional": False}], "field_count": 1} for i in range(200)],
+        "ts_types": [{"name": f"Model{i}", "kind": "interface", "file": f"frontend/src/types/m{i}.ts", "line": 5, "fields": [{"name": "id", "type": "number", "optional": False}], "field_count": 1} for i in range(350)],
+        "matched_schemas": [{"pydantic_model": f"Model{i}", "pydantic_file": f"backend/app/schemas/m{i}.py", "ts_type": f"Model{i}", "ts_file": f"frontend/src/types/m{i}.ts", "status": "DRIFT" if i < 35 else "SYNCED", "missing_in_ts": ["extra_col"] if i < 35 else [], "missing_in_py": [], "type_mismatches": []} for i in range(80)],
+        "schema_drift": [{"pydantic_model": f"Model{i}", "pydantic_file": f"backend/app/schemas/m{i}.py", "ts_type": f"Model{i}", "ts_file": f"frontend/src/types/m{i}.ts", "status": "DRIFT", "missing_in_ts": ["extra_col", "created_at"], "missing_in_py": [], "type_mismatches": [{"field": "id", "py_type": "int", "ts_type": "string"}]} for i in range(35)],
+        "untyped_routes": [{"method": "GET", "path": f"/api/v1/raw/{i}", "handler": f"get_{i}", "file": f"backend/app/api/r{i}.py", "line": 12, "reason": "missing_response_model"} for i in range(60)],
+        "error_taxonomy": {
+            "by_status_code": {"404": 60, "400": 45, "403": 25, "500": 20},
+            "http_exceptions": [{"status_code": 404, "detail": f"Item {i} not found", "file": f"backend/app/api/r{i}.py", "line": 20, "function": f"get_{i}"} for i in range(150)],
+            "custom_exceptions": [{"name": f"Domain{i}Error", "bases": ["Exception"], "file": f"backend/app/errors/e{i}.py", "line": 5, "docstring": "Domain error"} for i in range(20)],
+            "frontend_handlers": [{"file": "frontend/src/api/client.ts", "status_codes": [401, 403, 404, 500]}],
+        },
+        "db_rw_matrix": [{"table": f"table_{i}", "readers": [f"backend/app/repo/t{i}.py:read"], "writers": [f"backend/app/repo/t{i}.py:write"], "migrations": [f"migrations/00{i}.sql"], "readers_count": 3, "writers_count": 2, "migrations_count": 1, "is_orphan": False} for i in range(35)],
+    }), encoding="utf-8")
+    (data / "runtime-modes.json").write_text(json.dumps({
+        "summary": {"modes_count": 5, "modes_detected_count": 5, "feature_flags_count": 40, "total_env_vars_scanned": 120, "detected_services": ["database", "redis", "worker"], "detected_guards": ["kill_switch", "paper_broker", "read_only_guard"]},
+        "modes": [{"mode": m, "label": m.title(), "risk_level": "CRITICAL" if m == "live" else "LOW", "detected_in_code": True, "required_services": ["database", "redis"], "active_guards": [{"guard": "kill_switch", "detected_in_code": True, "files": ["app/guard.py"]}], "active_guards_detected_count": 1, "controlling_env_vars": [{"name": "APP_ENV", "default": m, "files": ["app/config.py"]}], "code_references": [{"file": "app/config.py", "line": 10, "match": m}]} for m in ("offline", "dev", "paper", "shadow", "live")],
+        "feature_flags": [{"name": f"ENABLE_FEAT_{i}", "default": "false", "files": ["app/config.py"], "is_feature_flag": True} for i in range(40)],
+    }), encoding="utf-8")
     (data / "module-cards.json").write_text(json.dumps({"summary": {"total_files": 1}, "cards": {"a.py": {"lang": "python", "loc": 10, "role": "module", "purpose": "sample", "exports": ["x"], "imports_internal": [], "routes": [], "tables_touched": [], "risk_flags": [], "fast_tests": []}}}), encoding="utf-8")
     (data / "test-oracle.json").write_text(json.dumps({"summary": {"total_test_files": 1}, "source_to_tests": {}, "symbol_to_tests": {}, "tests": {}, "blind_spots": []}), encoding="utf-8")
     (root / "README.md").write_text("# Sample Repo\n", encoding="utf-8")

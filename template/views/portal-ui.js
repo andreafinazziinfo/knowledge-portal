@@ -135,7 +135,8 @@
     'adr-runbook-hub.html': { title: 'ADR Timeline & Interactive Runbook Hub', what: 'Timeline/grafo dipendenze ADR e reader interattivo dei runbook con checklist salvate in localStorage.', how: 'Alterna tra ADR Decision Graph e Interactive Runbooks; premi / per filtrare.', topic: 'adr' },
     'ai-mission-launcher.html': { title: 'AI Mission Pack & CodeMode Workbench', what: 'Generatore di Mission Pack AI con budget token, sandbox CodeMode read-only e catalogo MCP v2.', how: 'Scegli un preset o esegui uno snippet CodeMode e copia il context pack per il tuo agente AI.', topic: 'ai-mission' },
     'vertical-slices.html': { title: 'Cross-Stack Vertical Slice Explorer', what: 'Catene end-to-end a 6 layer (UI Component → Store → API Client → Backend Route → Service/Task → Redis/DB) con Swimlane SVG.', how: 'Filtra per feature o endpoint e clicca una riga per visualizzare la Swimlane 6-layer.', topic: 'vertical-slices' },
-    'test-oracle.html': { title: 'Test Oracle & Blind-Spots Explorer', what: 'Mappa inversa AST sorgente/simbolo → test pytest/vitest più veloci e lista blind-spot non coperti.', how: 'Cerca un file sorgente o simbolo e copia il comando di test mirato.', topic: 'test-oracle' }
+    'test-oracle.html': { title: 'Test Oracle & Blind-Spots Explorer', what: 'Mappa inversa AST sorgente/simbolo → test pytest/vitest più veloci e lista blind-spot non coperti.', how: 'Cerca un file sorgente o simbolo e copia il comando di test mirato.', topic: 'test-oracle' },
+    'data-contracts.html': { title: 'Data Contracts, Error Taxonomy & Runtime Modes', what: 'Registro Pydantic ↔ TypeScript con drift detector, tassonomia HTTPException/Error, matrice DB R/W e modalità runtime.', how: 'Alterna tra i tab Schema Drift, Error Taxonomy, DB R/W Matrix e Runtime Modes; premi / per filtrare.', topic: 'data-contracts' }
   };
 
   if (pageName && pageName !== 'dashboard.html' && pageName !== 'graph-studio.html') {

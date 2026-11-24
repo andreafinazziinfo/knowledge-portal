@@ -25,6 +25,7 @@ from knowledge_portal.mcp_budget import (
     build_handoff_pack,
     check_diff as _budget_check_diff,
     query_async_topology as _budget_query_async_topology,
+    query_contract as _budget_query_contract,
     query_test_oracle as _budget_query_test_oracle,
     query_vertical_slice as _budget_query_vertical_slice,
     slice_for_task as _budget_slice_for_task,
@@ -754,6 +755,32 @@ class PortalMcpEngine:
             async_topology_gen=generate_async_topology,
         )
 
+    def contract(self, kind: str = "schemas", query: str = "", detail: str = "summary") -> dict[str, Any]:
+        from knowledge_portal.generators.data_contracts import generate_data_contracts
+        from knowledge_portal.generators.runtime_modes import generate_runtime_modes
+        return _budget_query_contract(
+            self,
+            kind=kind,
+            query=query,
+            detail=detail,
+            data_contracts_gen=generate_data_contracts,
+            runtime_modes_gen=generate_runtime_modes,
+        )
+
+    def data_contracts_full(self) -> dict[str, Any]:
+        from knowledge_portal.generators.data_contracts import generate_data_contracts
+        loaded = self._load_json("data-contracts.json")
+        if isinstance(loaded, dict):
+            return loaded
+        return generate_data_contracts(self.project_dir, self.data_dir)
+
+    def runtime_modes_full(self) -> dict[str, Any]:
+        from knowledge_portal.generators.runtime_modes import generate_runtime_modes
+        loaded = self._load_json("runtime-modes.json")
+        if isinstance(loaded, dict):
+            return loaded
+        return generate_runtime_modes(self.project_dir, self.data_dir)
+
 
 TOOLS_SPEC: list[dict[str, Any]] = [
     {
@@ -1128,6 +1155,18 @@ TOOLS_SPEC: list[dict[str, Any]] = [
             },
         },
     },
+    {
+        "name": "portal_contract",
+        "description": "Query Pydantic<->TypeScript schemas, schema drift, HTTPException/custom error taxonomy, DB table readers/writers matrix, or operational runtime modes (<= 800 token summary default).",
+        "inputSchema": {
+            "type": "object",
+            "properties": {
+                "kind": {"type": "string", "enum": ["schemas", "drift", "errors", "db_rw", "runtime_modes"], "default": "schemas"},
+                "query": {"type": "string", "default": ""},
+                "detail": {"type": "string", "enum": ["summary", "compact", "full"], "default": "summary"},
+            },
+        },
+    },
 ]
 
 _HEAVY_DETAIL_TOOLS = frozenset({
@@ -1212,6 +1251,8 @@ def handle_jsonrpc_request(engine: PortalMcpEngine, req: dict[str, Any], code_mo
                     {"uri": "portal://sarif-findings", "name": "Universal SARIF 2.1.0 Findings", "description": "Normalized Semgrep/Gitleaks/CodeQL/Trivy/Ruff/Hadolint findings", "mimeType": "application/json"},
                     {"uri": "portal://vertical-slices", "name": "Cross-Stack Vertical Slices", "description": "6-layer UI -> Store -> API -> Backend -> Task -> DB vertical slices and FE_CALLS_API edges", "mimeType": "application/json"},
                     {"uri": "portal://async-topology", "name": "Async / WS / Redis / Celery Topology", "description": "Celery tasks, Beat schedules, Redis keys/locks, Pub/Sub channels, and WebSocket/SSE streams", "mimeType": "application/json"},
+                    {"uri": "portal://data-contracts", "name": "Data Contracts & Drift Registry", "description": "Pydantic<->TypeScript schema drift, Error Taxonomy, and DB table readers/writers matrix", "mimeType": "application/json"},
+                    {"uri": "portal://runtime-modes", "name": "Runtime Modes & Feature Flags Matrix", "description": "Operational mode matrix (offline/dev/paper/shadow/live), required services, safety guards, and feature flags", "mimeType": "application/json"},
                 ]
             },
         }
@@ -1262,6 +1303,10 @@ def handle_jsonrpc_request(engine: PortalMcpEngine, req: dict[str, Any], code_mo
             return {"jsonrpc": "2.0", "id": req_id, "result": {"contents": [{"uri": uri, "mimeType": "application/json", "text": json.dumps(engine.vertical_slice(detail="full"), indent=2)}]}}
         if uri == "portal://async-topology":
             return {"jsonrpc": "2.0", "id": req_id, "result": {"contents": [{"uri": uri, "mimeType": "application/json", "text": json.dumps(engine.async_topology(detail="full"), indent=2)}]}}
+        if uri == "portal://data-contracts":
+            return {"jsonrpc": "2.0", "id": req_id, "result": {"contents": [{"uri": uri, "mimeType": "application/json", "text": json.dumps(engine.data_contracts_full(), indent=2)}]}}
+        if uri == "portal://runtime-modes":
+            return {"jsonrpc": "2.0", "id": req_id, "result": {"contents": [{"uri": uri, "mimeType": "application/json", "text": json.dumps(engine.runtime_modes_full(), indent=2)}]}}
         return {"jsonrpc": "2.0", "id": req_id, "error": {"code": -32602, "message": f"Unknown resource URI: {uri}"}}
 
     if method == "prompts/list":
@@ -1334,6 +1379,7 @@ def handle_jsonrpc_request(engine: PortalMcpEngine, req: dict[str, Any], code_mo
             "portal_sarif_findings": ((), ("tool", "severity", "detail"), {}),
             "portal_vertical_slice": ((), ("query", "layer", "detail"), {"q": "query", "route": "query", "feature": "query"}),
             "portal_async_topology": ((), ("kind", "query", "detail"), {"q": "query", "type": "kind"}),
+            "portal_contract": ((), ("kind", "query", "detail"), {"q": "query", "type": "kind"}),
         }
 
         dispatch = {
@@ -1373,6 +1419,7 @@ def handle_jsonrpc_request(engine: PortalMcpEngine, req: dict[str, Any], code_mo
             "portal_sarif_findings": lambda a: engine.sarif_findings(a.get("tool", ""), a.get("severity", ""), a.get("detail", "summary")),
             "portal_vertical_slice": lambda a: engine.vertical_slice(a.get("query", ""), a.get("layer", "all"), a.get("detail", "summary")),
             "portal_async_topology": lambda a: engine.async_topology(a.get("kind", "all"), a.get("query", ""), a.get("detail", "summary")),
+            "portal_contract": lambda a: engine.contract(a.get("kind", "schemas"), a.get("query", ""), a.get("detail", "summary")),
         }
         fn = dispatch.get(name)
         if fn is None:

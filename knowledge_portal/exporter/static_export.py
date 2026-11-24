@@ -31,6 +31,8 @@ from knowledge_portal.generators.agent_instructions_audit import generate_agent_
 from knowledge_portal.generators.sarif_ingestor import generate_sarif_findings
 from knowledge_portal.generators.vertical_slices import generate_vertical_slices
 from knowledge_portal.generators.async_topology import generate_async_topology
+from knowledge_portal.generators.data_contracts import generate_data_contracts
+from knowledge_portal.generators.runtime_modes import generate_runtime_modes
 
 def export_static_portal(source_dir: Path, output_dir: Path, project_name: Optional[str] = None) -> Dict[str, Any]:
     source_dir = source_dir.resolve()
@@ -67,6 +69,8 @@ def export_static_portal(source_dir: Path, output_dir: Path, project_name: Optio
     generate_call_graph(source_dir, data_dir)
     generate_vertical_slices(source_dir, data_dir)
     generate_async_topology(source_dir, data_dir)
+    generate_data_contracts(source_dir, data_dir)
+    generate_runtime_modes(source_dir, data_dir)
     generate_ownership_map(source_dir, data_dir)
     generate_config_matrix(source_dir, data_dir)
     generate_iac_topology(source_dir, data_dir)

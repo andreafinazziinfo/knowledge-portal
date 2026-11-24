@@ -1,0 +1,274 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Data Contracts, Error Taxonomy &amp; Runtime Modes</title>
+  <link rel="stylesheet" href="portal-theme.css?v=fp3">
+  <script src="../data/data_contracts.js" onerror="void(0)"></script>
+  <script src="../data/runtime_modes.js" onerror="void(0)"></script>
+  <script src="live-reload.js"></script>
+  <script defer src="portal-ui.js?v=fp4"></script>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body { background: #0f0f0f; color: #f3f4f6; font-family: 'Inter', system-ui, sans-serif; min-height: 100vh; }
+    .wrap { max-width: 1400px; margin: 0 auto; padding: 18px 24px 56px; }
+    .head { display: flex; justify-content: space-between; align-items: flex-end; gap: 12px; flex-wrap: wrap; border-bottom: 1px solid #262626; padding-bottom: 14px; margin-bottom: 16px; }
+    .kpis { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 12px; margin-bottom: 16px; }
+    .kpi { background: #191919; border: 1px solid #262626; border-radius: 10px; padding: 12px 15px; }
+    .kpi-v { font-size: 22px; font-weight: 700; color: #fff; }
+    .kpi-l { font-size: 10px; text-transform: uppercase; letter-spacing: 0.06em; color: #9ca3af; margin-top: 3px; }
+    .controls { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; margin-bottom: 14px; }
+    .inp { background: #141414; border: 1px solid #333; color: #fff; padding: 7px 12px; border-radius: 7px; font-size: 12px; width: 320px; }
+    .chip { background: #191919; border: 1px solid #2e2e2e; color: #a3a3a3; padding: 6px 12px; border-radius: 999px; font-size: 11px; font-weight: 600; cursor: pointer; }
+    .chip.active { background: #38bdf8; color: #0f0f0f; border-color: #38bdf8; }
+    .panel { background: #141414; border: 1px solid #262626; border-radius: 10px; padding: 14px 16px; margin-bottom: 16px; }
+    table { width: 100%; border-collapse: collapse; background: #141414; font-size: 12px; }
+    th, td { text-align: left; padding: 9px 11px; border-bottom: 1px solid #222; vertical-align: top; }
+    th { background: #191919; font-size: 10px; text-transform: uppercase; letter-spacing: 0.06em; color: #9ca3af; }
+    .badge { display: inline-block; padding: 2px 7px; border-radius: 4px; font-size: 10px; font-weight: 700; font-family: ui-monospace, monospace; }
+    .b-ok { background: #064e3b; color: #34d399; }
+    .b-warn { background: #78350f; color: #fbbf24; }
+    .b-err { background: #7f1d1d; color: #f87171; }
+    .b-info { background: #1e3a8a; color: #60a5fa; }
+    .pill { display: inline-block; background: #222; border: 1px solid #333; color: #d1d5db; padding: 1px 6px; border-radius: 4px; font-size: 10px; font-family: ui-monospace, monospace; margin: 1px 3px 1px 0; }
+    .link { color: #38bdf8; cursor: pointer; font-family: ui-monospace, monospace; text-decoration: underline; }
+    .modes-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap: 12px; }
+    .mode-card { background: #191919; border: 1px solid #262626; border-radius: 10px; padding: 14px; }
+    .empty { padding: 26px; text-align: center; color: #9ca3af; font-size: 13px; }
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <div class="head">
+      <div>
+        <h1 style="font-size:19px;">📜 Data Contracts, Error Taxonomy &amp; Runtime Modes</h1>
+        <p style="font-size:12px;color:#9ca3af;margin-top:3px;">Pydantic ↔ TypeScript Schema Drift · HTTPException &amp; Custom Errors · DB Readers/Writers Matrix · Operational Modes</p>
+      </div>
+      <span id="dc-ts" style="font-size:11px;color:#9ca3af;"></span>
+    </div>
+
+    <div class="kpis" id="dc-kpis"></div>
+
+    <div class="controls">
+      <button class="chip active" data-tab="drift" onclick="setTab('drift')">⚠️ Schema Drift</button>
+      <button class="chip" data-tab="schemas" onclick="setTab('schemas')">🧩 Schemas (Py ↔ TS)</button>
+      <button class="chip" data-tab="errors" onclick="setTab('errors')">🚨 Error Taxonomy</button>
+      <button class="chip" data-tab="db_rw" onclick="setTab('db_rw')">🗄️ DB R/W Matrix</button>
+      <button class="chip" data-tab="modes" onclick="setTab('modes')">🎛️ Runtime Modes</button>
+      <input id="dc-q" class="inp" type="search" placeholder="Filter by model, field, table, status code, or env var..." oninput="render()">
+    </div>
+
+    <div id="dc-content"></div>
+  </div>
+
+  <script>
+    let DC = { summary: {}, pydantic_models: [], ts_types: [], matched_schemas: [], schema_drift: [], untyped_routes: [], error_taxonomy: {}, db_rw_matrix: [] };
+    let RM = { summary: {}, modes: [], feature_flags: [] };
+    let activeTab = 'drift';
+
+    function esc(s) {
+      return String(s ?? '').replace(/[&<>"']/g, m => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m]));
+    }
+    function openInReader(p) {
+      if (p) try { window.parent.postMessage({ action: 'openFile', path: p.split(':')[0] }, '*'); } catch (_) {}
+    }
+    function setTab(t) {
+      activeTab = t;
+      document.querySelectorAll('.chip[data-tab]').forEach(el => el.classList.toggle('active', el.dataset.tab === t));
+      render();
+    }
+
+    function renderKpis() {
+      const s = DC.summary || {};
+      const rs = RM.summary || {};
+      const items = [
+        { v: s.pydantic_models_count ?? 0, l: 'Pydantic Models' },
+        { v: s.ts_types_count ?? 0, l: 'TypeScript Types' },
+        { v: s.schema_drift_count ?? 0, l: 'Schema Drifts', c: (s.schema_drift_count || 0) > 0 ? '#fbbf24' : '#34d399' },
+        { v: `${s.untyped_routes_count ?? 0} (${s.untyped_routes_pct ?? 0}%)`, l: 'Untyped Routes' },
+        { v: `${s.http_exceptions_count ?? 0} / ${s.custom_exceptions_count ?? 0}`, l: 'HTTP / Custom Errors' },
+        { v: s.db_rw_tables_count ?? 0, l: 'DB R/W Tables' },
+        { v: `${rs.modes_detected_count ?? 0}/${rs.modes_count ?? 5}`, l: 'Runtime Modes' },
+        { v: rs.feature_flags_count ?? 0, l: 'Feature Flags' },
+      ];
+      document.getElementById('dc-kpis').innerHTML = items.map(i =>
+        `<div class="kpi"><div class="kpi-v" style="${i.c ? 'color:' + i.c : ''}">${esc(i.v)}</div><div class="kpi-l">${esc(i.l)}</div></div>`
+      ).join('');
+      document.getElementById('dc-ts').textContent = DC.generated_at ? `Updated ${DC.generated_at.slice(0, 19).replace('T', ' ')} UTC` : '';
+    }
+
+    function render() {
+      const q = (document.getElementById('dc-q').value || '').trim().toLowerCase();
+      const box = document.getElementById('dc-content');
+
+      if (activeTab === 'drift') {
+        const drifts = (DC.schema_drift || []).filter(d => !q || JSON.stringify(d).toLowerCase().includes(q));
+        const untyped = (DC.untyped_routes || []).filter(r => !q || JSON.stringify(r).toLowerCase().includes(q));
+        box.innerHTML = `
+          <div class="panel" style="padding:0;overflow:hidden;">
+            <table>
+              <thead><tr><th>Pydantic Model</th><th>TypeScript Type</th><th>Missing in TS</th><th>Missing in Py</th><th>Type Mismatches</th></tr></thead>
+              <tbody>
+                ${drifts.length ? drifts.slice(0, 150).map(d => `
+                  <tr>
+                    <td><strong>${esc(d.pydantic_model)}</strong><br><span class="link" onclick="openInReader('${esc(d.pydantic_file)}')">${esc(d.pydantic_file)}</span></td>
+                    <td><strong>${esc(d.ts_type)}</strong><br><span class="link" onclick="openInReader('${esc(d.ts_file)}')">${esc(d.ts_file)}</span></td>
+                    <td>${(d.missing_in_ts || []).map(f => `<span class="pill">${esc(f)}</span>`).join('') || '—'}</td>
+                    <td>${(d.missing_in_py || []).map(f => `<span class="pill">${esc(f)}</span>`).join('') || '—'}</td>
+                    <td>${(d.type_mismatches || []).map(m => `<span class="badge b-err">${esc(m.field)}: ${esc(m.py_type)} ≠ ${esc(m.ts_type)}</span>`).join(' ') || '—'}</td>
+                  </tr>`).join('') : '<tr><td colspan="5" class="empty">No schema drift detected.</td></tr>'}
+              </tbody>
+            </table>
+          </div>
+          <div class="panel" style="padding:0;overflow:hidden;">
+            <div style="padding:10px 14px;border-bottom:1px solid #262626;font-size:12px;font-weight:700;">Untyped / Generic API Routes (${untyped.length})</div>
+            <table>
+              <thead><tr><th>Method</th><th>Path</th><th>Handler</th><th>Reason</th><th>File</th></tr></thead>
+              <tbody>
+                ${untyped.length ? untyped.slice(0, 120).map(r => `
+                  <tr>
+                    <td><span class="badge b-info">${esc(r.method)}</span></td>
+                    <td style="font-family:ui-monospace,monospace;">${esc(r.path)}</td>
+                    <td>${esc(r.handler)}</td>
+                    <td><span class="badge b-warn">${esc(r.reason)}</span></td>
+                    <td><span class="link" onclick="openInReader('${esc(r.file)}')">${esc(r.file)}:${esc(r.line)}</span></td>
+                  </tr>`).join('') : '<tr><td colspan="5" class="empty">All scanned routes declare typed response models.</td></tr>'}
+              </tbody>
+            </table>
+          </div>`;
+        return;
+      }
+
+      if (activeTab === 'schemas') {
+        const matched = (DC.matched_schemas || []).filter(m => !q || JSON.stringify(m).toLowerCase().includes(q));
+        box.innerHTML = `
+          <div class="panel" style="padding:0;overflow:hidden;">
+            <table>
+              <thead><tr><th>Status</th><th>Pydantic Model</th><th>TypeScript Type</th><th>Drift Summary</th></tr></thead>
+              <tbody>
+                ${matched.length ? matched.slice(0, 200).map(m => `
+                  <tr>
+                    <td><span class="badge ${m.status === 'SYNCED' ? 'b-ok' : 'b-warn'}">${esc(m.status)}</span></td>
+                    <td><strong>${esc(m.pydantic_model)}</strong> <span class="link" onclick="openInReader('${esc(m.pydantic_file)}')">${esc(m.pydantic_file)}</span></td>
+                    <td><strong>${esc(m.ts_type)}</strong> <span class="link" onclick="openInReader('${esc(m.ts_file)}')">${esc(m.ts_file)}</span></td>
+                    <td>${m.status === 'SYNCED' ? 'Exact field parity' : `-${(m.missing_in_ts || []).length} TS / -${(m.missing_in_py || []).length} Py / ${(m.type_mismatches || []).length} type`}</td>
+                  </tr>`).join('') : '<tr><td colspan="4" class="empty">No matched Pydantic ↔ TypeScript pairs for current filter.</td></tr>'}
+              </tbody>
+            </table>
+          </div>`;
+        return;
+      }
+
+      if (activeTab === 'errors') {
+        const err = DC.error_taxonomy || {};
+        const httpEx = (err.http_exceptions || []).filter(e => !q || JSON.stringify(e).toLowerCase().includes(q));
+        const customEx = (err.custom_exceptions || []).filter(e => !q || JSON.stringify(e).toLowerCase().includes(q));
+        box.innerHTML = `
+          <div class="panel" style="padding:0;overflow:hidden;">
+            <div style="padding:10px 14px;border-bottom:1px solid #262626;font-size:12px;font-weight:700;">HTTPException Calls (${httpEx.length})</div>
+            <table>
+              <thead><tr><th>Status</th><th>Detail</th><th>Function</th><th>Location</th></tr></thead>
+              <tbody>
+                ${httpEx.length ? httpEx.slice(0, 150).map(e => `
+                  <tr>
+                    <td><span class="badge ${e.status_code >= 500 ? 'b-err' : 'b-warn'}">${esc(e.status_code)}</span></td>
+                    <td>${esc(e.detail || '—')}</td>
+                    <td style="font-family:ui-monospace,monospace;">${esc(e.function)}</td>
+                    <td><span class="link" onclick="openInReader('${esc(e.file)}')">${esc(e.file)}:${esc(e.line)}</span></td>
+                  </tr>`).join('') : '<tr><td colspan="4" class="empty">No HTTPException calls found.</td></tr>'}
+              </tbody>
+            </table>
+          </div>
+          <div class="panel" style="padding:0;overflow:hidden;">
+            <div style="padding:10px 14px;border-bottom:1px solid #262626;font-size:12px;font-weight:700;">Custom Exception Classes (${customEx.length})</div>
+            <table>
+              <thead><tr><th>Class</th><th>Bases</th><th>Docstring</th><th>Location</th></tr></thead>
+              <tbody>
+                ${customEx.length ? customEx.slice(0, 120).map(c => `
+                  <tr>
+                    <td><strong>${esc(c.name)}</strong></td>
+                    <td>${(c.bases || []).map(b => `<span class="pill">${esc(b)}</span>`).join('')}</td>
+                    <td>${esc(c.docstring || '—')}</td>
+                    <td><span class="link" onclick="openInReader('${esc(c.file)}')">${esc(c.file)}:${esc(c.line)}</span></td>
+                  </tr>`).join('') : '<tr><td colspan="4" class="empty">No custom exception classes found.</td></tr>'}
+              </tbody>
+            </table>
+          </div>`;
+        return;
+      }
+
+      if (activeTab === 'db_rw') {
+        const rows = (DC.db_rw_matrix || []).filter(r => !q || JSON.stringify(r).toLowerCase().includes(q));
+        box.innerHTML = `
+          <div class="panel" style="padding:0;overflow:hidden;">
+            <table>
+              <thead><tr><th>Table</th><th>Readers</th><th>Writers</th><th>Migrations</th></tr></thead>
+              <tbody>
+                ${rows.length ? rows.map(r => `
+                  <tr>
+                    <td><strong>${esc(r.table)}</strong> ${r.is_orphan ? '<span class="badge b-warn">ORPHAN</span>' : ''}</td>
+                    <td>${(r.readers || []).slice(0, 6).map(x => `<span class="pill link" onclick="openInReader('${esc(x)}')">${esc(x)}</span>`).join('') || '—'}</td>
+                    <td>${(r.writers || []).slice(0, 6).map(x => `<span class="pill link" onclick="openInReader('${esc(x)}')">${esc(x)}</span>`).join('') || '—'}</td>
+                    <td>${(r.migrations || []).slice(0, 4).map(x => `<span class="pill">${esc(x)}</span>`).join('') || '—'}</td>
+                  </tr>`).join('') : '<tr><td colspan="4" class="empty">No DB tables indexed yet.</td></tr>'}
+              </tbody>
+            </table>
+          </div>`;
+        return;
+      }
+
+      if (activeTab === 'modes') {
+        const modes = (RM.modes || []).filter(m => !q || JSON.stringify(m).toLowerCase().includes(q));
+        const flags = (RM.feature_flags || []).filter(f => !q || JSON.stringify(f).toLowerCase().includes(q));
+        box.innerHTML = `
+          <div class="modes-grid" style="margin-bottom:16px;">
+            ${modes.map(m => `
+              <div class="mode-card">
+                <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;">
+                  <strong style="font-size:14px;">${esc(m.label)}</strong>
+                  <span class="badge ${m.risk_level === 'CRITICAL' ? 'b-err' : m.risk_level === 'HIGH' ? 'b-warn' : 'b-ok'}">${esc(m.risk_level)}</span>
+                </div>
+                <div style="font-size:11px;color:#9ca3af;margin-bottom:8px;">Services: ${(m.required_services || []).map(s => `<span class="pill">${esc(s)}</span>`).join('')}</div>
+                <div style="font-size:11px;color:#9ca3af;margin-bottom:8px;">Guards (${m.active_guards_detected_count}/${(m.active_guards || []).length}): ${(m.active_guards || []).map(g => `<span class="badge ${g.detected_in_code ? 'b-ok' : 'b-warn'}" style="margin:2px;">${esc(g.guard)}</span>`).join('')}</div>
+                <div style="font-size:11px;color:#9ca3af;">Env Vars: ${(m.controlling_env_vars || []).slice(0, 6).map(v => `<span class="pill">${esc(v.name)}</span>`).join('') || '—'}</div>
+              </div>`).join('')}
+          </div>
+          <div class="panel" style="padding:0;overflow:hidden;">
+            <div style="padding:10px 14px;border-bottom:1px solid #262626;font-size:12px;font-weight:700;">Feature Flags &amp; Mode Env Vars (${flags.length})</div>
+            <table>
+              <thead><tr><th>Env Var</th><th>Default (Sanitized)</th><th>Referenced In</th></tr></thead>
+              <tbody>
+                ${flags.length ? flags.slice(0, 120).map(f => `
+                  <tr>
+                    <td style="font-family:ui-monospace,monospace;font-weight:600;">${esc(f.name)}</td>
+                    <td><span class="pill">${esc(f.default || '—')}</span></td>
+                    <td>${(f.files || []).slice(0, 4).map(p => `<span class="link" onclick="openInReader('${esc(p)}')">${esc(p)}</span>`).join(', ')}</td>
+                  </tr>`).join('') : '<tr><td colspan="3" class="empty">No feature flags detected.</td></tr>'}
+              </tbody>
+            </table>
+          </div>`;
+      }
+    }
+
+    async function boot() {
+      try {
+        const [r1, r2] = await Promise.all([
+          fetch('../data/data-contracts.json', { cache: 'no-store' }).catch(() => null),
+          fetch('../data/runtime-modes.json', { cache: 'no-store' }).catch(() => null),
+        ]);
+        if (r1 && r1.ok) DC = await r1.json();
+        else if (window.DATA_CONTRACTS_DATA) DC = window.DATA_CONTRACTS_DATA;
+        if (r2 && r2.ok) RM = await r2.json();
+        else if (window.RUNTIME_MODES_DATA) RM = window.RUNTIME_MODES_DATA;
+      } catch (_) {
+        if (window.DATA_CONTRACTS_DATA) DC = window.DATA_CONTRACTS_DATA;
+        if (window.RUNTIME_MODES_DATA) RM = window.RUNTIME_MODES_DATA;
+      }
+      renderKpis();
+      render();
+    }
+    boot();
+  </script>
+</body>
+</html>

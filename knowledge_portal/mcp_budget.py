@@ -499,6 +499,79 @@ def _build_summary_view(tool_name: str, data: dict[str, Any]) -> dict[str, Any]:
             "_drilldown_hint": "Pass kind='celery'|'beat'|'redis'|'pubsub'|'ws'|'sse', query='<term>', or detail='compact' for details.",
         }
 
+    if tool_name == "portal_contract":
+        kind = str(data.get("kind") or "schemas")
+        base_out: dict[str, Any] = {
+            "_detail": "summary",
+            "kind": kind,
+            "query": data.get("query", ""),
+            "summary": data.get("summary") or {},
+        }
+        if kind == "schemas":
+            base_out["top_pydantic_models"] = [
+                {"name": m.get("name"), "file": m.get("file"), "fields": m.get("field_count")}
+                for m in (data.get("pydantic_models") or [])[:6] if isinstance(m, dict)
+            ]
+            base_out["top_ts_types"] = [
+                {"name": t.get("name"), "file": t.get("file"), "fields": t.get("field_count")}
+                for t in (data.get("ts_types") or [])[:6] if isinstance(t, dict)
+            ]
+        elif kind == "drift":
+            base_out["top_drift"] = [
+                {
+                    "pydantic": d.get("pydantic_model"),
+                    "ts": d.get("ts_type"),
+                    "missing_ts": (d.get("missing_in_ts") or [])[:4],
+                    "missing_py": (d.get("missing_in_py") or [])[:4],
+                    "mismatches": len(d.get("type_mismatches") or []),
+                }
+                for d in (data.get("schema_drift") or [])[:6] if isinstance(d, dict)
+            ]
+            base_out["sample_untyped_routes"] = [
+                {"method": r.get("method"), "path": r.get("path"), "reason": r.get("reason")}
+                for r in (data.get("untyped_routes") or [])[:5] if isinstance(r, dict)
+            ]
+        elif kind == "errors":
+            err = data.get("error_taxonomy") or {}
+            base_out["by_status_code"] = err.get("by_status_code") or {}
+            base_out["sample_http_exceptions"] = [
+                {"status": e.get("status_code"), "file": e.get("file"), "fn": e.get("function"), "detail": str(e.get("detail", ""))[:50]}
+                for e in (err.get("http_exceptions") or [])[:6] if isinstance(e, dict)
+            ]
+            base_out["custom_exceptions"] = [
+                {"name": c.get("name"), "file": c.get("file")}
+                for c in (err.get("custom_exceptions") or [])[:6] if isinstance(c, dict)
+            ]
+        elif kind == "db_rw":
+            base_out["top_tables"] = [
+                {
+                    "table": t.get("table"),
+                    "readers": t.get("readers_count"),
+                    "writers": t.get("writers_count"),
+                    "migrations": t.get("migrations_count"),
+                    "orphan": t.get("is_orphan"),
+                }
+                for t in (data.get("db_rw_matrix") or [])[:10] if isinstance(t, dict)
+            ]
+        elif kind == "runtime_modes":
+            base_out["modes"] = [
+                {
+                    "mode": m.get("mode"),
+                    "risk": m.get("risk_level"),
+                    "detected": m.get("detected_in_code"),
+                    "services": (m.get("required_services") or [])[:5],
+                    "guards_active": m.get("active_guards_detected_count"),
+                    "env_vars": len(m.get("controlling_env_vars") or []),
+                }
+                for m in (data.get("modes") or [])[:6] if isinstance(m, dict)
+            ]
+            base_out["top_feature_flags"] = [
+                {"name": f.get("name"), "default": f.get("default")}
+                for f in (data.get("feature_flags") or [])[:8] if isinstance(f, dict)
+            ]
+        base_out["_drilldown_hint"] = "Pass kind='schemas'|'drift'|'errors'|'db_rw'|'runtime_modes', query='<term>', or detail='compact' for details."
+        return base_out
+
     # Generic summary fallback
     out: dict[str, Any] = {"_detail": "summary"}
     for k, v in data.items():
@@ -708,6 +781,37 @@ def slice_for_task(
                 if len(matched_async) >= 5:
                     break
 
+    # Match relevant data contracts (schema drift & DB R/W)
+    dc_data = engine._load_json("data-contracts.json") or {}
+    matched_contracts: list[dict[str, Any]] = []
+    if isinstance(dc_data, dict):
+        for dr in (dc_data.get("schema_drift") or []):
+            if not isinstance(dr, dict):
+                continue
+            dr_blob = f"{dr.get('pydantic_model', '')} {dr.get('pydantic_file', '')} {dr.get('ts_type', '')} {dr.get('ts_file', '')}".lower()
+            if any(t in dr_blob for t in q_tokens) or any(fp.lower() in dr_blob for fp in focus):
+                matched_contracts.append({
+                    "kind": "schema_drift",
+                    "pydantic": dr.get("pydantic_model"),
+                    "ts": dr.get("ts_type"),
+                    "missing_in_ts": (dr.get("missing_in_ts") or [])[:3],
+                })
+                if len(matched_contracts) >= 3:
+                    break
+        for tbl in (dc_data.get("db_rw_matrix") or []):
+            if not isinstance(tbl, dict):
+                continue
+            t_blob = f"{tbl.get('table', '')} {' '.join(tbl.get('readers') or [])} {' '.join(tbl.get('writers') or [])}".lower()
+            if any(t in t_blob for t in q_tokens) or any(fp.lower() in t_blob for fp in focus):
+                matched_contracts.append({
+                    "kind": "db_rw",
+                    "table": tbl.get("table"),
+                    "readers": tbl.get("readers_count"),
+                    "writers": tbl.get("writers_count"),
+                })
+                if len(matched_contracts) >= 5:
+                    break
+
     # Greedy Token-Budget Packing
     s2t = oracle_data.get("source_to_tests") if isinstance(oracle_data, dict) else {}
     packed_cards: list[dict[str, Any]] = []
@@ -722,6 +826,7 @@ def slice_for_task(
         "active_adrs": active_adrs,
         "vertical_slices": matched_slices,
         "async_hooks": matched_async,
+        "data_contracts": matched_contracts,
         "selected_modules": packed_cards,
         "neighbors_1hop": neighbors_1hop[:5],
         "fast_tests": fast_tests,
@@ -903,6 +1008,27 @@ def check_diff(
     slop_alerts = ai_slop_and_cheat_guard(engine.project_dir, target_files, base, engine.data_dir)
     oracle_res = query_test_oracle(engine, files=target_files, max_tests=6, include_slow=False, test_oracle_gen=test_oracle_gen)
 
+    # Check data-contracts.json for Pydantic<->TS drift on touched files
+    contract_alerts: list[dict[str, Any]] = []
+    dc_data = engine._load_json("data-contracts.json") or {}
+    if isinstance(dc_data, dict) and target_files:
+        norm_targets = {f.lower() for f in target_files}
+        for dr in (dc_data.get("schema_drift") or []):
+            if not isinstance(dr, dict):
+                continue
+            pf = str(dr.get("pydantic_file", "")).lower()
+            tf = str(dr.get("ts_file", "")).lower()
+            if pf in norm_targets or tf in norm_targets:
+                contract_alerts.append({
+                    "rule": "SCHEMA_DRIFT",
+                    "severity": "WARN",
+                    "pydantic_model": dr.get("pydantic_model"),
+                    "ts_type": dr.get("ts_type"),
+                    "missing_in_ts": (dr.get("missing_in_ts") or [])[:4],
+                })
+                if len(contract_alerts) >= 6:
+                    break
+
     # Change Risk Score: churn x complexity x blast_radius (normalized 0-100)
     churn_factor = min(3.0, 1.0 + len(target_files) * 0.25)
     loc_sum = 0
@@ -918,7 +1044,7 @@ def check_diff(
     risk_score = min(100, round(churn_factor * complexity_factor * blast_factor * 4.5)) if target_files else 0
 
     has_block = bool(violations) or any(a.get("severity") == "BLOCK" for a in slop_alerts)
-    status = "BLOCK" if has_block else ("WARN" if (slop_alerts or risk_score >= 45) else "PASS")
+    status = "BLOCK" if has_block else ("WARN" if (slop_alerts or contract_alerts or risk_score >= 45) else "PASS")
 
     payload: dict[str, Any] = {
         "status": status,
@@ -928,6 +1054,7 @@ def check_diff(
         "blast_radius_d1": blast_d1_total,
         "violations": violations,
         "slop_and_cheat_alerts": slop_alerts,
+        "contract_alerts": contract_alerts,
         "recommended_tests": oracle_res.get("tests") or [],
         "test_command": oracle_res.get("command", ""),
     }
@@ -1191,3 +1318,85 @@ def query_async_topology(
         res = _truncate_to_token_cap(res, cap=700)
     return res
 
+
+
+def query_contract(
+    engine: Any,
+    kind: str = "schemas",
+    query: str = "",
+    detail: str = "summary",
+    data_contracts_gen: Any = None,
+    runtime_modes_gen: Any = None,
+) -> dict[str, Any]:
+    """Query Pydantic<->TS schemas, drift, error taxonomy, DB R/W matrix, or runtime modes."""
+    k = (kind or "schemas").strip().lower()
+    valid_kinds = ("schemas", "drift", "errors", "db_rw", "runtime_modes")
+    if k not in valid_kinds:
+        return {
+            "ok": False,
+            "error": "invalid_kind",
+            "kind": k,
+            "allowed_kinds": list(valid_kinds),
+        }
+
+    q = (query or "").strip().lower()
+
+    def _matches(item: Any) -> bool:
+        if not q:
+            return True
+        return q in json.dumps(item, ensure_ascii=False).lower()
+
+    if k == "runtime_modes":
+        data = (
+            _load_or_generate(engine, "runtime-modes.json", runtime_modes_gen)
+            if runtime_modes_gen
+            else (engine._load_json("runtime-modes.json") or {})
+        )
+        if not isinstance(data, dict):
+            data = {}
+        scoped: dict[str, Any] = {
+            "schema_version": data.get("schema_version", "1.0"),
+            "generated_at": data.get("generated_at", ""),
+            "kind": k,
+            "query": query,
+            "summary": data.get("summary") or {},
+            "modes": [m for m in (data.get("modes") or []) if _matches(m)],
+            "feature_flags": [f for f in (data.get("feature_flags") or []) if _matches(f)],
+        }
+    else:
+        data = (
+            _load_or_generate(engine, "data-contracts.json", data_contracts_gen)
+            if data_contracts_gen
+            else (engine._load_json("data-contracts.json") or {})
+        )
+        if not isinstance(data, dict):
+            data = {}
+        scoped = {
+            "schema_version": data.get("schema_version", "1.0"),
+            "generated_at": data.get("generated_at", ""),
+            "kind": k,
+            "query": query,
+            "summary": data.get("summary") or {},
+        }
+        if k == "schemas":
+            scoped["pydantic_models"] = [m for m in (data.get("pydantic_models") or []) if _matches(m)]
+            scoped["ts_types"] = [t for t in (data.get("ts_types") or []) if _matches(t)]
+            scoped["matched_schemas"] = [p for p in (data.get("matched_schemas") or []) if _matches(p)]
+        elif k == "drift":
+            scoped["schema_drift"] = [d for d in (data.get("schema_drift") or []) if _matches(d)]
+            scoped["untyped_routes"] = [r for r in (data.get("untyped_routes") or []) if _matches(r)]
+        elif k == "errors":
+            err = data.get("error_taxonomy") or {}
+            scoped["error_taxonomy"] = {
+                "by_status_code": err.get("by_status_code") or {},
+                "http_exceptions": [e for e in (err.get("http_exceptions") or []) if _matches(e)],
+                "custom_exceptions": [c for c in (err.get("custom_exceptions") or []) if _matches(c)],
+                "frontend_handlers": [h for h in (err.get("frontend_handlers") or []) if _matches(h)],
+            }
+        elif k == "db_rw":
+            scoped["db_rw_matrix"] = [r for r in (data.get("db_rw_matrix") or []) if _matches(r)]
+
+    res = apply_detail_budget("portal_contract", scoped, detail=detail)
+    if (detail or "summary").strip().lower() == "summary":
+        res = _truncate_to_token_cap(res, cap=800)
+    return res

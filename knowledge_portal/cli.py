@@ -118,6 +118,8 @@ def main():
         from knowledge_portal.generators.sarif_ingestor import generate_sarif_findings
         from knowledge_portal.generators.vertical_slices import generate_vertical_slices
         from knowledge_portal.generators.async_topology import generate_async_topology
+        from knowledge_portal.generators.data_contracts import generate_data_contracts
+        from knowledge_portal.generators.runtime_modes import generate_runtime_modes
         generate_stack_inventory(target, out)
         generate_cve_report(target, out)
         generate_sarif_findings(target, out)
@@ -125,6 +127,8 @@ def main():
         generate_call_graph(target, out)
         generate_vertical_slices(target, out)
         generate_async_topology(target, out)
+        generate_data_contracts(target, out)
+        generate_runtime_modes(target, out)
         generate_ownership_map(target, out)
         generate_config_matrix(target, out)
         generate_iac_topology(target, out)

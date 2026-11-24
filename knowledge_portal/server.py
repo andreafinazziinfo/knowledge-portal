@@ -600,6 +600,27 @@ class PortalRequestHandler(SimpleHTTPRequestHandler):
             eng = PortalMcpEngine(self.project_dir, self.template_dir / "data")
             self.send_json(eng.async_topology(kind=kind_q, query=q_str, detail=detail))
 
+        elif path == "/api/data-contracts":
+            from knowledge_portal.mcp_server import PortalMcpEngine
+            kind_q = query.get("kind", [""])[0]
+            q_str = query.get("query", [""])[0]
+            detail = query.get("detail", ["full"])[0]
+            eng = PortalMcpEngine(self.project_dir, self.template_dir / "data")
+            if kind_q:
+                self.send_json(eng.contract(kind=kind_q, query=q_str, detail=detail))
+            else:
+                self.send_json(eng.data_contracts_full())
+
+        elif path == "/api/runtime-modes":
+            from knowledge_portal.mcp_server import PortalMcpEngine
+            q_str = query.get("query", [""])[0]
+            detail = query.get("detail", ["full"])[0]
+            eng = PortalMcpEngine(self.project_dir, self.template_dir / "data")
+            if q_str or detail != "full":
+                self.send_json(eng.contract(kind="runtime_modes", query=q_str, detail=detail))
+            else:
+                self.send_json(eng.runtime_modes_full())
+
         elif path == "/api/file":
             filepath = query.get("path", [""])[0]
             target = safe_resolve_under(self.project_dir, filepath)
