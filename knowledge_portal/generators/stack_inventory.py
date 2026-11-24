@@ -166,10 +166,12 @@ def _scan_python_deps(root: Path) -> list[dict[str, Any]]:
                     in_deps = True
                     continue
                 if in_deps:
-                    if stripped.startswith("]"):
+                    if stripped.startswith("]") or stripped.startswith("["):
                         in_deps = False
                         continue
                     item = stripped.strip('", ')
+                    if not item or item.startswith("["):
+                        continue
                     parsed = _parse_req_line(item)
                     if parsed and (parsed["name"].lower(), "runtime") not in seen:
                         seen.add((parsed["name"].lower(), "runtime"))

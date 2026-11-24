@@ -46,6 +46,8 @@ def _is_ignored(rel: str) -> bool:
     parts = [p.lower() for p in rel.replace("\\", "/").split("/")]
     if any(p in _IGNORE_DIRS or p.startswith(".") for p in parts[:-1]) or "frozen" in parts:
         return True
+    if parts[-1] == "ai_registry.py":
+        return True
     low = f"/{rel.lower()}"
     return any(h in low for h in ("/tests/", "/test/", "/test_", "_test.py", ".spec.", ".test."))
 
