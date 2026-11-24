@@ -381,7 +381,16 @@ def _build_summary_view(tool_name: str, data: dict[str, Any]) -> dict[str, Any]:
         return {
             "_detail": "summary",
             "summary": data.get("summary") or {},
-            "top_chains": (data.get("chains") or [])[:6],
+            "top_chains": [
+                {
+                    "entry": c.get("entry") or c.get("route") or c.get("id"),
+                    "method": c.get("method"),
+                    "steps_count": len(c.get("steps") or c.get("chain") or []),
+                    "db_tables": (c.get("db_tables") or [])[:4],
+                }
+                if isinstance(c, dict) else c
+                for c in (data.get("chains") or [])[:6]
+            ],
             "_drilldown_hint": "Pass symbol='<name>' or detail='compact' to trace a specific symbol.",
         }
 
