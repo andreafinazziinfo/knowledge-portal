@@ -118,6 +118,40 @@ def _seed_large_dataset(root: Path) -> Path:
 
     (data / "graph.json").write_text(json.dumps({"nodes": [{"id": "n1", "path": "a.py"}], "edges": []}), encoding="utf-8")
     (data / "process-flows.json").write_text(json.dumps({"flows": [{"name": "OrderFlow", "steps": ["a", "b"]}]}), encoding="utf-8")
+
+    (data / "vertical-slices.json").write_text(json.dumps({
+        "summary": {"total_slices": 150, "cross_stack_edges_count": 180, "exact_matches": 100, "parameterized_matches": 80, "stores_count": 20, "god_stores_count": 8, "components_count": 200, "features_count": 25},
+        "slices": [
+            {
+                "id": f"GET /api/v1/mod{i}/items",
+                "feature": f"mod{i % 10}",
+                "method": "GET",
+                "endpoint": f"/api/v1/mod{i}/items",
+                "confidence": 1.0,
+                "layers": {
+                    "components": [f"frontend/src/views/V{i}.vue"],
+                    "stores": [f"useMod{i}Store (frontend/src/stores/m{i}.ts)"],
+                    "api_clients": [f"frontend/src/stores/m{i}.ts:42"],
+                    "backend_route": {"file": f"backend/app/api/m{i}.py", "handler": f"list_{i}", "line": 10, "auth": "JWT"},
+                    "services_and_tasks": {"services": [f"app.services.s{i}"], "celery_tasks": [f"task_{i}"]},
+                    "storage": {"redis_keys": [f"cache:m{i}:*"], "db_tables": [f"table_{i}"]},
+                },
+            }
+            for i in range(150)
+        ],
+        "stores": [{"name": f"useMod{i}Store", "file": f"frontend/src/stores/m{i}.ts", "loc": 400 + i, "is_god_store": i < 8, "api_calls_count": 6} for i in range(20)],
+        "cross_stack_edges": [{"source": f"frontend/src/stores/m{i}.ts", "target": f"backend/app/api/m{i}.py", "type": "FE_CALLS_API"} for i in range(150)],
+    }), encoding="utf-8")
+
+    (data / "async-topology.json").write_text(json.dumps({
+        "summary": {"celery_tasks_count": 40, "beat_schedules_count": 20, "redis_keys_count": 90, "redis_locks_count": 8, "pubsub_channels_count": 10, "ws_streams_count": 6, "sse_streams_count": 2, "queues": ["default", "batch"]},
+        "celery_tasks": [{"name": f"app.tasks.t{i}", "function": f"task_{i}", "queue": "batch", "file": f"backend/app/workers/t{i}.py", "max_retries": 3, "producers": [{"file": "api.py", "line": i}]} for i in range(40)],
+        "beat_schedules": [{"name": f"sched_{i}", "task": f"app.tasks.t{i}", "schedule": "crontab(minute=0)", "queue": "batch"} for i in range(20)],
+        "redis_keys": [{"key_pattern": f"app:key:{i}:*", "kind": "lock" if i < 8 else "key", "ttl": 60, "operations": ["set", "get"]} for i in range(90)],
+        "pubsub_channels": [{"channel": f"chan:{i}", "publishers": [{"file": "p.py"}], "subscribers": [{"file": "s.py"}]} for i in range(10)],
+        "ws_streams": [{"protocol": "websocket", "path": f"/ws/s{i}", "consumers": [{"file": "App.vue"}]} for i in range(6)],
+        "sse_streams": [{"protocol": "sse", "path": f"/sse/e{i}", "consumers": []} for i in range(2)],
+    }), encoding="utf-8")
     (data / "module-cards.json").write_text(json.dumps({"summary": {"total_files": 1}, "cards": {"a.py": {"lang": "python", "loc": 10, "role": "module", "purpose": "sample", "exports": ["x"], "imports_internal": [], "routes": [], "tables_touched": [], "risk_flags": [], "fast_tests": []}}}), encoding="utf-8")
     (data / "test-oracle.json").write_text(json.dumps({"summary": {"total_test_files": 1}, "source_to_tests": {}, "symbol_to_tests": {}, "tests": {}, "blind_spots": []}), encoding="utf-8")
     (root / "README.md").write_text("# Sample Repo\n", encoding="utf-8")

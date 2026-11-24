@@ -116,11 +116,15 @@ def main():
         from knowledge_portal.generators.module_cards import generate_module_cards
         from knowledge_portal.generators.agent_instructions_audit import generate_agent_instructions_audit
         from knowledge_portal.generators.sarif_ingestor import generate_sarif_findings
+        from knowledge_portal.generators.vertical_slices import generate_vertical_slices
+        from knowledge_portal.generators.async_topology import generate_async_topology
         generate_stack_inventory(target, out)
         generate_cve_report(target, out)
         generate_sarif_findings(target, out)
         generate_api_catalog(target, out)
         generate_call_graph(target, out)
+        generate_vertical_slices(target, out)
+        generate_async_topology(target, out)
         generate_ownership_map(target, out)
         generate_config_matrix(target, out)
         generate_iac_topology(target, out)

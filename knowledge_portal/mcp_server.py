@@ -24,7 +24,9 @@ from knowledge_portal.mcp_budget import (
     apply_detail_budget,
     build_handoff_pack,
     check_diff as _budget_check_diff,
+    query_async_topology as _budget_query_async_topology,
     query_test_oracle as _budget_query_test_oracle,
+    query_vertical_slice as _budget_query_vertical_slice,
     slice_for_task as _budget_slice_for_task,
     validate_args,
 )
@@ -732,6 +734,26 @@ class PortalMcpEngine:
             data = {**data, "findings": filtered, "filtered_count": len(filtered)}
         return apply_detail_budget("portal_sarif_findings", data, detail=detail)
 
+    def vertical_slice(self, query: str = "", layer: str = "all", detail: str = "summary") -> dict[str, Any]:
+        from knowledge_portal.generators.vertical_slices import generate_vertical_slices
+        return _budget_query_vertical_slice(
+            self,
+            query=query,
+            layer=layer,
+            detail=detail,
+            vertical_slices_gen=generate_vertical_slices,
+        )
+
+    def async_topology(self, kind: str = "all", query: str = "", detail: str = "summary") -> dict[str, Any]:
+        from knowledge_portal.generators.async_topology import generate_async_topology
+        return _budget_query_async_topology(
+            self,
+            kind=kind,
+            query=query,
+            detail=detail,
+            async_topology_gen=generate_async_topology,
+        )
+
 
 TOOLS_SPEC: list[dict[str, Any]] = [
     {
@@ -1082,6 +1104,30 @@ TOOLS_SPEC: list[dict[str, Any]] = [
             },
         },
     },
+    {
+        "name": "portal_vertical_slice",
+        "description": "Trace cross-stack 6-layer vertical slices (UI Component -> Store -> API Client -> Backend Route -> Service/Task -> Redis/DB) with <= 800 token summary default.",
+        "inputSchema": {
+            "type": "object",
+            "properties": {
+                "query": {"type": "string", "default": "", "description": "Filter by feature, route, store, component, or table"},
+                "layer": {"type": "string", "enum": ["all", "frontend", "api", "backend", "storage"], "default": "all"},
+                "detail": {"type": "string", "enum": ["summary", "compact", "full"], "default": "summary"},
+            },
+        },
+    },
+    {
+        "name": "portal_async_topology",
+        "description": "Inspect async/event-driven topology: Celery tasks, Beat schedules, Redis keys/locks, Pub/Sub channels, and WebSocket/SSE streams (<= 700 token summary default).",
+        "inputSchema": {
+            "type": "object",
+            "properties": {
+                "kind": {"type": "string", "enum": ["all", "celery", "beat", "redis", "pubsub", "ws", "sse"], "default": "all"},
+                "query": {"type": "string", "default": ""},
+                "detail": {"type": "string", "enum": ["summary", "compact", "full"], "default": "summary"},
+            },
+        },
+    },
 ]
 
 _HEAVY_DETAIL_TOOLS = frozenset({
@@ -1164,6 +1210,8 @@ def handle_jsonrpc_request(engine: PortalMcpEngine, req: dict[str, Any], code_mo
                     {"uri": "portal://test-oracle", "name": "Test-to-Code Reverse Oracle", "description": "AST reverse test map and blind spots", "mimeType": "application/json"},
                     {"uri": "portal://agent-instructions-audit", "name": "Agent Instructions Hygiene", "description": "CLAUDE.md / AGENTS.md dead paths and token bloat audit", "mimeType": "application/json"},
                     {"uri": "portal://sarif-findings", "name": "Universal SARIF 2.1.0 Findings", "description": "Normalized Semgrep/Gitleaks/CodeQL/Trivy/Ruff/Hadolint findings", "mimeType": "application/json"},
+                    {"uri": "portal://vertical-slices", "name": "Cross-Stack Vertical Slices", "description": "6-layer UI -> Store -> API -> Backend -> Task -> DB vertical slices and FE_CALLS_API edges", "mimeType": "application/json"},
+                    {"uri": "portal://async-topology", "name": "Async / WS / Redis / Celery Topology", "description": "Celery tasks, Beat schedules, Redis keys/locks, Pub/Sub channels, and WebSocket/SSE streams", "mimeType": "application/json"},
                 ]
             },
         }
@@ -1210,6 +1258,10 @@ def handle_jsonrpc_request(engine: PortalMcpEngine, req: dict[str, Any], code_mo
             return {"jsonrpc": "2.0", "id": req_id, "result": {"contents": [{"uri": uri, "mimeType": "application/json", "text": json.dumps(engine.agent_instructions_audit(detail="full"), indent=2)}]}}
         if uri == "portal://sarif-findings":
             return {"jsonrpc": "2.0", "id": req_id, "result": {"contents": [{"uri": uri, "mimeType": "application/json", "text": json.dumps(engine.sarif_findings(detail="full"), indent=2)}]}}
+        if uri == "portal://vertical-slices":
+            return {"jsonrpc": "2.0", "id": req_id, "result": {"contents": [{"uri": uri, "mimeType": "application/json", "text": json.dumps(engine.vertical_slice(detail="full"), indent=2)}]}}
+        if uri == "portal://async-topology":
+            return {"jsonrpc": "2.0", "id": req_id, "result": {"contents": [{"uri": uri, "mimeType": "application/json", "text": json.dumps(engine.async_topology(detail="full"), indent=2)}]}}
         return {"jsonrpc": "2.0", "id": req_id, "error": {"code": -32602, "message": f"Unknown resource URI: {uri}"}}
 
     if method == "prompts/list":
@@ -1280,6 +1332,8 @@ def handle_jsonrpc_request(engine: PortalMcpEngine, req: dict[str, Any], code_mo
             "portal_handoff_pack": ((), ("task", "files", "max_tokens"), {"query": "task", "topic": "task", "paths": "files"}),
             "portal_test_oracle": ((), ("files", "symbols", "max_tests", "include_slow"), {"paths": "files"}),
             "portal_sarif_findings": ((), ("tool", "severity", "detail"), {}),
+            "portal_vertical_slice": ((), ("query", "layer", "detail"), {"q": "query", "route": "query", "feature": "query"}),
+            "portal_async_topology": ((), ("kind", "query", "detail"), {"q": "query", "type": "kind"}),
         }
 
         dispatch = {
@@ -1317,6 +1371,8 @@ def handle_jsonrpc_request(engine: PortalMcpEngine, req: dict[str, Any], code_mo
             "portal_handoff_pack": lambda a: engine.handoff_pack(a.get("task", ""), a.get("files") or [], int(a.get("max_tokens", 1500) or 1500)),
             "portal_test_oracle": lambda a: engine.test_oracle(a.get("files") or [], a.get("symbols") or [], int(a.get("max_tests", 8) or 8), bool(a.get("include_slow", False))),
             "portal_sarif_findings": lambda a: engine.sarif_findings(a.get("tool", ""), a.get("severity", ""), a.get("detail", "summary")),
+            "portal_vertical_slice": lambda a: engine.vertical_slice(a.get("query", ""), a.get("layer", "all"), a.get("detail", "summary")),
+            "portal_async_topology": lambda a: engine.async_topology(a.get("kind", "all"), a.get("query", ""), a.get("detail", "summary")),
         }
         fn = dispatch.get(name)
         if fn is None:

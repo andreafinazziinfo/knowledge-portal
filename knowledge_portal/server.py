@@ -584,6 +584,22 @@ class PortalRequestHandler(SimpleHTTPRequestHandler):
             eng = PortalMcpEngine(self.project_dir, self.template_dir / "data")
             self.send_json(eng.sarif_findings(tool=tool_q, severity=sev_q, detail=detail))
 
+        elif path == "/api/vertical-slices":
+            from knowledge_portal.mcp_server import PortalMcpEngine
+            q_str = query.get("query", [""])[0]
+            layer_q = query.get("layer", ["all"])[0]
+            detail = query.get("detail", ["full"])[0]
+            eng = PortalMcpEngine(self.project_dir, self.template_dir / "data")
+            self.send_json(eng.vertical_slice(query=q_str, layer=layer_q, detail=detail))
+
+        elif path == "/api/async-topology":
+            from knowledge_portal.mcp_server import PortalMcpEngine
+            kind_q = query.get("kind", ["all"])[0]
+            q_str = query.get("query", [""])[0]
+            detail = query.get("detail", ["full"])[0]
+            eng = PortalMcpEngine(self.project_dir, self.template_dir / "data")
+            self.send_json(eng.async_topology(kind=kind_q, query=q_str, detail=detail))
+
         elif path == "/api/file":
             filepath = query.get("path", [""])[0]
             target = safe_resolve_under(self.project_dir, filepath)

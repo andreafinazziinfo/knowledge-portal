@@ -1,0 +1,202 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Test Oracle &amp; Blind-Spots Explorer</title>
+  <link rel="stylesheet" href="portal-theme.css?v=fp3">
+  <script src="../data/test_oracle.js" onerror="void(0)"></script>
+  <script src="live-reload.js"></script>
+  <script defer src="portal-ui.js?v=fp4"></script>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body { background: #0f0f0f; color: #f3f4f6; font-family: 'Inter', system-ui, sans-serif; min-height: 100vh; }
+    .wrap { max-width: 1380px; margin: 0 auto; padding: 18px 24px 56px; }
+    .head { display: flex; justify-content: space-between; align-items: flex-end; gap: 12px; flex-wrap: wrap; border-bottom: 1px solid #262626; padding-bottom: 14px; margin-bottom: 16px; }
+    .kpis { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 12px; margin-bottom: 16px; }
+    .kpi { background: #191919; border: 1px solid #262626; border-radius: 10px; padding: 12px 15px; }
+    .kpi-v { font-size: 22px; font-weight: 700; color: #fff; }
+    .kpi-l { font-size: 10px; text-transform: uppercase; letter-spacing: 0.06em; color: #9ca3af; margin-top: 3px; }
+    .controls { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; margin-bottom: 14px; }
+    .inp { background: #141414; border: 1px solid #333; color: #fff; padding: 7px 12px; border-radius: 7px; font-size: 12px; width: 360px; }
+    .chip { background: #191919; border: 1px solid #2e2e2e; color: #a3a3a3; padding: 5px 12px; border-radius: 999px; font-size: 11px; font-weight: 600; cursor: pointer; }
+    .chip.active { background: #38bdf8; color: #0f0f0f; border-color: #38bdf8; }
+    .cmd-box { background: #141414; border: 1px solid #262626; border-radius: 10px; padding: 12px 14px; margin-bottom: 16px; display: flex; justify-content: space-between; align-items: center; gap: 12px; flex-wrap: wrap; }
+    .cmd-code { font-family: ui-monospace, monospace; font-size: 12px; color: #34d399; word-break: break-all; }
+    .btn { background: #38bdf8; color: #0f0f0f; border: none; border-radius: 7px; padding: 6px 12px; font-size: 11.5px; font-weight: 700; cursor: pointer; }
+    table { width: 100%; border-collapse: collapse; background: #141414; border: 1px solid #262626; border-radius: 10px; overflow: hidden; font-size: 12px; }
+    th, td { text-align: left; padding: 9px 11px; border-bottom: 1px solid #222; vertical-align: top; }
+    th { background: #191919; font-size: 10px; text-transform: uppercase; letter-spacing: 0.06em; color: #9ca3af; }
+    .tier { display: inline-block; padding: 2px 7px; border-radius: 4px; font-size: 10px; font-weight: 700; text-transform: uppercase; }
+    .t-fast { background: #064e3b; color: #34d399; }
+    .t-medium { background: #78350f; color: #fbbf24; }
+    .t-slow { background: #7f1d1d; color: #f87171; }
+    .badge-blind { background: #7f1d1d; color: #fca5a5; padding: 2px 7px; border-radius: 4px; font-size: 10px; font-weight: 700; }
+    .pill { display: inline-block; background: #222; border: 1px solid #333; color: #d1d5db; padding: 1px 6px; border-radius: 4px; font-size: 10px; font-family: ui-monospace, monospace; margin: 1px 3px 1px 0; }
+    .link { color: #38bdf8; cursor: pointer; font-family: ui-monospace, monospace; text-decoration: underline; }
+    .empty { padding: 26px; text-align: center; color: #9ca3af; font-size: 13px; }
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <div class="head">
+      <div>
+        <h1 style="font-size:19px;">🧪 Test Oracle &amp; Coverage Blind-Spots</h1>
+        <p style="font-size:12px;color:#9ca3af;margin-top:3px;">AST reverse map from source files &amp; symbols to fastest pertinent <code>pytest</code> / <code>vitest</code> suites + untested blind spots</p>
+      </div>
+      <span id="to-ts" style="font-size:11px;color:#9ca3af;"></span>
+    </div>
+
+    <div class="kpis" id="to-kpis"></div>
+
+    <div class="controls">
+      <input id="to-q" class="inp" type="search" placeholder="Search source file, symbol, or test path..." oninput="render()">
+      <button class="chip active" onclick="setTab('sources', this)">Source → Tests</button>
+      <button class="chip" onclick="setTab('symbols', this)">Symbol → Tests</button>
+      <button class="chip" onclick="setTab('blindspots', this)">Blind Spots</button>
+    </div>
+
+    <div class="cmd-box" id="to-cmd-wrap" style="display:none;">
+      <div>
+        <div style="font-size:10px;text-transform:uppercase;color:#9ca3af;margin-bottom:3px;">Ready-to-run targeted test command</div>
+        <div class="cmd-code" id="to-cmd"></div>
+      </div>
+      <button class="btn" onclick="copyCmd()">📋 Copy Command</button>
+    </div>
+
+    <div id="to-table-wrap"></div>
+  </div>
+
+  <script>
+    let DATA = { summary: {}, source_to_tests: {}, symbol_to_tests: {}, blind_spots: [] };
+    let activeTab = 'sources';
+    let lastCmd = '';
+
+    function esc(s) {
+      return String(s ?? '').replace(/[&<>"']/g, m => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m]));
+    }
+    function openInReader(p) {
+      if (p) try { window.parent.postMessage({ action: 'openFile', path: p }, '*'); } catch (_) {}
+    }
+    function setTab(t, el) {
+      activeTab = t;
+      document.querySelectorAll('.chip').forEach(c => c.classList.remove('active'));
+      if (el) el.classList.add('active');
+      render();
+    }
+    function buildCmd(testPaths) {
+      const unique = [...new Set(testPaths)].slice(0, 8);
+      const py = unique.filter(p => p.endsWith('.py'));
+      const js = unique.filter(p => !p.endsWith('.py'));
+      const parts = [];
+      if (py.length) parts.push('pytest -q ' + py.join(' '));
+      if (js.length) parts.push('npx vitest run ' + js.join(' '));
+      return parts.join(' && ');
+    }
+    function selectTests(testPaths) {
+      lastCmd = buildCmd(testPaths);
+      const wrap = document.getElementById('to-cmd-wrap');
+      if (lastCmd) {
+        document.getElementById('to-cmd').textContent = lastCmd;
+        wrap.style.display = 'flex';
+      } else {
+        wrap.style.display = 'none';
+      }
+    }
+    function copyCmd() {
+      if (!lastCmd) return;
+      if (navigator.clipboard) navigator.clipboard.writeText(lastCmd).catch(() => {});
+    }
+
+    function render() {
+      const s = DATA.summary || {};
+      const byTier = s.by_tier || {};
+      document.getElementById('to-ts').textContent = DATA.generated_at ? `Updated ${DATA.generated_at}` : '';
+      document.getElementById('to-kpis').innerHTML = [
+        [s.total_test_files || 0, 'Test Files'],
+        [s.total_test_cases || 0, 'Test Cases'],
+        [s.mapped_sources || 0, 'Mapped Sources'],
+        [s.mapped_symbols || 0, 'Mapped Symbols'],
+        [byTier.fast || 0, 'Fast Tests (<1s)'],
+        [s.blind_spots_count || (DATA.blind_spots || []).length, 'Blind Spots'],
+      ].map(([v, l]) => `<div class="kpi"><div class="kpi-v">${esc(v)}</div><div class="kpi-l">${esc(l)}</div></div>`).join('');
+
+      const q = (document.getElementById('to-q').value || '').trim().toLowerCase();
+      const wrap = document.getElementById('to-table-wrap');
+
+      if (activeTab === 'sources') {
+        const entries = Object.entries(DATA.source_to_tests || {}).filter(([src, tests]) => {
+          if (!q) return true;
+          return src.toLowerCase().includes(q) || tests.some(t => String(t.test || '').toLowerCase().includes(q));
+        });
+        if (entries.length) {
+          selectTests(entries[0][1].map(t => t.test));
+        } else {
+          selectTests([]);
+        }
+        if (!entries.length) {
+          wrap.innerHTML = '<div class="empty">No matching source-to-test mappings.</div>';
+          return;
+        }
+        const rows = entries.slice(0, 100).map(([src, tests]) => {
+          const tlist = (tests || []).slice(0, 5);
+          const badges = tlist.map(t =>
+            `<div style="margin-bottom:4px;"><span class="tier t-${esc(t.tier || 'fast')}">${esc(t.tier || 'fast')}</span> <span class="link" onclick="openInReader('${esc(t.test)}')">${esc(t.test)}</span> <span class="pill">${esc(t.confidence || '')}</span></div>`
+          ).join('');
+          const cmd = buildCmd(tlist.map(t => t.test));
+          return `<tr>
+            <td><span class="link" onclick="openInReader('${esc(src)}')">${esc(src)}</span></td>
+            <td>${badges}</td>
+            <td><button class="btn" style="padding:4px 9px;font-size:11px;" onclick='selectTests(${JSON.stringify(tlist.map(t => t.test))})'>Select Cmd</button></td>
+          </tr>`;
+        }).join('');
+        wrap.innerHTML = `<table><thead><tr><th>Source File</th><th>Pertinent Tests (Fastest First)</th><th>Action</th></tr></thead><tbody>${rows}</tbody></table>`;
+      } else if (activeTab === 'symbols') {
+        const entries = Object.entries(DATA.symbol_to_tests || {}).filter(([sym, tests]) => {
+          if (!q) return true;
+          return sym.toLowerCase().includes(q) || tests.some(t => String(t).toLowerCase().includes(q));
+        });
+        selectTests(entries.length ? entries[0][1] : []);
+        if (!entries.length) {
+          wrap.innerHTML = '<div class="empty">No matching symbol-to-test mappings.</div>';
+          return;
+        }
+        const rows = entries.slice(0, 100).map(([sym, tests]) => {
+          const tlist = (tests || []).slice(0, 6);
+          return `<tr>
+            <td><code style="color:#f59e0b;">${esc(sym)}</code></td>
+            <td>${tlist.map(t => `<span class="pill"><span class="link" onclick="openInReader('${esc(t)}')">${esc(t)}</span></span>`).join('')}</td>
+            <td><button class="btn" style="padding:4px 9px;font-size:11px;" onclick='selectTests(${JSON.stringify(tlist)})'>Select Cmd</button></td>
+          </tr>`;
+        }).join('');
+        wrap.innerHTML = `<table><thead><tr><th>Symbol</th><th>Covering Tests</th><th>Action</th></tr></thead><tbody>${rows}</tbody></table>`;
+      } else {
+        selectTests([]);
+        const spots = (DATA.blind_spots || []).filter(b => !q || JSON.stringify(b).toLowerCase().includes(q));
+        if (!spots.length) {
+          wrap.innerHTML = '<div class="empty">No untested blind spots detected!</div>';
+          return;
+        }
+        const rows = spots.slice(0, 100).map(b => `<tr>
+          <td><span class="link" onclick="openInReader('${esc(b.path)}')">${esc(b.path)}</span></td>
+          <td>${esc(b.loc || 0)}</td>
+          <td><span class="badge-blind">${esc(b.reason || 'untested')}</span></td>
+        </tr>`).join('');
+        wrap.innerHTML = `<table><thead><tr><th>Untested High-Risk Source</th><th>LOC</th><th>Blind-Spot Reason</th></tr></thead><tbody>${rows}</tbody></table>`;
+      }
+    }
+
+    async function boot() {
+      try {
+        const r = await fetch('../data/test-oracle.json', { cache: 'no-store' });
+        if (r.ok) DATA = await r.json();
+        else if (window.TEST_ORACLE_DATA) DATA = window.TEST_ORACLE_DATA;
+      } catch (_) {
+        if (window.TEST_ORACLE_DATA) DATA = window.TEST_ORACLE_DATA;
+      }
+      render();
+    }
+    boot();
+  </script>
+</body>
+</html>

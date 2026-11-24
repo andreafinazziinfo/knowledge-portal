@@ -1,0 +1,253 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Cross-Stack Vertical Slice Explorer</title>
+  <link rel="stylesheet" href="portal-theme.css?v=fp3">
+  <script src="../data/vertical_slices.js" onerror="void(0)"></script>
+  <script src="live-reload.js"></script>
+  <script defer src="portal-ui.js?v=fp4"></script>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body { background: #0f0f0f; color: #f3f4f6; font-family: 'Inter', system-ui, sans-serif; min-height: 100vh; }
+    .wrap { max-width: 1400px; margin: 0 auto; padding: 18px 24px 56px; }
+    .head { display: flex; justify-content: space-between; align-items: flex-end; gap: 12px; flex-wrap: wrap; border-bottom: 1px solid #262626; padding-bottom: 14px; margin-bottom: 16px; }
+    .kpis { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 12px; margin-bottom: 16px; }
+    .kpi { background: #191919; border: 1px solid #262626; border-radius: 10px; padding: 12px 15px; }
+    .kpi-v { font-size: 22px; font-weight: 700; color: #fff; }
+    .kpi-l { font-size: 10px; text-transform: uppercase; letter-spacing: 0.06em; color: #9ca3af; margin-top: 3px; }
+    .controls { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; margin-bottom: 14px; }
+    .inp { background: #141414; border: 1px solid #333; color: #fff; padding: 7px 12px; border-radius: 7px; font-size: 12px; width: 320px; }
+    .chip { background: #191919; border: 1px solid #2e2e2e; color: #a3a3a3; padding: 5px 11px; border-radius: 999px; font-size: 11px; font-weight: 600; cursor: pointer; }
+    .chip.active { background: #38bdf8; color: #0f0f0f; border-color: #38bdf8; }
+    .panel { background: #141414; border: 1px solid #262626; border-radius: 10px; padding: 14px 16px; margin-bottom: 16px; }
+    .panel h2 { font-size: 14px; margin-bottom: 10px; display: flex; align-items: center; justify-content: space-between; }
+    .svg-box { width: 100%; overflow-x: auto; background: #101010; border: 1px solid #242424; border-radius: 8px; padding: 10px; }
+    .method { display: inline-block; padding: 2px 7px; border-radius: 4px; font-size: 10px; font-weight: 700; font-family: ui-monospace, monospace; }
+    .m-GET { background: #064e3b; color: #34d399; }
+    .m-POST { background: #1e3a8a; color: #60a5fa; }
+    .m-PUT, .m-PATCH { background: #78350f; color: #fbbf24; }
+    .m-DELETE { background: #7f1d1d; color: #f87171; }
+    .m-WS { background: #4c1d95; color: #c4b5fd; }
+    .conf { font-size: 10px; padding: 2px 6px; border-radius: 4px; font-weight: 700; }
+    .conf-hi { background: #065f46; color: #6ee7b7; }
+    .conf-md { background: #78350f; color: #fcd34d; }
+    table { width: 100%; border-collapse: collapse; background: #141414; border: 1px solid #262626; border-radius: 10px; overflow: hidden; font-size: 12px; }
+    th, td { text-align: left; padding: 9px 11px; border-bottom: 1px solid #222; vertical-align: top; }
+    th { background: #191919; font-size: 10px; text-transform: uppercase; letter-spacing: 0.06em; color: #9ca3af; }
+    tr.row-sel { background: #1d2a3a; }
+    tr.clickable { cursor: pointer; }
+    tr.clickable:hover { background: #1b1f26; }
+    .pill { display: inline-block; background: #222; border: 1px solid #333; color: #d1d5db; padding: 1px 6px; border-radius: 4px; font-size: 10px; font-family: ui-monospace, monospace; margin: 1px 3px 1px 0; }
+    .link { color: #38bdf8; cursor: pointer; font-family: ui-monospace, monospace; text-decoration: underline; }
+    .empty { padding: 26px; text-align: center; color: #9ca3af; font-size: 13px; }
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <div class="head">
+      <div>
+        <h1 style="font-size:19px;">🔀 Cross-Stack Vertical Slice Explorer (6-Layer)</h1>
+        <p style="font-size:12px;color:#9ca3af;margin-top:3px;">End-to-end static lineage: UI Component → State Store → API Client → Backend Route → Service / Task → Redis / DB</p>
+      </div>
+      <span id="vs-ts" style="font-size:11px;color:#9ca3af;"></span>
+    </div>
+
+    <div class="kpis" id="vs-kpis"></div>
+
+    <div class="controls">
+      <input id="vs-q" class="inp" type="search" placeholder="Search feature, route, store, component, or DB table..." oninput="render()">
+      <div id="vs-features" style="display:flex;gap:6px;flex-wrap:wrap;"></div>
+    </div>
+
+    <div class="panel">
+      <h2>
+        <span>🧭 6-Layer Swimlane Diagram</span>
+        <span id="vs-selected-label" style="font-size:11px;color:#38bdf8;font-family:ui-monospace,monospace;">Click any slice row below</span>
+      </h2>
+      <div class="svg-box" id="vs-swimlane"></div>
+    </div>
+
+    <div class="panel" style="padding:0;overflow:hidden;">
+      <table>
+        <thead>
+          <tr>
+            <th>Endpoint</th>
+            <th>Feature</th>
+            <th>UI Components</th>
+            <th>Stores</th>
+            <th>Backend Handler</th>
+            <th>Tasks / DB Tables</th>
+            <th>Conf</th>
+          </tr>
+        </thead>
+        <tbody id="vs-body"></tbody>
+      </table>
+    </div>
+  </div>
+
+  <script>
+    let DATA = { summary: {}, slices: [], cross_stack_edges: [], stores: [] };
+    let activeFeature = 'all';
+    let selectedSliceId = null;
+
+    function esc(s) {
+      return String(s ?? '').replace(/[&<>"']/g, m => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m]));
+    }
+    function openInReader(p) {
+      if (p) try { window.parent.postMessage({ action: 'openFile', path: p }, '*'); } catch (_) {}
+    }
+    function shortName(p) {
+      const s = String(p || '');
+      const parts = s.split('/');
+      return parts[parts.length - 1] || s;
+    }
+
+    function setFeature(f) {
+      activeFeature = f;
+      render();
+    }
+
+    function selectSlice(id) {
+      selectedSliceId = id;
+      renderSwimlane();
+      document.querySelectorAll('#vs-body tr').forEach(tr => {
+        tr.classList.toggle('row-sel', tr.dataset.id === id);
+      });
+    }
+
+    function renderSwimlane() {
+      const box = document.getElementById('vs-swimlane');
+      const lbl = document.getElementById('vs-selected-label');
+      const slices = DATA.slices || [];
+      const sl = slices.find(s => s.id === selectedSliceId) || slices[0];
+      if (!sl) {
+        lbl.textContent = 'No vertical slices detected';
+        box.innerHTML = '<div class="empty">Run a portal scan on a full-stack repository to populate 6-layer vertical slices.</div>';
+        return;
+      }
+      selectedSliceId = sl.id;
+      lbl.textContent = `${sl.method} ${sl.endpoint} (conf ${sl.confidence})`;
+
+      const L = sl.layers || {};
+      const br = L.backend_route || {};
+      const st = L.services_and_tasks || {};
+      const stor = L.storage || {};
+
+      const cols = [
+        { title: '1. UI Components', color: '#38bdf8', items: (L.components || []).slice(0, 5).map(shortName) },
+        { title: '2. State Stores', color: '#a78bfa', items: (L.stores || []).slice(0, 5).map(s => s.split(' ')[0]) },
+        { title: '3. API Clients', color: '#fbbf24', items: (L.api_clients || []).slice(0, 5).map(shortName) },
+        { title: '4. Backend Route', color: '#34d399', items: [`${sl.method} ${sl.endpoint}`, br.handler ? `fn: ${br.handler}` : '', br.file ? shortName(br.file) : ''].filter(Boolean) },
+        { title: '5. Services & Tasks', color: '#f97316', items: [...(st.celery_tasks || []).slice(0, 3).map(t => `task: ${t}`), ...(st.services || []).slice(0, 3).map(shortName)] },
+        { title: '6. Redis & DB', color: '#f43f5e', items: [...(stor.db_tables || []).slice(0, 4).map(t => `db: ${t}`), ...(stor.redis_keys || []).slice(0, 2).map(k => `redis: ${k}`)] },
+      ];
+
+      const colW = 205, gap = 18, pad = 16;
+      const maxItems = Math.max(2, ...cols.map(c => c.items.length));
+      const h = 64 + maxItems * 34 + 18;
+      const w = pad * 2 + cols.length * colW + (cols.length - 1) * gap;
+
+      let svg = `<svg viewBox="0 0 ${w} ${h}" width="100%" height="${h}" xmlns="http://www.w3.org/2000/svg" style="min-width:960px;">`;
+      cols.forEach((col, ci) => {
+        const x = pad + ci * (colW + gap);
+        svg += `<rect x="${x}" y="10" width="${colW}" height="${h - 20}" rx="8" fill="#171717" stroke="${col.color}" stroke-opacity="0.45" stroke-width="1.2"/>`;
+        svg += `<text x="${x + 10}" y="30" fill="${col.color}" font-size="11" font-weight="700" font-family="Inter,system-ui,sans-serif">${esc(col.title)}</text>`;
+        svg += `<line x1="${x + 8}" y1="38" x2="${x + colW - 8}" y2="38" stroke="#2c2c2c" stroke-width="1"/>`;
+        if (col.items.length === 0) {
+          svg += `<text x="${x + 12}" y="66" fill="#6b7280" font-size="11" font-style="italic">(none detected)</text>`;
+        } else {
+          col.items.forEach((txt, ri) => {
+            const y = 48 + ri * 34;
+            const clipped = txt.length > 26 ? txt.slice(0, 24) + '…' : txt;
+            svg += `<rect x="${x + 8}" y="${y}" width="${colW - 16}" height="26" rx="5" fill="#222" stroke="${col.color}" stroke-opacity="0.35"/>`;
+            svg += `<text x="${x + 15}" y="${y + 16}" fill="#e5e7eb" font-size="10.5" font-family="ui-monospace,monospace">${esc(clipped)}</text>`;
+          });
+        }
+        if (ci < cols.length - 1) {
+          const ax1 = x + colW;
+          const ax2 = x + colW + gap;
+          const ay = Math.round(h / 2);
+          svg += `<line x1="${ax1}" y1="${ay}" x2="${ax2 - 4}" y2="${ay}" stroke="#64748b" stroke-width="1.6"/>`;
+          svg += `<polygon points="${ax2 - 6},${ay - 4} ${ax2},${ay} ${ax2 - 6},${ay + 4}" fill="#64748b"/>`;
+        }
+      });
+      svg += '</svg>';
+      box.innerHTML = svg;
+    }
+
+    function render() {
+      const s = DATA.summary || {};
+      document.getElementById('vs-ts').textContent = DATA.generated_at ? `Updated ${DATA.generated_at}` : '';
+      document.getElementById('vs-kpis').innerHTML = [
+        [s.total_slices || 0, 'Vertical Slices'],
+        [s.cross_stack_edges_count || 0, 'FE→BE Edges'],
+        [s.exact_matches || 0, 'Exact Matches (1.0)'],
+        [s.stores_count || 0, 'State Stores'],
+        [s.components_count || 0, 'UI Components'],
+        [s.features_count || 0, 'Feature Domains'],
+      ].map(([v, l]) => `<div class="kpi"><div class="kpi-v">${esc(v)}</div><div class="kpi-l">${esc(l)}</div></div>`).join('');
+
+      const featMap = s.by_feature || {};
+      const feats = ['all', ...Object.keys(featMap).slice(0, 12)];
+      document.getElementById('vs-features').innerHTML = feats.map(f => {
+        const cnt = f === 'all' ? (s.total_slices || 0) : featMap[f];
+        return `<button class="chip ${activeFeature === f ? 'active' : ''}" onclick="setFeature('${esc(f)}')">${esc(f)} (${cnt})</button>`;
+      }).join('');
+
+      const q = (document.getElementById('vs-q').value || '').trim().toLowerCase();
+      const rows = (DATA.slices || []).filter(sl => {
+        if (activeFeature !== 'all' && sl.feature !== activeFeature) return false;
+        if (!q) return true;
+        return JSON.stringify(sl).toLowerCase().includes(q);
+      });
+
+      if (!rows.some(r => r.id === selectedSliceId) && rows.length) {
+        selectedSliceId = rows[0].id;
+      }
+      renderSwimlane();
+
+      const tbody = document.getElementById('vs-body');
+      if (!rows.length) {
+        tbody.innerHTML = '<tr><td colspan="7" class="empty">No matching vertical slices.</td></tr>';
+        return;
+      }
+      tbody.innerHTML = rows.slice(0, 120).map(sl => {
+        const L = sl.layers || {};
+        const br = L.backend_route || {};
+        const st = L.services_and_tasks || {};
+        const stor = L.storage || {};
+        const comps = (L.components || []).slice(0, 3).map(c => `<span class="pill">${esc(shortName(c))}</span>`).join('');
+        const stores = (L.stores || []).slice(0, 2).map(x => `<span class="pill">${esc(x.split(' ')[0])}</span>`).join('');
+        const downstream = [
+          ...(st.celery_tasks || []).slice(0, 2).map(t => `<span class="pill" style="border-color:#f97316;">⚙ ${esc(t)}</span>`),
+          ...(stor.db_tables || []).slice(0, 3).map(t => `<span class="pill" style="border-color:#f43f5e;">🗄 ${esc(t)}</span>`),
+        ].join('');
+        const confCls = (sl.confidence || 0) >= 1 ? 'conf-hi' : 'conf-md';
+        return `<tr class="clickable ${sl.id === selectedSliceId ? 'row-sel' : ''}" data-id="${esc(sl.id)}" onclick="selectSlice('${esc(sl.id)}')">
+          <td><span class="method m-${esc(sl.method)}">${esc(sl.method)}</span> <code style="font-size:11.5px;">${esc(sl.endpoint)}</code></td>
+          <td><span class="pill">${esc(sl.feature)}</span></td>
+          <td>${comps || '<span style="color:#6b7280;">—</span>'}</td>
+          <td>${stores || '<span style="color:#6b7280;">—</span>'}</td>
+          <td><span class="link" onclick="event.stopPropagation();openInReader('${esc(br.file)}')">${esc(shortName(br.file))}</span><div style="font-size:10px;color:#9ca3af;">${esc(br.handler || '')}</div></td>
+          <td>${downstream || '<span style="color:#6b7280;">—</span>'}</td>
+          <td><span class="conf ${confCls}">${esc(sl.confidence)}</span></td>
+        </tr>`;
+      }).join('');
+    }
+
+    async function boot() {
+      try {
+        const r = await fetch('../data/vertical-slices.json', { cache: 'no-store' });
+        if (r.ok) DATA = await r.json();
+        else if (window.VERTICAL_SLICES_DATA) DATA = window.VERTICAL_SLICES_DATA;
+      } catch (_) {
+        if (window.VERTICAL_SLICES_DATA) DATA = window.VERTICAL_SLICES_DATA;
+      }
+      render();
+    }
+    boot();
+  </script>
+</body>
+</html>

@@ -1,0 +1,183 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Data Ingestion &amp; Storage Pipeline</title>
+  <link rel="stylesheet" href="portal-theme.css?v=fp3">
+  <script src="../data/hub_dataops.js" onerror="void(0)"></script>
+  <script src="../data/async_topology.js" onerror="void(0)"></script>
+  <script src="../data/db_schema.js" onerror="void(0)"></script>
+  <script src="live-reload.js"></script>
+  <script defer src="portal-ui.js?v=fp4"></script>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body { background: #0f0f0f; color: #f3f4f6; font-family: 'Inter', system-ui, sans-serif; min-height: 100vh; }
+    .wrap { max-width: 1400px; margin: 0 auto; padding: 18px 24px 56px; }
+    .head { display: flex; justify-content: space-between; align-items: flex-end; gap: 12px; flex-wrap: wrap; border-bottom: 1px solid #262626; padding-bottom: 14px; margin-bottom: 16px; }
+    .kpis { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 12px; margin-bottom: 16px; }
+    .kpi { background: #191919; border: 1px solid #262626; border-radius: 10px; padding: 12px 15px; }
+    .kpi-v { font-size: 22px; font-weight: 700; color: #fff; }
+    .kpi-l { font-size: 10px; text-transform: uppercase; letter-spacing: 0.06em; color: #9ca3af; margin-top: 3px; }
+    .panel { background: #141414; border: 1px solid #262626; border-radius: 10px; padding: 14px 16px; margin-bottom: 16px; overflow-x: auto; }
+    .panel h2 { font-size: 14px; margin-bottom: 10px; }
+    .grid2 { display: grid; grid-template-columns: repeat(auto-fit, minmax(420px, 1fr)); gap: 14px; }
+    table { width: 100%; border-collapse: collapse; font-size: 12px; }
+    th, td { text-align: left; padding: 8px 10px; border-bottom: 1px solid #222; vertical-align: top; }
+    th { background: #191919; font-size: 10px; text-transform: uppercase; letter-spacing: 0.06em; color: #9ca3af; }
+    .pill { display: inline-block; background: #222; border: 1px solid #333; color: #d1d5db; padding: 1px 6px; border-radius: 4px; font-size: 10px; font-family: ui-monospace, monospace; margin: 1px 3px 1px 0; }
+    .b-ok { background: #064e3b; color: #6ee7b7; }
+    .b-warn { background: #78350f; color: #fcd34d; }
+    .link { color: #38bdf8; cursor: pointer; font-family: ui-monospace, monospace; text-decoration: underline; }
+    .svg-box { width: 100%; overflow-x: auto; background: #101010; border: 1px solid #242424; border-radius: 8px; padding: 10px; }
+    .empty { padding: 20px; text-align: center; color: #9ca3af; font-size: 12px; }
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <div class="head">
+      <div>
+        <h1 style="font-size:19px;">🌊 Data Ingestion &amp; Storage Pipeline</h1>
+        <p style="font-size:12px;color:#9ca3af;margin-top:3px;">0-CDN live view of external feeds, ingestion workers, time-series hypertables / continuous aggregates &amp; backup readiness</p>
+      </div>
+      <span id="di-ts" style="font-size:11px;color:#9ca3af;"></span>
+    </div>
+
+    <div class="kpis" id="di-kpis"></div>
+
+    <div class="panel">
+      <h2>🧭 End-to-End Ingestion Architecture SVG</h2>
+      <div class="svg-box" id="di-svg"></div>
+    </div>
+
+    <div class="grid2" id="di-grid"></div>
+  </div>
+
+  <script>
+    let DATAOPS = null;
+    let ASYNC = { celery_tasks: [], beat_schedules: [] };
+    let DBSCHEMA = { tables: [] };
+
+    function esc(s) {
+      return String(s ?? '').replace(/[&<>"']/g, m => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m]));
+    }
+    function openInReader(p) {
+      if (p) try { window.parent.postMessage({ action: 'openFile', path: p }, '*'); } catch (_) {}
+    }
+
+    function render() {
+      const s = (DATAOPS && DATAOPS.summary) || {};
+      const tables = Array.isArray(DBSCHEMA.tables) ? DBSCHEMA.tables : Object.values(DBSCHEMA.tables || {});
+      const hypertables = tables.filter(t => t && t.is_hypertable);
+      const caggs = tables.filter(t => t && t.is_cagg);
+      const feeds = (DATAOPS && DATAOPS.feeds) || [];
+      const pipelines = (DATAOPS && DATAOPS.pipelines) || [];
+      const ingestTasks = (ASYNC.celery_tasks || []).filter(t =>
+        /ingest|sync|refresh|backfill|seed|gap|feed|etl|import/i.test(`${t.name} ${t.function} ${t.file}`)
+      );
+
+      document.getElementById('di-ts').textContent = (DATAOPS && DATAOPS.generated_at) || ASYNC.generated_at || '';
+      document.getElementById('di-kpis').innerHTML = [
+        [feeds.length, 'Live Feeds'],
+        [ingestTasks.length, 'Ingestion Workers'],
+        [pipelines.length, 'ETL / SQL Pipelines'],
+        [s.hypertables_count ?? hypertables.length, 'Hypertables'],
+        [s.caggs_count ?? caggs.length, 'Continuous Aggs'],
+        [s.total_tables ?? tables.length, 'Total DB Tables'],
+      ].map(([v, l]) => `<div class="kpi"><div class="kpi-v">${esc(v)}</div><div class="kpi-l">${esc(l)}</div></div>`).join('');
+
+      const stages = [
+        { title: '1. Feeds & Sources', color: '#38bdf8', items: feeds.length ? feeds.map(f => f.provider || f.id) : ['API / File / Stream Feeds'] },
+        { title: '2. Ingestion Workers', color: '#f59e0b', items: ingestTasks.length ? ingestTasks.slice(0, 6).map(t => t.function || t.name) : ['Background Workers'] },
+        { title: '3. SQL / ETL Scripts', color: '#a78bfa', items: pipelines.length ? pipelines.slice(0, 6).map(p => p.name) : ['Schema Migrations'] },
+        { title: '4. Storage & Aggregates', color: '#34d399', items: (hypertables.length ? hypertables : tables).slice(0, 6).map(t => t.name) },
+      ];
+      const colW = 240, gap = 36, pad = 16;
+      const maxRows = Math.max(2, ...stages.map(st => st.items.length));
+      const h = 58 + maxRows * 32 + 14;
+      const w = pad * 2 + stages.length * colW + (stages.length - 1) * gap;
+      let svg = `<svg viewBox="0 0 ${w} ${h}" width="100%" height="${h}" xmlns="http://www.w3.org/2000/svg" style="min-width:960px;">`;
+      stages.forEach((st, i) => {
+        const x = pad + i * (colW + gap);
+        svg += `<rect x="${x}" y="8" width="${colW}" height="${h - 16}" rx="8" fill="#171717" stroke="${st.color}" stroke-opacity="0.45"/>`;
+        svg += `<text x="${x + 10}" y="27" fill="${st.color}" font-size="11" font-weight="700">${esc(st.title)}</text>`;
+        st.items.forEach((txt, ri) => {
+          const y = 42 + ri * 32;
+          const label = String(txt || '');
+          const clipped = label.length > 28 ? label.slice(0, 26) + '…' : label;
+          svg += `<rect x="${x + 8}" y="${y}" width="${colW - 16}" height="24" rx="5" fill="#222" stroke="${st.color}" stroke-opacity="0.35"/>`;
+          svg += `<text x="${x + 14}" y="${y + 15}" fill="#e5e7eb" font-size="10.5" font-family="ui-monospace,monospace">${esc(clipped)}</text>`;
+        });
+        if (i < stages.length - 1) {
+          const ax1 = x + colW, ax2 = x + colW + gap, ay = Math.round(h / 2);
+          svg += `<line x1="${ax1}" y1="${ay}" x2="${ax2 - 4}" y2="${ay}" stroke="#64748b" stroke-width="1.6"/>`;
+          svg += `<polygon points="${ax2 - 6},${ay - 4} ${ax2},${ay} ${ax2 - 6},${ay + 4}" fill="#64748b"/>`;
+        }
+      });
+      svg += '</svg>';
+      document.getElementById('di-svg').innerHTML = svg;
+
+      const workerRows = ingestTasks.map(t => `<tr>
+        <td><span class="link" onclick="openInReader('${esc(t.file)}')">${esc(t.function || t.name)}</span></td>
+        <td><span class="pill">${esc(t.queue || 'default')}</span></td>
+        <td>${(t.producers || []).length}</td>
+      </tr>`).join('');
+
+      const tableRows = (hypertables.concat(caggs).length ? hypertables.concat(caggs) : tables).slice(0, 20).map(t => `<tr>
+        <td><code>${esc(t.name)}</code></td>
+        <td>${t.is_hypertable ? '<span class="pill b-ok">HYPERTABLE</span>' : (t.is_cagg ? '<span class="pill b-warn">CAGG</span>' : '<span class="pill">TABLE</span>')}</td>
+        <td>${t.compression_enabled ? '<span class="pill b-ok">compressed</span>' : '—'}</td>
+        <td>${(t.writers || []).length}W / ${(t.readers || []).length}R</td>
+      </tr>`).join('');
+
+      const pipeRows = pipelines.map(p => `<tr>
+        <td><span class="link" onclick="openInReader('${esc(p.path)}')">${esc(p.name)}</span></td>
+        <td><span class="pill">${esc(p.kind || 'script')}</span></td>
+        <td>${esc(p.size_bytes || 0)} B</td>
+      </tr>`).join('');
+
+      const backup = (DATAOPS && DATAOPS.backup_321) || {};
+      const backupHtml = DATAOPS ? `
+        <div style="font-size:12px;line-height:1.7;">
+          <div><strong>Backup 3-2-1 Ready:</strong> <span class="pill ${s.backup_321_ready ? 'b-ok' : 'b-warn'}">${s.backup_321_ready ? 'READY' : 'CHECK'}</span></div>
+          <div><strong>Backup Scripts:</strong> ${esc(s.backup_scripts_count || 0)}</div>
+          <div><strong>Repositories:</strong> ${(DATAOPS.db_repositories || []).slice(0, 8).map(r => `<span class="pill">${esc(String(r).split('/').pop())}</span>`).join('') || '—'}</div>
+        </div>
+      ` : '<div class="empty">Generic OSS mode: add an optional <code>data/hub-dataops.json</code> adapter for custom feed/backup telemetry.</div>';
+
+      document.getElementById('di-grid').innerHTML = `
+        <div class="panel"><h2>⚙️ Ingestion &amp; Refresh Workers</h2><table><thead><tr><th>Task</th><th>Queue</th><th>Producers</th></tr></thead><tbody>${workerRows || '<tr><td colspan="3" class="empty">No ingestion workers detected</td></tr>'}</tbody></table></div>
+        <div class="panel"><h2>🗄️ Target Tables / Hypertables / CAGGs</h2><table><thead><tr><th>Table</th><th>Type</th><th>Compression</th><th>R/W</th></tr></thead><tbody>${tableRows || '<tr><td colspan="4" class="empty">No DB schema tables detected</td></tr>'}</tbody></table></div>
+        <div class="panel"><h2>📜 Data Pipelines &amp; SQL Scripts</h2><table><thead><tr><th>Pipeline</th><th>Kind</th><th>Size</th></tr></thead><tbody>${pipeRows || '<tr><td colspan="3" class="empty">No pipeline scripts detected</td></tr>'}</tbody></table></div>
+        <div class="panel"><h2>🛡️ Backup &amp; Repository Governance</h2>${backupHtml}</div>
+      `;
+    }
+
+    async function boot() {
+      try {
+        const r = await fetch('../data/hub-dataops.json', { cache: 'no-store' });
+        if (r.ok) DATAOPS = await r.json();
+        else if (window.HUB_DATAOPS_DATA) DATAOPS = window.HUB_DATAOPS_DATA;
+      } catch (_) {
+        if (window.HUB_DATAOPS_DATA) DATAOPS = window.HUB_DATAOPS_DATA;
+      }
+      try {
+        const r2 = await fetch('../data/async-topology.json', { cache: 'no-store' });
+        if (r2.ok) ASYNC = await r2.json();
+        else if (window.ASYNC_TOPOLOGY_DATA) ASYNC = window.ASYNC_TOPOLOGY_DATA;
+      } catch (_) {
+        if (window.ASYNC_TOPOLOGY_DATA) ASYNC = window.ASYNC_TOPOLOGY_DATA;
+      }
+      try {
+        const r3 = await fetch('../data/db-schema.json', { cache: 'no-store' });
+        if (r3.ok) DBSCHEMA = await r3.json();
+        else if (window.DB_SCHEMA_DATA) DBSCHEMA = window.DB_SCHEMA_DATA;
+      } catch (_) {
+        if (window.DB_SCHEMA_DATA) DBSCHEMA = window.DB_SCHEMA_DATA;
+      }
+      render();
+    }
+    boot();
+  </script>
+</body>
+</html>

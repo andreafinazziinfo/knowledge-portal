@@ -29,6 +29,8 @@ from knowledge_portal.generators.test_oracle import generate_test_oracle
 from knowledge_portal.generators.module_cards import generate_module_cards
 from knowledge_portal.generators.agent_instructions_audit import generate_agent_instructions_audit
 from knowledge_portal.generators.sarif_ingestor import generate_sarif_findings
+from knowledge_portal.generators.vertical_slices import generate_vertical_slices
+from knowledge_portal.generators.async_topology import generate_async_topology
 
 def export_static_portal(source_dir: Path, output_dir: Path, project_name: Optional[str] = None) -> Dict[str, Any]:
     source_dir = source_dir.resolve()
@@ -63,6 +65,8 @@ def export_static_portal(source_dir: Path, output_dir: Path, project_name: Optio
     generate_arch_health(data_dir, project_dir=source_dir)
     generate_api_catalog(source_dir, data_dir)
     generate_call_graph(source_dir, data_dir)
+    generate_vertical_slices(source_dir, data_dir)
+    generate_async_topology(source_dir, data_dir)
     generate_ownership_map(source_dir, data_dir)
     generate_config_matrix(source_dir, data_dir)
     generate_iac_topology(source_dir, data_dir)

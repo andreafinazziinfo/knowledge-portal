@@ -1,0 +1,175 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Worker Tasks &amp; Beat Schedule Matrix</title>
+  <link rel="stylesheet" href="portal-theme.css?v=fp3">
+  <script src="../data/async_topology.js" onerror="void(0)"></script>
+  <script src="live-reload.js"></script>
+  <script defer src="portal-ui.js?v=fp4"></script>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body { background: #0f0f0f; color: #f3f4f6; font-family: 'Inter', system-ui, sans-serif; min-height: 100vh; }
+    .wrap { max-width: 1400px; margin: 0 auto; padding: 18px 24px 56px; }
+    .head { display: flex; justify-content: space-between; align-items: flex-end; gap: 12px; flex-wrap: wrap; border-bottom: 1px solid #262626; padding-bottom: 14px; margin-bottom: 16px; }
+    .kpis { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 12px; margin-bottom: 16px; }
+    .kpi { background: #191919; border: 1px solid #262626; border-radius: 10px; padding: 12px 15px; }
+    .kpi-v { font-size: 22px; font-weight: 700; color: #fff; }
+    .kpi-l { font-size: 10px; text-transform: uppercase; letter-spacing: 0.06em; color: #9ca3af; margin-top: 3px; }
+    .controls { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; margin-bottom: 14px; }
+    .inp { background: #141414; border: 1px solid #333; color: #fff; padding: 7px 12px; border-radius: 7px; font-size: 12px; width: 300px; }
+    .chip { background: #191919; border: 1px solid #2e2e2e; color: #a3a3a3; padding: 5px 12px; border-radius: 999px; font-size: 11px; font-weight: 600; cursor: pointer; }
+    .chip.active { background: #f59e0b; color: #0f0f0f; border-color: #f59e0b; }
+    .panel { background: #141414; border: 1px solid #262626; border-radius: 10px; padding: 14px 16px; margin-bottom: 16px; overflow-x: auto; }
+    .panel h2 { font-size: 14px; margin-bottom: 10px; }
+    table { width: 100%; border-collapse: collapse; font-size: 12px; }
+    th, td { text-align: left; padding: 9px 11px; border-bottom: 1px solid #222; vertical-align: top; }
+    th { background: #191919; font-size: 10px; text-transform: uppercase; letter-spacing: 0.06em; color: #9ca3af; }
+    .pill { display: inline-block; background: #222; border: 1px solid #333; color: #d1d5db; padding: 1px 6px; border-radius: 4px; font-size: 10px; font-family: ui-monospace, monospace; margin: 1px 3px 1px 0; }
+    .q-badge { background: #1e3a8a; color: #93c5fd; padding: 2px 7px; border-radius: 4px; font-size: 10px; font-weight: 700; }
+    .link { color: #38bdf8; cursor: pointer; font-family: ui-monospace, monospace; text-decoration: underline; }
+    .empty { padding: 24px; text-align: center; color: #9ca3af; font-size: 13px; }
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <div class="head">
+      <div>
+        <h1 style="font-size:19px;">⚙️ Worker Tasks &amp; Beat Schedule Matrix</h1>
+        <p style="font-size:12px;color:#9ca3af;margin-top:3px;">0-CDN live AST catalog of background worker tasks, Beat schedules, retry policies, timeouts, and producer call sites</p>
+      </div>
+      <span id="wt-ts" style="font-size:11px;color:#9ca3af;"></span>
+    </div>
+
+    <div class="kpis" id="wt-kpis"></div>
+
+    <div class="controls">
+      <input id="wt-q" class="inp" type="search" placeholder="Filter task name, queue, schedule, or producer..." oninput="render()">
+      <div id="wt-queues" style="display:flex;gap:6px;flex-wrap:wrap;"></div>
+    </div>
+
+    <div class="panel">
+      <h2>🛠️ Registered Worker Tasks &amp; Producer Matrix</h2>
+      <table>
+        <thead>
+          <tr>
+            <th>Task / Function</th>
+            <th>Queue</th>
+            <th>Retries &amp; Autoretry</th>
+            <th>Time Limits</th>
+            <th>Rate Limit</th>
+            <th>Producers (.delay / .apply_async)</th>
+          </tr>
+        </thead>
+        <tbody id="wt-tasks-body"></tbody>
+      </table>
+    </div>
+
+    <div class="panel">
+      <h2>⏱️ Periodic Beat Schedules</h2>
+      <table>
+        <thead>
+          <tr>
+            <th>Schedule Name</th>
+            <th>Target Task</th>
+            <th>Cadence / Crontab</th>
+            <th>Queue</th>
+            <th>Definition</th>
+          </tr>
+        </thead>
+        <tbody id="wt-beat-body"></tbody>
+      </table>
+    </div>
+  </div>
+
+  <script>
+    let DATA = { summary: {}, celery_tasks: [], beat_schedules: [] };
+    let queueFilter = 'all';
+
+    function esc(s) {
+      return String(s ?? '').replace(/[&<>"']/g, m => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m]));
+    }
+    function openInReader(p) {
+      if (p) try { window.parent.postMessage({ action: 'openFile', path: p }, '*'); } catch (_) {}
+    }
+    function setQueue(q) {
+      queueFilter = q;
+      render();
+    }
+
+    function render() {
+      const s = DATA.summary || {};
+      const tasks = DATA.celery_tasks || [];
+      const beats = DATA.beat_schedules || [];
+      const queues = s.queues || [];
+      document.getElementById('wt-ts').textContent = DATA.generated_at ? `Updated ${DATA.generated_at}` : '';
+
+      const withRetry = tasks.filter(t => t.max_retries != null || t.autoretry_for).length;
+      document.getElementById('wt-kpis').innerHTML = [
+        [tasks.length, 'Worker Tasks'],
+        [beats.length, 'Beat Schedules'],
+        [queues.length, 'Queues'],
+        [s.producers_count || 0, 'Producer Call Sites'],
+        [withRetry, 'Tasks w/ Retry Policy'],
+      ].map(([v, l]) => `<div class="kpi"><div class="kpi-v">${esc(v)}</div><div class="kpi-l">${esc(l)}</div></div>`).join('');
+
+      document.getElementById('wt-queues').innerHTML = ['all', ...queues].map(q =>
+        `<button class="chip ${queueFilter === q ? 'active' : ''}" onclick="setQueue('${esc(q)}')">${esc(q)}</button>`
+      ).join('');
+
+      const q = (document.getElementById('wt-q').value || '').trim().toLowerCase();
+      const fTasks = tasks.filter(t => {
+        if (queueFilter !== 'all' && (t.queue || 'default') !== queueFilter) return false;
+        return !q || JSON.stringify(t).toLowerCase().includes(q);
+      });
+      const fBeats = beats.filter(b => {
+        if (queueFilter !== 'all' && (b.queue || 'default') !== queueFilter) return false;
+        return !q || JSON.stringify(b).toLowerCase().includes(q);
+      });
+
+      document.getElementById('wt-tasks-body').innerHTML = fTasks.length ? fTasks.map(t => {
+        const prods = (t.producers || []).slice(0, 6).map(p =>
+          `<span class="pill"><span class="link" onclick="openInReader('${esc(p.file)}')">${esc(p.file.split('/').pop())}:${esc(p.line)}</span> (${esc(p.call)})</span>`
+        ).join('');
+        const retryStr = [
+          t.max_retries != null ? `max=${t.max_retries}` : '',
+          t.autoretry_for ? `auto=${JSON.stringify(t.autoretry_for)}` : '',
+        ].filter(Boolean).join(' · ') || '—';
+        const limStr = [
+          t.soft_time_limit != null ? `soft=${t.soft_time_limit}s` : '',
+          t.time_limit != null ? `hard=${t.time_limit}s` : '',
+        ].filter(Boolean).join(' / ') || '—';
+        return `<tr>
+          <td><div><strong>${esc(t.function || t.name)}</strong></div><div style="font-size:10px;color:#9ca3af;"><span class="link" onclick="openInReader('${esc(t.file)}')">${esc(t.file)}:${esc(t.line)}</span></div></td>
+          <td><span class="q-badge">${esc(t.queue || 'default')}</span></td>
+          <td><span style="font-family:ui-monospace,monospace;font-size:11px;">${esc(retryStr)}</span></td>
+          <td><span style="font-family:ui-monospace,monospace;font-size:11px;">${esc(limStr)}</span></td>
+          <td>${esc(t.rate_limit ?? '—')}</td>
+          <td>${prods || '<span style="color:#6b7280;">Beat / external only</span>'}</td>
+        </tr>`;
+      }).join('') : '<tr><td colspan="6" class="empty">No worker tasks match the current filter.</td></tr>';
+
+      document.getElementById('wt-beat-body').innerHTML = fBeats.length ? fBeats.map(b => `<tr>
+        <td><strong>${esc(b.name)}</strong></td>
+        <td><code>${esc(b.task)}</code></td>
+        <td><span class="pill">${esc(b.schedule)}</span></td>
+        <td><span class="q-badge">${esc(b.queue || 'default')}</span></td>
+        <td><span class="link" onclick="openInReader('${esc(b.file)}')">${esc(b.file)}:${esc(b.line)}</span></td>
+      </tr>`).join('') : '<tr><td colspan="5" class="empty">No Beat schedules match the current filter.</td></tr>';
+    }
+
+    async function boot() {
+      try {
+        const r = await fetch('../data/async-topology.json', { cache: 'no-store' });
+        if (r.ok) DATA = await r.json();
+        else if (window.ASYNC_TOPOLOGY_DATA) DATA = window.ASYNC_TOPOLOGY_DATA;
+      } catch (_) {
+        if (window.ASYNC_TOPOLOGY_DATA) DATA = window.ASYNC_TOPOLOGY_DATA;
+      }
+      render();
+    }
+    boot();
+  </script>
+</body>
+</html>

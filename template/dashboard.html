@@ -1052,6 +1052,8 @@
           <option value="arch-health">★ Health &amp; Audit 4.0</option>
         </optgroup>
         <optgroup label="️ Architettura &amp; Flussi">
+          <option value="vertical-slices">🔀 Vertical Slices (6-Layer)</option>
+          <option value="test-oracle">🧪 Test Oracle &amp; Blind-Spots</option>
           <option value="floorplan">️ Floorplan SVG (ADR-053)</option>
           <option value="stack-ecosystem">Tech Stack &amp; Deps</option>
           <option value="data-explorer">Pivot Data Explorer (WASM)</option>
@@ -1093,6 +1095,8 @@
         <div class="nav-dd" data-group="architecture">
           <button class="nav-dd-btn" type="button" onclick="toggleNavDropdown(this)">Architecture ▾</button>
           <div class="nav-dd-menu">
+            <button class="nav-dd-item tab-button" data-tab="vertical-slices" onclick="switchTabFromMenu('vertical-slices')">🔀 Vertical Slices</button>
+            <button class="nav-dd-item tab-button" data-tab="test-oracle" onclick="switchTabFromMenu('test-oracle')">🧪 Test Oracle</button>
             <button class="nav-dd-item tab-button" data-tab="sequence-tracer" onclick="switchTabFromMenu('sequence-tracer')">⚡ Sequence Tracer</button>
             <button class="nav-dd-item tab-button" data-tab="impact-simulator" onclick="switchTabFromMenu('impact-simulator')">💥 Impact Simulator</button>
             <button class="nav-dd-item tab-button" data-tab="config-matrix" onclick="switchTabFromMenu('config-matrix')">⚙️ Config &amp; Flags</button>
@@ -1322,6 +1326,22 @@
               </div>
               <span class="hub-card-badge">AI Copilot</span>
             </div>
+            <div class="view-hub-card" data-view-id="vertical-slices" onclick="switchTab('vertical-slices')">
+              <div class="hub-card-icon">🔀</div>
+              <div class="hub-card-content">
+                <div class="hub-card-title">Vertical Slice Explorer (6-Layer)</div>
+                <div class="hub-card-desc">Cross-stack Swimlane SVG from UI Component → Store → API Client → Route → Task → Redis/DB.</div>
+              </div>
+              <span class="hub-card-badge">Cross-Stack</span>
+            </div>
+            <div class="view-hub-card" data-view-id="test-oracle" onclick="switchTab('test-oracle')">
+              <div class="hub-card-icon">🧪</div>
+              <div class="hub-card-content">
+                <div class="hub-card-title">Test Oracle &amp; Blind-Spots</div>
+                <div class="hub-card-desc">AST reverse map from source/symbol to fastest pytest/vitest commands &amp; untested blind spots.</div>
+              </div>
+              <span class="hub-card-badge">Test Oracle</span>
+            </div>
           </div>
 
           <div style="font-size:11px; font-weight:700; text-transform:uppercase; letter-spacing:0.06em; color:#b4b4b4; margin: 20px 0 8px 0; display:flex; align-items:center; gap:6px;">
@@ -1495,6 +1515,16 @@
     <div class="tab-pane" id="pane-ai-mission-launcher">
       <button class="fullscreen-btn" onclick="toggleFullscreen('pane-ai-mission-launcher')" title="Fullscreen">⛶</button>
       <iframe id="ai-mission-launcher-iframe" data-src="views/ai-mission-launcher.html" title="AI Mission Pack &amp; CodeMode Workbench" style="width:100%; height:100%; border:none; background:#0f0f0f;"></iframe>
+    </div>
+
+    <div class="tab-pane" id="pane-vertical-slices">
+      <button class="fullscreen-btn" onclick="toggleFullscreen('pane-vertical-slices')" title="Fullscreen">⛶</button>
+      <iframe id="vertical-slices-iframe" data-src="views/vertical-slices.html" title="Cross-Stack Vertical Slice Explorer" style="width:100%; height:100%; border:none; background:#0f0f0f;"></iframe>
+    </div>
+
+    <div class="tab-pane" id="pane-test-oracle">
+      <button class="fullscreen-btn" onclick="toggleFullscreen('pane-test-oracle')" title="Fullscreen">⛶</button>
+      <iframe id="test-oracle-iframe" data-src="views/test-oracle.html" title="Test Oracle &amp; Blind-Spots Explorer" style="width:100%; height:100%; border:none; background:#0f0f0f;"></iframe>
     </div>
 
     <div class="tab-pane" id="pane-graph-studio">
@@ -1966,7 +1996,7 @@
     let currentFileName = null;
     let isEditing = false;
     let activeTab = 'home';
-    const TAB_IDS = ['home', 'mission-control', 'git-pr-dag', 'adr-runbook-hub', 'ai-mission-launcher', 'reader', 'graph', 'canvas', 'tree', 'graph-studio', 'arch-health', 'sequence-tracer', 'impact-simulator', 'config-matrix', 'iac-topology', 'ai-registry', 'floorplan', 'stack-ecosystem', 'data-explorer', 'db-lineage', 'async-topology', 'visual-explainer', 'api-catalog', 'adr-governance', 'quant-codex', 'runbook-ops', 'framework-constitution', 'frontend-state', 'worker-tasks', 'threat-matrix', 'data-ingestion', 'live-telemetry', 'console'];
+    const TAB_IDS = ['home', 'mission-control', 'git-pr-dag', 'adr-runbook-hub', 'ai-mission-launcher', 'vertical-slices', 'test-oracle', 'reader', 'graph', 'canvas', 'tree', 'graph-studio', 'arch-health', 'sequence-tracer', 'impact-simulator', 'config-matrix', 'iac-topology', 'ai-registry', 'floorplan', 'stack-ecosystem', 'data-explorer', 'db-lineage', 'async-topology', 'visual-explainer', 'api-catalog', 'adr-governance', 'quant-codex', 'runbook-ops', 'framework-constitution', 'frontend-state', 'worker-tasks', 'threat-matrix', 'data-ingestion', 'live-telemetry', 'console'];
 
     // ── Load File (Reader) ──
     function loadFile(filePath) {
@@ -3106,6 +3136,8 @@
       { id: 'git-pr-dag', title: '🌿 Stacked-PR DAG & Worktree Hygiene', desc: 'Layered branch/PR DAG, recommended merge order & filterable worktree status matrix', icon: '🌿', tags: 'git pr dag worktree branches stacked merge ci' },
       { id: 'adr-runbook-hub', title: '📘 ADR Timeline & Interactive Runbook Hub', desc: 'Chronological ADR dependency graph & interactive runbook checklists', icon: '📘', tags: 'adr decision graph timeline runbook checklist ops' },
       { id: 'ai-mission-launcher', title: '🚀 AI Mission Pack & CodeMode Workbench', desc: 'Token-budgeted AI context packs, AST-sandboxed CodeMode & MCP v2 catalog', icon: '🚀', tags: 'ai mission pack codemode mcp prompt sandbox' },
+      { id: 'vertical-slices', title: '🔀 Cross-Stack Vertical Slice Explorer', desc: '6-layer Swimlane SVG: UI Component -> Store -> API Client -> Route -> Task -> Redis/DB', icon: '🔀', tags: 'vertical slice cross stack frontend backend pinia api db swimlane' },
+      { id: 'test-oracle', title: '🧪 Test Oracle & Blind-Spots Explorer', desc: 'AST reverse map from source/symbol to fastest pytest/vitest commands & untested blind spots', icon: '🧪', tags: 'test oracle pytest vitest blind spot coverage' },
       { id: 'arch-health', title: 'Health & Audit Center 4.0', desc: '16 zero-dep audit pillars: OWASP, SRE, API, DB N+1, CodeScene Risk, Martin Metrics', icon: '🩺', tags: 'health audit owasp security sre reliability martin dsm' },
       { id: 'api-catalog', title: '🌐 Live API & Endpoint Explorer', desc: 'Auto-discovered HTTP & WebSocket endpoints with auth, handler links, and OpenAPI 3.1', icon: '🌐', tags: 'api rest fastapi express go openapi router endpoints' },
       { id: 'adr-governance', title: '⚖️ ADR Governance', desc: 'Architecture Decision Records matrix and trade-off ledger', icon: '⚖️', tags: 'adr decisions governance architecture' },
@@ -3415,6 +3447,12 @@
       available.add('git-pr-dag');
       available.add('adr-runbook-hub');
       available.add('ai-mission-launcher');
+      available.add('vertical-slices');
+      available.add('test-oracle');
+      available.add('async-topology');
+      available.add('worker-tasks');
+      available.add('frontend-state');
+      available.add('data-ingestion');
       ['graph','graph_3d','canvas','canvas_3d','tree','tree_3d','graph_full'].forEach(k => available.delete(k));
 
       // Top bar tabs

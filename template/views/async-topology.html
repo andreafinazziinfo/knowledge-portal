@@ -1,0 +1,207 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Async, Queue, Redis &amp; WebSocket Topology</title>
+  <link rel="stylesheet" href="portal-theme.css?v=fp3">
+  <script src="../data/async_topology.js" onerror="void(0)"></script>
+  <script src="live-reload.js"></script>
+  <script defer src="portal-ui.js?v=fp4"></script>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body { background: #0f0f0f; color: #f3f4f6; font-family: 'Inter', system-ui, sans-serif; min-height: 100vh; }
+    .wrap { max-width: 1400px; margin: 0 auto; padding: 18px 24px 56px; }
+    .head { display: flex; justify-content: space-between; align-items: flex-end; gap: 12px; flex-wrap: wrap; border-bottom: 1px solid #262626; padding-bottom: 14px; margin-bottom: 16px; }
+    .kpis { display: grid; grid-template-columns: repeat(auto-fit, minmax(145px, 1fr)); gap: 12px; margin-bottom: 16px; }
+    .kpi { background: #191919; border: 1px solid #262626; border-radius: 10px; padding: 12px 15px; }
+    .kpi-v { font-size: 22px; font-weight: 700; color: #fff; }
+    .kpi-l { font-size: 10px; text-transform: uppercase; letter-spacing: 0.06em; color: #9ca3af; margin-top: 3px; }
+    .controls { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; margin-bottom: 14px; }
+    .inp { background: #141414; border: 1px solid #333; color: #fff; padding: 7px 12px; border-radius: 7px; font-size: 12px; width: 290px; }
+    .chip { background: #191919; border: 1px solid #2e2e2e; color: #a3a3a3; padding: 5px 12px; border-radius: 999px; font-size: 11px; font-weight: 600; cursor: pointer; }
+    .chip.active { background: #38bdf8; color: #0f0f0f; border-color: #38bdf8; }
+    .panel { background: #141414; border: 1px solid #262626; border-radius: 10px; padding: 14px 16px; margin-bottom: 16px; }
+    .panel h2 { font-size: 14px; margin-bottom: 10px; }
+    .svg-box { width: 100%; overflow-x: auto; background: #101010; border: 1px solid #242424; border-radius: 8px; padding: 10px; }
+    .grid2 { display: grid; grid-template-columns: repeat(auto-fit, minmax(420px, 1fr)); gap: 14px; }
+    table { width: 100%; border-collapse: collapse; font-size: 12px; }
+    th, td { text-align: left; padding: 8px 10px; border-bottom: 1px solid #222; vertical-align: top; }
+    th { background: #191919; font-size: 10px; text-transform: uppercase; letter-spacing: 0.06em; color: #9ca3af; }
+    .pill { display: inline-block; background: #222; border: 1px solid #333; color: #d1d5db; padding: 1px 6px; border-radius: 4px; font-size: 10px; font-family: ui-monospace, monospace; margin: 1px 3px 1px 0; }
+    .b-lock { background: #7f1d1d; color: #fca5a5; }
+    .b-ws { background: #4c1d95; color: #c4b5fd; }
+    .b-sse { background: #064e3b; color: #6ee7b7; }
+    .link { color: #38bdf8; cursor: pointer; font-family: ui-monospace, monospace; text-decoration: underline; }
+    .empty { padding: 20px; text-align: center; color: #9ca3af; font-size: 12px; }
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <div class="head">
+      <div>
+        <h1 style="font-size:19px;">⚡ Async, Queue, Redis &amp; WebSocket Topology</h1>
+        <p style="font-size:12px;color:#9ca3af;margin-top:3px;">0-CDN live AST topology: Producers → Background Tasks &amp; Beat → Redis Keys/Locks &amp; Pub/Sub → WebSocket / SSE Streams</p>
+      </div>
+      <span id="at-ts" style="font-size:11px;color:#9ca3af;"></span>
+    </div>
+
+    <div class="kpis" id="at-kpis"></div>
+
+    <div class="controls">
+      <input id="at-q" class="inp" type="search" placeholder="Filter task, queue, Redis key, channel, or stream..." oninput="render()">
+      <button class="chip active" onclick="setKind('all', this)">All Layers</button>
+      <button class="chip" onclick="setKind('celery', this)">Tasks &amp; Beat</button>
+      <button class="chip" onclick="setKind('redis', this)">Redis &amp; Locks</button>
+      <button class="chip" onclick="setKind('pubsub', this)">Pub/Sub</button>
+      <button class="chip" onclick="setKind('streams', this)">WS &amp; SSE</button>
+    </div>
+
+    <div class="panel">
+      <h2>🕸️ Interactive Event-Driven Pipeline SVG</h2>
+      <div class="svg-box" id="at-svg"></div>
+    </div>
+
+    <div class="grid2" id="at-tables"></div>
+  </div>
+
+  <script>
+    let DATA = { summary: {}, celery_tasks: [], beat_schedules: [], redis_keys: [], pubsub_channels: [], ws_streams: [], sse_streams: [], graph: { nodes: [], edges: [] } };
+    let kindFilter = 'all';
+
+    function esc(s) {
+      return String(s ?? '').replace(/[&<>"']/g, m => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m]));
+    }
+    function openInReader(p) {
+      if (p) try { window.parent.postMessage({ action: 'openFile', path: p }, '*'); } catch (_) {}
+    }
+    function setKind(k, el) {
+      kindFilter = k;
+      document.querySelectorAll('.chip').forEach(c => c.classList.remove('active'));
+      if (el) el.classList.add('active');
+      render();
+    }
+
+    function renderSvg(q) {
+      const box = document.getElementById('at-svg');
+      const g = DATA.graph || { nodes: [], edges: [] };
+      const nodes = (g.nodes || []).filter(n => !q || JSON.stringify(n).toLowerCase().includes(q));
+      if (!nodes.length) {
+        box.innerHTML = '<div class="empty">No async topology nodes detected in this repository.</div>';
+        return;
+      }
+
+      const lanes = [
+        { key: 'producers', title: 'Producers & Beat', color: '#38bdf8', kinds: ['producer', 'beat_schedule'] },
+        { key: 'tasks', title: 'Background Tasks', color: '#f59e0b', kinds: ['celery_task'] },
+        { key: 'redis', title: 'Redis Keys & Pub/Sub', color: '#f43f5e', kinds: ['redis_lock', 'redis_key', 'pubsub'] },
+        { key: 'streams', title: 'WS / SSE & Consumers', color: '#a78bfa', kinds: ['websocket', 'sse', 'subscriber', 'frontend_consumer'] },
+      ];
+
+      const colW = 240, gap = 46, pad = 16;
+      const laneNodes = lanes.map(l => nodes.filter(n => l.kinds.includes(n.kind)).slice(0, 12));
+      const maxRows = Math.max(3, ...laneNodes.map(a => a.length));
+      const h = 58 + maxRows * 32 + 16;
+      const w = pad * 2 + lanes.length * colW + (lanes.length - 1) * gap;
+      const pos = {};
+
+      let svg = `<svg viewBox="0 0 ${w} ${h}" width="100%" height="${h}" xmlns="http://www.w3.org/2000/svg" style="min-width:980px;">`;
+      lanes.forEach((lane, li) => {
+        const x = pad + li * (colW + gap);
+        svg += `<rect x="${x}" y="8" width="${colW}" height="${h - 16}" rx="8" fill="#171717" stroke="${lane.color}" stroke-opacity="0.4"/>`;
+        svg += `<text x="${x + 10}" y="27" fill="${lane.color}" font-size="11" font-weight="700">${esc(lane.title)} (${laneNodes[li].length})</text>`;
+        laneNodes[li].forEach((n, ri) => {
+          const y = 42 + ri * 32;
+          pos[n.id] = { x, y: y + 12, right: x + colW };
+          const label = String(n.label || n.id);
+          const clipped = label.length > 29 ? label.slice(0, 27) + '…' : label;
+          svg += `<rect x="${x + 8}" y="${y}" width="${colW - 16}" height="24" rx="5" fill="#222" stroke="${lane.color}" stroke-opacity="0.45"/>`;
+          svg += `<text x="${x + 14}" y="${y + 15}" fill="#e5e7eb" font-size="10.5" font-family="ui-monospace,monospace">${esc(clipped)}</text>`;
+        });
+      });
+
+      (g.edges || []).slice(0, 120).forEach(e => {
+        const s = pos[e.source], t = pos[e.target];
+        if (!s || !t) return;
+        const x1 = s.right - 8, y1 = s.y, x2 = t.x + 8, y2 = t.y;
+        const cx = (x1 + x2) / 2;
+        svg += `<path d="M ${x1} ${y1} C ${cx} ${y1}, ${cx} ${y2}, ${x2} ${y2}" fill="none" stroke="#64748b" stroke-opacity="0.55" stroke-width="1.2"/>`;
+      });
+      svg += '</svg>';
+      box.innerHTML = svg;
+    }
+
+    function render() {
+      const s = DATA.summary || {};
+      document.getElementById('at-ts').textContent = DATA.generated_at ? `Updated ${DATA.generated_at}` : '';
+      document.getElementById('at-kpis').innerHTML = [
+        [s.celery_tasks_count || 0, 'Worker Tasks'],
+        [s.beat_schedules_count || 0, 'Beat Schedules'],
+        [s.redis_keys_count || 0, 'Redis Keys'],
+        [s.redis_locks_count || 0, 'Dist. Locks'],
+        [s.pubsub_channels_count || 0, 'Pub/Sub Channels'],
+        [(s.ws_streams_count || 0) + (s.sse_streams_count || 0), 'WS & SSE Streams'],
+      ].map(([v, l]) => `<div class="kpi"><div class="kpi-v">${esc(v)}</div><div class="kpi-l">${esc(l)}</div></div>`).join('');
+
+      const q = (document.getElementById('at-q').value || '').trim().toLowerCase();
+      renderSvg(q);
+
+      const match = item => !q || JSON.stringify(item).toLowerCase().includes(q);
+      const panels = [];
+
+      if (kindFilter === 'all' || kindFilter === 'pubsub') {
+        const rows = (DATA.pubsub_channels || []).filter(match).map(c => `<tr>
+          <td><code>${esc(c.channel)}</code> ${c.pattern ? '<span class="pill">pattern</span>' : ''}</td>
+          <td>${(c.publishers || []).map(p => `<span class="link" onclick="openInReader('${esc(p.file)}')">${esc(p.function)}</span>`).join(', ') || '—'}</td>
+          <td>${(c.subscribers || []).map(p => `<span class="link" onclick="openInReader('${esc(p.file)}')">${esc(p.function)}</span>`).join(', ') || '—'}</td>
+        </tr>`).join('');
+        panels.push(`<div class="panel"><h2>📡 Redis Pub/Sub Channels</h2><table><thead><tr><th>Channel</th><th>Publishers</th><th>Subscribers</th></tr></thead><tbody>${rows || '<tr><td colspan="3" class="empty">None</td></tr>'}</tbody></table></div>`);
+      }
+
+      if (kindFilter === 'all' || kindFilter === 'streams') {
+        const streams = [...(DATA.ws_streams || []), ...(DATA.sse_streams || [])].filter(match);
+        const rows = streams.map(st => `<tr>
+          <td><span class="pill ${st.protocol === 'sse' ? 'b-sse' : 'b-ws'}">${esc((st.protocol || 'ws').toUpperCase())}</span> <code>${esc(st.path)}</code></td>
+          <td><span class="link" onclick="openInReader('${esc(st.file)}')">${esc(st.handler)}</span></td>
+          <td>${(st.consumers || []).map(c => `<span class="pill">${esc(c.file.split('/').pop())}</span>`).join('') || '—'}</td>
+        </tr>`).join('');
+        panels.push(`<div class="panel"><h2>🔌 WebSocket &amp; SSE Streams</h2><table><thead><tr><th>Endpoint</th><th>Handler</th><th>Frontend Consumers</th></tr></thead><tbody>${rows || '<tr><td colspan="3" class="empty">None</td></tr>'}</tbody></table></div>`);
+      }
+
+      if (kindFilter === 'all' || kindFilter === 'redis') {
+        const rows = (DATA.redis_keys || []).filter(match).slice(0, 40).map(r => `<tr>
+          <td><code>${esc(r.key_pattern)}</code> ${r.kind === 'lock' ? '<span class="pill b-lock">LOCK</span>' : ''}</td>
+          <td>${esc(r.ttl ?? '—')}</td>
+          <td>${(r.operations || []).map(o => `<span class="pill">${esc(o)}</span>`).join('')}</td>
+          <td>${(r.producers || []).length}W / ${(r.consumers || []).length}R</td>
+        </tr>`).join('');
+        panels.push(`<div class="panel"><h2>🔑 Redis Keys &amp; Distributed Locks</h2><table><thead><tr><th>Key Pattern</th><th>TTL</th><th>Ops</th><th>R/W</th></tr></thead><tbody>${rows || '<tr><td colspan="4" class="empty">None</td></tr>'}</tbody></table></div>`);
+      }
+
+      if (kindFilter === 'all' || kindFilter === 'celery') {
+        const rows = (DATA.celery_tasks || []).filter(match).slice(0, 40).map(t => `<tr>
+          <td><span class="link" onclick="openInReader('${esc(t.file)}')">${esc(t.function || t.name)}</span></td>
+          <td><span class="pill">${esc(t.queue || 'default')}</span></td>
+          <td>${esc(t.max_retries ?? '—')} / ${esc(t.soft_time_limit ?? '—')}s</td>
+          <td>${(t.producers || []).length}</td>
+        </tr>`).join('');
+        panels.push(`<div class="panel"><h2>⚙️ Background Worker Tasks</h2><table><thead><tr><th>Task</th><th>Queue</th><th>Retry / Soft Limit</th><th>Producers</th></tr></thead><tbody>${rows || '<tr><td colspan="4" class="empty">None</td></tr>'}</tbody></table></div>`);
+      }
+
+      document.getElementById('at-tables').innerHTML = panels.join('');
+    }
+
+    async function boot() {
+      try {
+        const r = await fetch('../data/async-topology.json', { cache: 'no-store' });
+        if (r.ok) DATA = await r.json();
+        else if (window.ASYNC_TOPOLOGY_DATA) DATA = window.ASYNC_TOPOLOGY_DATA;
+      } catch (_) {
+        if (window.ASYNC_TOPOLOGY_DATA) DATA = window.ASYNC_TOPOLOGY_DATA;
+      }
+      render();
+    }
+    boot();
+  </script>
+</body>
+</html>

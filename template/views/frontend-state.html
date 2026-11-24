@@ -1,0 +1,161 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Frontend State Stores &amp; Reactivity Map</title>
+  <link rel="stylesheet" href="portal-theme.css?v=fp3">
+  <script src="../data/vertical_slices.js" onerror="void(0)"></script>
+  <script src="../data/arch_health.js" onerror="void(0)"></script>
+  <script src="live-reload.js"></script>
+  <script defer src="portal-ui.js?v=fp4"></script>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body { background: #0f0f0f; color: #f3f4f6; font-family: 'Inter', system-ui, sans-serif; min-height: 100vh; }
+    .wrap { max-width: 1400px; margin: 0 auto; padding: 18px 24px 56px; }
+    .head { display: flex; justify-content: space-between; align-items: flex-end; gap: 12px; flex-wrap: wrap; border-bottom: 1px solid #262626; padding-bottom: 14px; margin-bottom: 16px; }
+    .kpis { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 12px; margin-bottom: 16px; }
+    .kpi { background: #191919; border: 1px solid #262626; border-radius: 10px; padding: 12px 15px; }
+    .kpi-v { font-size: 22px; font-weight: 700; color: #fff; }
+    .kpi-l { font-size: 10px; text-transform: uppercase; letter-spacing: 0.06em; color: #9ca3af; margin-top: 3px; }
+    .controls { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; margin-bottom: 14px; }
+    .inp { background: #141414; border: 1px solid #333; color: #fff; padding: 7px 12px; border-radius: 7px; font-size: 12px; width: 300px; }
+    .chip { background: #191919; border: 1px solid #2e2e2e; color: #a3a3a3; padding: 5px 12px; border-radius: 999px; font-size: 11px; font-weight: 600; cursor: pointer; }
+    .chip.active { background: #a78bfa; color: #0f0f0f; border-color: #a78bfa; }
+    .cards { display: grid; grid-template-columns: repeat(auto-fill, minmax(360px, 1fr)); gap: 14px; }
+    .card { background: #141414; border: 1px solid #262626; border-radius: 10px; padding: 14px 16px; }
+    .card.god { border-color: #ef4444; }
+    .card-top { display: flex; justify-content: space-between; align-items: flex-start; gap: 8px; margin-bottom: 8px; }
+    .badge-god { background: #7f1d1d; color: #fca5a5; padding: 2px 7px; border-radius: 4px; font-size: 10px; font-weight: 700; }
+    .badge-ok { background: #064e3b; color: #6ee7b7; padding: 2px 7px; border-radius: 4px; font-size: 10px; font-weight: 700; }
+    .metrics { display: flex; gap: 12px; font-size: 11px; color: #9ca3af; margin-bottom: 10px; flex-wrap: wrap; }
+    .metrics strong { color: #fff; }
+    .sec-title { font-size: 10px; text-transform: uppercase; letter-spacing: 0.06em; color: #9ca3af; margin: 8px 0 4px; }
+    .pill { display: inline-block; background: #222; border: 1px solid #333; color: #d1d5db; padding: 1px 6px; border-radius: 4px; font-size: 10px; font-family: ui-monospace, monospace; margin: 1px 3px 1px 0; }
+    .link { color: #38bdf8; cursor: pointer; font-family: ui-monospace, monospace; text-decoration: underline; }
+    .empty { padding: 30px; text-align: center; color: #9ca3af; font-size: 13px; }
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <div class="head">
+      <div>
+        <h1 style="font-size:19px;">🧩 Frontend State Stores &amp; Reactivity Map</h1>
+        <p style="font-size:12px;color:#9ca3af;margin-top:3px;">0-CDN live map of Pinia / Redux / Zustand stores, God-Store metrics (LOC, refs, actions), UI component consumers &amp; backend API calls</p>
+      </div>
+      <span id="fs-ts" style="font-size:11px;color:#9ca3af;"></span>
+    </div>
+
+    <div class="kpis" id="fs-kpis"></div>
+
+    <div class="controls">
+      <input id="fs-q" class="inp" type="search" placeholder="Filter store name, consumer component, or endpoint..." oninput="render()">
+      <button class="chip active" onclick="setMode('all', this)">All Stores</button>
+      <button class="chip" onclick="setMode('god', this)">God-Stores Only</button>
+      <button class="chip" onclick="setMode('api', this)">With API Calls</button>
+    </div>
+
+    <div class="cards" id="fs-cards"></div>
+  </div>
+
+  <script>
+    let VS = { summary: {}, stores: [] };
+    let AH = {};
+    let mode = 'all';
+
+    function esc(s) {
+      return String(s ?? '').replace(/[&<>"']/g, m => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m]));
+    }
+    function openInReader(p) {
+      if (p) try { window.parent.postMessage({ action: 'openFile', path: p }, '*'); } catch (_) {}
+    }
+    function setMode(m, el) {
+      mode = m;
+      document.querySelectorAll('.chip').forEach(c => c.classList.remove('active'));
+      if (el) el.classList.add('active');
+      render();
+    }
+
+    function render() {
+      const stores = VS.stores || [];
+      const fh = (AH.health_v4 && AH.health_v4.frontend_hygiene) || AH.frontend_hygiene || {};
+      const godMap = {};
+      (fh.god_stores || []).forEach(g => { if (g.path) godMap[g.path] = g; });
+
+      const godCount = stores.filter(s => s.is_god_store || godMap[s.file]).length;
+      const totalCalls = stores.reduce((acc, s) => acc + (s.api_calls_count || 0), 0);
+      const totalConsumers = stores.reduce((acc, s) => acc + (s.consumers || []).length, 0);
+
+      document.getElementById('fs-ts').textContent = VS.generated_at ? `Updated ${VS.generated_at}` : '';
+      document.getElementById('fs-kpis').innerHTML = [
+        [stores.length, 'State Stores'],
+        [godCount, 'God-Stores'],
+        [totalConsumers, 'Component Links'],
+        [totalCalls, 'Store API Calls'],
+        [(VS.summary || {}).components_count || 0, 'Total Components'],
+      ].map(([v, l]) => `<div class="kpi"><div class="kpi-v">${esc(v)}</div><div class="kpi-l">${esc(l)}</div></div>`).join('');
+
+      const q = (document.getElementById('fs-q').value || '').trim().toLowerCase();
+      const filtered = stores.filter(st => {
+        const isGod = Boolean(st.is_god_store || godMap[st.file]);
+        if (mode === 'god' && !isGod) return false;
+        if (mode === 'api' && !(st.api_calls_count > 0)) return false;
+        return !q || JSON.stringify(st).toLowerCase().includes(q);
+      });
+
+      const box = document.getElementById('fs-cards');
+      if (!filtered.length) {
+        box.innerHTML = '<div class="empty">No frontend state stores match the current filter.</div>';
+        return;
+      }
+
+      box.innerHTML = filtered.map(st => {
+        const gm = godMap[st.file] || {};
+        const isGod = Boolean(st.is_god_store || gm.path);
+        const consumers = (st.consumers || []).slice(0, 8);
+        const eps = (st.endpoints || []).slice(0, 6);
+        const deps = (st.cross_store_deps || []).slice(0, 6);
+        return `<div class="card ${isGod ? 'god' : ''}">
+          <div class="card-top">
+            <div>
+              <div style="font-size:14px;font-weight:700;">${esc(st.name)} <span class="pill">${esc(st.framework || 'store')}</span></div>
+              <div style="font-size:11px;margin-top:2px;"><span class="link" onclick="openInReader('${esc(st.file)}')">${esc(st.file)}</span></div>
+            </div>
+            <span class="${isGod ? 'badge-god' : 'badge-ok'}">${isGod ? 'GOD-STORE' : 'HEALTHY'}</span>
+          </div>
+          <div class="metrics">
+            <span>LOC: <strong>${esc(gm.loc || st.loc || 0)}</strong></span>
+            <span>Refs: <strong>${esc(gm.state_refs || st.state_refs || 0)}</strong></span>
+            <span>Actions: <strong>${esc(gm.actions || st.actions || 0)}</strong></span>
+            <span>API Calls: <strong>${esc(st.api_calls_count || 0)}</strong></span>
+          </div>
+          <div class="sec-title">UI Consumers (${(st.consumers || []).length})</div>
+          <div>${consumers.length ? consumers.map(c => `<span class="pill">${esc(c.split('/').pop())}</span>`).join('') : '<span style="font-size:11px;color:#6b7280;">No direct component imports detected</span>'}</div>
+          <div class="sec-title">Endpoints (${(st.endpoints || []).length})</div>
+          <div>${eps.length ? eps.map(e => `<span class="pill" style="border-color:#38bdf8;">${esc(e)}</span>`).join('') : '<span style="font-size:11px;color:#6b7280;">Pure local state</span>'}</div>
+          ${deps.length ? `<div class="sec-title">Cross-Store Coupling</div><div>${deps.map(d => `<span class="pill" style="border-color:#f59e0b;">${esc(d)}</span>`).join('')}</div>` : ''}
+        </div>`;
+      }).join('');
+    }
+
+    async function boot() {
+      try {
+        const r = await fetch('../data/vertical-slices.json', { cache: 'no-store' });
+        if (r.ok) VS = await r.json();
+        else if (window.VERTICAL_SLICES_DATA) VS = window.VERTICAL_SLICES_DATA;
+      } catch (_) {
+        if (window.VERTICAL_SLICES_DATA) VS = window.VERTICAL_SLICES_DATA;
+      }
+      try {
+        const r2 = await fetch('../data/arch-health.json', { cache: 'no-store' });
+        if (r2.ok) AH = await r2.json();
+        else if (window.ARCH_HEALTH_DATA) AH = window.ARCH_HEALTH_DATA;
+      } catch (_) {
+        if (window.ARCH_HEALTH_DATA) AH = window.ARCH_HEALTH_DATA;
+      }
+      render();
+    }
+    boot();
+  </script>
+</body>
+</html>

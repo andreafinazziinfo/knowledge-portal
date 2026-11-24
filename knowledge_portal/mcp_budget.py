@@ -451,6 +451,54 @@ def _build_summary_view(tool_name: str, data: dict[str, Any]) -> dict[str, Any]:
             "_drilldown_hint": "Pass detail='compact' or detail='full' for all dead paths, duplications, and suggestions.",
         }
 
+    if tool_name == "portal_vertical_slice":
+        slices = data.get("slices") or []
+        return {
+            "_detail": "summary",
+            "summary": data.get("summary") or {},
+            "matched_count": len(slices),
+            "top_slices": [
+                {
+                    "id": s.get("id"),
+                    "feature": s.get("feature"),
+                    "confidence": s.get("confidence"),
+                    "stores": len((s.get("layers") or {}).get("stores") or []),
+                    "components": len((s.get("layers") or {}).get("components") or []),
+                    "backend": ((s.get("layers") or {}).get("backend_route") or {}).get("file"),
+                    "tables": (((s.get("layers") or {}).get("storage") or {}).get("db_tables") or [])[:3],
+                }
+                for s in slices[:6] if isinstance(s, dict)
+            ],
+            "top_stores": [
+                {"name": st.get("name"), "loc": st.get("loc"), "god": st.get("is_god_store"), "api_calls": st.get("api_calls_count")}
+                for st in (data.get("stores") or [])[:5] if isinstance(st, dict)
+            ],
+            "_drilldown_hint": "Pass query='<feature|route|store>', layer='frontend|api|backend|storage', or detail='compact' for full 6-layer chains.",
+        }
+
+    if tool_name == "portal_async_topology":
+        return {
+            "_detail": "summary",
+            "summary": data.get("summary") or {},
+            "sample_tasks": [
+                {"name": t.get("function") or t.get("name"), "queue": t.get("queue"), "producers": len(t.get("producers") or []), "retries": t.get("max_retries")}
+                for t in (data.get("celery_tasks") or [])[:6] if isinstance(t, dict)
+            ],
+            "sample_beat": [
+                {"name": b.get("name"), "schedule": b.get("schedule"), "queue": b.get("queue")}
+                for b in (data.get("beat_schedules") or [])[:4] if isinstance(b, dict)
+            ],
+            "pubsub_channels": [
+                {"channel": c.get("channel"), "pubs": len(c.get("publishers") or []), "subs": len(c.get("subscribers") or [])}
+                for c in (data.get("pubsub_channels") or [])[:5] if isinstance(c, dict)
+            ],
+            "streams": [
+                {"protocol": s.get("protocol"), "path": s.get("path"), "consumers": len(s.get("consumers") or [])}
+                for s in ((data.get("ws_streams") or []) + (data.get("sse_streams") or []))[:5] if isinstance(s, dict)
+            ],
+            "_drilldown_hint": "Pass kind='celery'|'beat'|'redis'|'pubsub'|'ws'|'sse', query='<term>', or detail='compact' for details.",
+        }
+
     # Generic summary fallback
     out: dict[str, Any] = {"_detail": "summary"}
     for k, v in data.items():
@@ -530,11 +578,20 @@ def slice_for_task(
     raw_cards = cards_data.get("cards") if isinstance(cards_data, dict) else None
     cards: dict[str, dict[str, Any]] = raw_cards if isinstance(raw_cards, dict) else {}
 
-    # Build dependency graph & PageRank
+    # Build dependency graph & PageRank (+ cross-stack edges from vertical-slices.json)
     graph = engine._load_json("graph.json") or {}
+    vs_data = engine._load_json("vertical-slices.json") or {}
+    async_data = engine._load_json("async-topology.json") or {}
     adj: dict[str, set[str]] = defaultdict(set)
     rev_adj: dict[str, set[str]] = defaultdict(set)
     for e in (graph.get("edges") or graph.get("links") or []) if isinstance(graph, dict) else []:
+        if isinstance(e, dict) and e.get("source") and e.get("target"):
+            s = str(e["source"]).replace("\\", "/")
+            t = str(e["target"]).replace("\\", "/")
+            if s != t:
+                adj[s].add(t)
+                rev_adj[t].add(s)
+    for e in (vs_data.get("cross_stack_edges") or []) if isinstance(vs_data, dict) else []:
         if isinstance(e, dict) and e.get("source") and e.get("target"):
             s = str(e["source"]).replace("\\", "/")
             t = str(e["target"]).replace("\\", "/")
@@ -617,6 +674,40 @@ def slice_for_task(
             if len(active_adrs) >= 4:
                 break
 
+    # Match top vertical slices & async hooks relevant to the task
+    matched_slices: list[dict[str, Any]] = []
+    for sl in (vs_data.get("slices") or []) if isinstance(vs_data, dict) else []:
+        if not isinstance(sl, dict):
+            continue
+        sl_blob = f"{sl.get('id', '')} {sl.get('feature', '')} {((sl.get('layers') or {}).get('backend_route') or {}).get('file', '')}".lower()
+        if any(t in sl_blob for t in q_tokens) or any(fp.lower() in sl_blob for fp in focus):
+            matched_slices.append({
+                "id": sl.get("id"),
+                "backend": ((sl.get("layers") or {}).get("backend_route") or {}).get("file"),
+                "stores": ((sl.get("layers") or {}).get("stores") or [])[:2],
+                "tables": (((sl.get("layers") or {}).get("storage") or {}).get("db_tables") or [])[:3],
+            })
+            if len(matched_slices) >= 3:
+                break
+
+    matched_async: list[dict[str, Any]] = []
+    if isinstance(async_data, dict):
+        for t_item in (async_data.get("celery_tasks") or []):
+            if not isinstance(t_item, dict):
+                continue
+            tb = f"{t_item.get('name', '')} {t_item.get('function', '')} {t_item.get('queue', '')} {t_item.get('file', '')}".lower()
+            if any(t in tb for t in q_tokens):
+                matched_async.append({"kind": "celery_task", "name": t_item.get("function") or t_item.get("name"), "queue": t_item.get("queue")})
+                if len(matched_async) >= 3:
+                    break
+        for ps in (async_data.get("pubsub_channels") or []):
+            if not isinstance(ps, dict):
+                continue
+            if any(t in str(ps.get("channel", "")).lower() for t in q_tokens):
+                matched_async.append({"kind": "pubsub", "channel": ps.get("channel")})
+                if len(matched_async) >= 5:
+                    break
+
     # Greedy Token-Budget Packing
     s2t = oracle_data.get("source_to_tests") if isinstance(oracle_data, dict) else {}
     packed_cards: list[dict[str, Any]] = []
@@ -629,6 +720,8 @@ def slice_for_task(
         "budget_limit_tokens": budget,
         "budget_used_tokens": 0,
         "active_adrs": active_adrs,
+        "vertical_slices": matched_slices,
+        "async_hooks": matched_async,
         "selected_modules": packed_cards,
         "neighbors_1hop": neighbors_1hop[:5],
         "fast_tests": fast_tests,
@@ -969,3 +1062,132 @@ def query_test_oracle(
         "blind_spot": bool(blind_spots and not ordered),
         "blind_spot_files": blind_spots[:8],
     }, cap=500)
+
+
+# ── Vertical Slice & Async Topology Query Helpers (Wave 2) ──────────────────
+
+def query_vertical_slice(
+    engine: Any,
+    query: str = "",
+    layer: str = "all",
+    detail: str = "summary",
+    vertical_slices_gen: Any = None,
+) -> dict[str, Any]:
+    """Query cross-stack 6-layer vertical slices with strict detail budget."""
+    data = (
+        _load_or_generate(engine, "vertical-slices.json", vertical_slices_gen)
+        if vertical_slices_gen
+        else (engine._load_json("vertical-slices.json") or {})
+    )
+    if not isinstance(data, dict):
+        data = {}
+
+    q = (query or "").strip().lower()
+    lyr = (layer or "all").strip().lower()
+    slices = list(data.get("slices") or [])
+    stores = list(data.get("stores") or [])
+
+    if q:
+        filtered: list[dict[str, Any]] = []
+        for s in slices:
+            if not isinstance(s, dict):
+                continue
+            layers = s.get("layers") or {}
+            blob = " ".join([
+                str(s.get("id", "")),
+                str(s.get("feature", "")),
+                str(s.get("endpoint", "")),
+                " ".join(str(x) for x in (layers.get("components") or [])),
+                " ".join(str(x) for x in (layers.get("stores") or [])),
+                " ".join(str(x) for x in (layers.get("api_clients") or [])),
+                str((layers.get("backend_route") or {}).get("file", "")),
+                str((layers.get("backend_route") or {}).get("handler", "")),
+                " ".join(str(x) for x in ((layers.get("services_and_tasks") or {}).get("celery_tasks") or [])),
+                " ".join(str(x) for x in ((layers.get("storage") or {}).get("db_tables") or [])),
+            ]).lower()
+            if q in blob:
+                filtered.append(s)
+        slices = filtered
+        stores = [
+            st for st in stores
+            if isinstance(st, dict) and q in f"{st.get('name', '')} {st.get('id', '')} {st.get('file', '')}".lower()
+        ]
+
+    if lyr != "all":
+        projected: list[dict[str, Any]] = []
+        for s in slices:
+            layers = s.get("layers") or {}
+            if lyr == "frontend":
+                sub = {"components": layers.get("components"), "stores": layers.get("stores"), "api_clients": layers.get("api_clients")}
+            elif lyr == "api":
+                sub = {"api_clients": layers.get("api_clients"), "backend_route": layers.get("backend_route")}
+            elif lyr == "backend":
+                sub = {"backend_route": layers.get("backend_route"), "services_and_tasks": layers.get("services_and_tasks")}
+            elif lyr == "storage":
+                sub = {"storage": layers.get("storage")}
+            else:
+                sub = layers
+            projected.append({**s, "layers": sub})
+        slices = projected
+
+    scoped = {**data, "slices": slices, "stores": stores, "query": query, "layer": lyr}
+    res = apply_detail_budget("portal_vertical_slice", scoped, detail=detail)
+    if (detail or "summary").strip().lower() == "summary":
+        res = _truncate_to_token_cap(res, cap=800)
+    return res
+
+
+def query_async_topology(
+    engine: Any,
+    kind: str = "all",
+    query: str = "",
+    detail: str = "summary",
+    async_topology_gen: Any = None,
+) -> dict[str, Any]:
+    """Query Celery tasks, Beat schedules, Redis keys/locks, Pub/Sub & WS/SSE topology."""
+    data = (
+        _load_or_generate(engine, "async-topology.json", async_topology_gen)
+        if async_topology_gen
+        else (engine._load_json("async-topology.json") or {})
+    )
+    if not isinstance(data, dict):
+        data = {}
+
+    k = (kind or "all").strip().lower()
+    q = (query or "").strip().lower()
+
+    def _matches(item: Any) -> bool:
+        if not q:
+            return True
+        return q in json.dumps(item, ensure_ascii=False).lower()
+
+    scoped: dict[str, Any] = {
+        "schema_version": data.get("schema_version", "1.0"),
+        "generated_at": data.get("generated_at", ""),
+        "summary": data.get("summary") or {},
+        "kind": k,
+        "query": query,
+    }
+    section_map = {
+        "celery": "celery_tasks",
+        "beat": "beat_schedules",
+        "redis": "redis_keys",
+        "pubsub": "pubsub_channels",
+        "ws": "ws_streams",
+        "sse": "sse_streams",
+    }
+    if k in section_map:
+        key = section_map[k]
+        scoped[key] = [x for x in (data.get(key) or []) if _matches(x)]
+    else:
+        for key in section_map.values():
+            scoped[key] = [x for x in (data.get(key) or []) if _matches(x)]
+        if (detail or "summary").strip().lower() == "full":
+            scoped["graph"] = data.get("graph") or {"nodes": [], "edges": []}
+            scoped["frontend_consumers"] = data.get("frontend_consumers") or {}
+
+    res = apply_detail_budget("portal_async_topology", scoped, detail=detail)
+    if (detail or "summary").strip().lower() == "summary":
+        res = _truncate_to_token_cap(res, cap=700)
+    return res
+
