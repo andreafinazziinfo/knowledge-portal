@@ -491,6 +491,16 @@ class PortalRequestHandler(SimpleHTTPRequestHandler):
             eng = PortalMcpEngine(self.project_dir, self.template_dir / "data")
             self.send_json(eng.cve_report())
 
+        elif path == "/api/dead-code":
+            from knowledge_portal.mcp_server import PortalMcpEngine
+            eng = PortalMcpEngine(self.project_dir, self.template_dir / "data")
+            self.send_json(eng.dead_code())
+
+        elif path == "/api/quality-telemetry":
+            from knowledge_portal.mcp_server import PortalMcpEngine
+            eng = PortalMcpEngine(self.project_dir, self.template_dir / "data")
+            self.send_json(eng.quality_telemetry())
+
         elif path == "/api/file":
             filepath = query.get("path", [""])[0]
             target = safe_resolve_under(self.project_dir, filepath)

@@ -25,6 +25,12 @@ def render_markdown_report(report: dict[str, Any], project_name: str = "Reposito
     tq = hv4.get("test_quality") or {}
     sc = hv4.get("supply_chain_and_ai") or {}
     rt2 = hv4.get("runtime_bugs_v2") or {}
+    dc = (hv4.get("dead_code_symbols") or {}).get("summary") or {}
+    qt = (hv4.get("quality_telemetry") or {}).get("summary") or {}
+    ms_mig = (hv4.get("migration_sre") or {}).get("migration_safety") or {}
+    ms_sre = (hv4.get("migration_sre") or {}).get("sre_resilience") or {}
+    feh = (hv4.get("frontend_hygiene") or {}).get("summary") or {}
+    scl = hv4.get("semantic_clones") or {}
     cve = report.get("cve_report") or {}
     cve_s = cve.get("summary") or {}
     dbh = report.get("db_health") or {}
@@ -61,6 +67,11 @@ def render_markdown_report(report: dict[str, Any], project_name: str = "Reposito
         f"| **Observability** | `/health`: `{obs.get('has_health_probe', False)}` · `/ready`: `{obs.get('has_ready_probe', False)}` · prod `print()`: `{obs.get('prod_print_count', 0)}` · `console.log()`: `{obs.get('prod_console_log_count', 0)}` |",
         f"| **Test Quality** | `{tq.get('test_smells_count', 0)}` test smells across `{len(tq.get('by_domain') or [])}` profiled domains |",
         f"| **Supply Chain & AI** | `{sc.get('pyproject_unpinned_count', 0)}` unpinned pyproject deps · lockfiles: `{len(sc.get('lockfiles_present') or [])}` · Context Bombs (>800 LOC): `{sc.get('context_bombs_count', 0)}` |",
+        f"| **Dead Code (Py + JS/Vue)** | `{dc.get('total', 0)}` total (`Python: {dc.get('python_count', 0)}`, `JS/TS exports: {dc.get('js_export_count', 0)}`, `Vue components: {dc.get('vue_component_count', 0)}`) |",
+        f"| **Migration Safety & SRE** | `{ms_mig.get('total_issues', 0)}` migration issues · SRE score: `{ms_sre.get('score_pct', 0)}/100` · f-string logs: `{ms_sre.get('fstring_logging_count', 0)}` |",
+        f"| **Frontend & a11y Hygiene** | `{feh.get('total_issues', 0)}` issues (`lazy routes: {feh.get('lazy_route_coverage_pct', 100.0)}%`, `god-stores: {feh.get('god_stores_count', 0)}`, `a11y: {feh.get('a11y_issues_count', 0)}`) |",
+        f"| **Quality Telemetry** | `{qt.get('sources_count', 0)}` local CI sources (`coverage: {qt.get('coverage_pct')}%`, `JUnit: {qt.get('junit_total', 0)}`, `ruff: {qt.get('ruff_issues', 0)}`, `mypy/tsc: {int(qt.get('mypy_errors', 0)) + int(qt.get('tsc_errors', 0))}`) |",
+        f"| **AST Semantic Clones** | `{scl.get('clone_groups_count', 0)}` groups (`{scl.get('duplicated_functions_count', 0)}` duplicated functions out of `{scl.get('functions_analyzed', 0)}`) |",
         "",
         "## 3. Top Prioritized ROI Fix Queue",
         "",
@@ -137,6 +148,37 @@ def render_sarif_report(
 
     for n1 in (hv4.get("db_governance") or {}).get("n_plus_one_loops") or []:
         _add("KP-DB-N-PLUS-ONE", "warning", f"DB query {n1.get('call')} inside loop (N+1 risk)", str(n1.get("path", "")), int(n1.get("line", 1)))
+
+    # ADR-080 P1.3: Migration Safety & SRE Resilience
+    for mf in (hv4.get("migration_sre") or {}).get("findings") or []:
+        sev = str(mf.get("severity", "MEDIUM")).upper()
+        lvl = "error" if sev in ("CRITICAL", "HIGH") else ("warning" if sev == "MEDIUM" else "note")
+        _add(f"KP-MIGSRE-{mf.get('rule', 'RULE')}", lvl, str(mf.get("detail", "")), str(mf.get("path", "")), int(mf.get("line", 1)))
+
+    # ADR-080 P2.1: Frontend Architecture & a11y Hygiene
+    for ff in (hv4.get("frontend_hygiene") or {}).get("findings") or []:
+        sev = str(ff.get("severity", "MEDIUM")).upper()
+        lvl = "error" if sev in ("CRITICAL", "HIGH") else ("warning" if sev == "MEDIUM" else "note")
+        _add(f"KP-FE-{ff.get('rule', 'RULE')}", lvl, str(ff.get("detail", "")), str(ff.get("path", "")), int(ff.get("line", 1)))
+
+    # ADR-080 P1.1: Dead Code (Python + JS/TS/Vue)
+    dc_block = hv4.get("dead_code_symbols") or {}
+    for dlist in (dc_block.get("vue_unused_components") or [], dc_block.get("python_dead_symbols") or [], dc_block.get("js_unused_exports") or []):
+        for df in dlist[:30]:
+            _add(f"KP-DEAD-{df.get('rule', 'SYMBOL')}", "note", str(df.get("detail", "")), str(df.get("file", "")), int(df.get("line", 1)))
+
+    # ADR-080 P2.2: AST Semantic Clones
+    for cg in (hv4.get("semantic_clones") or {}).get("top_clones") or []:
+        fns = cg.get("functions") or []
+        if fns:
+            first = fns[0]
+            _add(
+                "KP-CLONE-AST",
+                "warning",
+                f"AST semantic clone ({cg.get('occurrences', 2)} functions, {cg.get('statements', 0)} statements): {', '.join(f.get('name', '') for f in fns[:4])}",
+                str(first.get("file", "")),
+                int(first.get("line", 1)),
+            )
 
     for idx, cyc in enumerate(report.get("cycles") or [], 1):
         if cyc:

@@ -550,6 +550,29 @@ class PortalMcpEngine:
         f = self.data_dir / "cve-report.json"
         return json.loads(f.read_text(encoding="utf-8")) if f.exists() else generate_cve_report(self.project_dir, self.data_dir)
 
+    def dead_code(self) -> dict[str, Any]:
+        from knowledge_portal.generators.call_graph import generate_call_graph
+        f = self.data_dir / "dead-code.json"
+        if f.exists():
+            return json.loads(f.read_text(encoding="utf-8"))
+        return generate_call_graph(self.project_dir, self.data_dir).get("dead_code") or {}
+
+    def quality_telemetry(self) -> dict[str, Any]:
+        from knowledge_portal.generators.quality_telemetry import analyze_quality_telemetry
+        f = self.data_dir / "quality-telemetry.json"
+        return json.loads(f.read_text(encoding="utf-8")) if f.exists() else analyze_quality_telemetry(self.project_dir, self.data_dir)
+
+    def deep_audit(self) -> dict[str, Any]:
+        rep = self.health_audit()
+        hv4 = rep.get("health_v4") or {}
+        return {
+            "dead_code_symbols": hv4.get("dead_code_symbols") or self.dead_code(),
+            "quality_telemetry": hv4.get("quality_telemetry") or self.quality_telemetry(),
+            "migration_sre": hv4.get("migration_sre") or {},
+            "frontend_hygiene": hv4.get("frontend_hygiene") or {},
+            "semantic_clones": hv4.get("semantic_clones") or {},
+        }
+
     def codemode_discover(self, topic: str = "") -> dict[str, Any]:
         return get_codemode_sdk_reference(topic=topic)
 
@@ -770,6 +793,22 @@ TOOLS_SPEC: list[dict[str, Any]] = [
         },
     },
     {
+        "name": "portal_dead_code",
+        "description": "Inspect import-aware symbol-level dead code (Python unreferenced functions/methods, unused JS/TS exports, unimported Vue components).",
+        "inputSchema": {
+            "type": "object",
+            "properties": {},
+        },
+    },
+    {
+        "name": "portal_deep_audit",
+        "description": "Inspect ADR-080 P1+P2 deep audit: Dead Code, DB Migration Safety & SRE Resilience, Frontend & a11y Hygiene, Unified Quality Telemetry, and AST Semantic Clones.",
+        "inputSchema": {
+            "type": "object",
+            "properties": {},
+        },
+    },
+    {
         "name": "portal_discover",
         "description": "Code Mode SDK discovery: returns the compact typed read-only `portal.*` API reference for writing multi-step query pipelines.",
         "inputSchema": {
@@ -834,6 +873,8 @@ def handle_jsonrpc_request(engine: PortalMcpEngine, req: dict[str, Any], code_mo
                     {"uri": "portal://ownership", "name": "Ownership & Conway Map", "description": "CODEOWNERS and contributor bus-factor map", "mimeType": "application/json"},
                     {"uri": "portal://compliance", "name": "Compliance & Audit Evidence Pack", "description": "SOC2, ISO 27001 & EU AI Act controls", "mimeType": "application/json"},
                     {"uri": "portal://cve-report", "name": "CVE & SBOM Vulnerability Report", "description": "Local CVE reports correlated with CycloneDX 1.5 SBOM", "mimeType": "application/json"},
+                    {"uri": "portal://dead-code", "name": "Symbol-Level Dead Code Report", "description": "Python dead symbols, unused JS/TS exports, and unimported Vue components", "mimeType": "application/json"},
+                    {"uri": "portal://quality-telemetry", "name": "Unified Quality Telemetry", "description": "Domain coverage, JUnit XML, Ruff, Mypy, and Vue-TSC/TSC local CI reports", "mimeType": "application/json"},
                 ]
             },
         }
@@ -862,6 +903,10 @@ def handle_jsonrpc_request(engine: PortalMcpEngine, req: dict[str, Any], code_mo
             return {"jsonrpc": "2.0", "id": req_id, "result": {"contents": [{"uri": uri, "mimeType": "application/json", "text": json.dumps(engine.compliance_posture(), indent=2)}]}}
         if uri == "portal://cve-report":
             return {"jsonrpc": "2.0", "id": req_id, "result": {"contents": [{"uri": uri, "mimeType": "application/json", "text": json.dumps(engine.cve_report(), indent=2)}]}}
+        if uri == "portal://dead-code":
+            return {"jsonrpc": "2.0", "id": req_id, "result": {"contents": [{"uri": uri, "mimeType": "application/json", "text": json.dumps(engine.dead_code(), indent=2)}]}}
+        if uri == "portal://quality-telemetry":
+            return {"jsonrpc": "2.0", "id": req_id, "result": {"contents": [{"uri": uri, "mimeType": "application/json", "text": json.dumps(engine.quality_telemetry(), indent=2)}]}}
         return {"jsonrpc": "2.0", "id": req_id, "error": {"code": -32602, "message": f"Unknown resource URI: {uri}"}}
 
     if method == "prompts/list":
@@ -916,6 +961,8 @@ def handle_jsonrpc_request(engine: PortalMcpEngine, req: dict[str, Any], code_mo
             "portal_ai_registry": lambda _a: engine.ai_registry(),
             "portal_compliance": lambda a: engine.compliance_posture(a.get("framework", "all")),
             "portal_cve_report": lambda _a: engine.cve_report(),
+            "portal_dead_code": lambda _a: engine.dead_code(),
+            "portal_deep_audit": lambda _a: engine.deep_audit(),
             "portal_discover": lambda a: engine.codemode_discover(a.get("topic", "")),
             "portal_codemode": lambda a: engine.codemode_execute(a.get("code", "")),
         }

@@ -106,6 +106,7 @@
       <button class="ah-tab" data-panel="p-diff">7. Architecture Diff &amp; Evolution</button>
       <button class="ah-tab" data-panel="p-comp">8. Compliance &amp; Evidence Pack</button>
       <button class="ah-tab" data-panel="p-runtime">9. 🐛 Runtime Bugs &amp; CI/CVE</button>
+      <button class="ah-tab" data-panel="p-deep">10. 🧬 Deep Audit: Dead Code, Migrations, FE &amp; Telemetry</button>
     </div>
 
     <!-- TAB 1: Overview, Radar, Trend & Fix Queue -->
@@ -375,6 +376,48 @@
             </thead>
             <tbody id="rt-table-body">
               <tr><td colspan="5" class="ah-empty" style="text-align:center;">Loading ADR-080 diagnostics...</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </section>
+    </div>
+    <!-- TAB 10: Deep Audit — Dead Code, Migrations & SRE, Frontend & a11y, Telemetry & AST Clones (ADR-080 P1+P2) -->
+    <div class="ah-panel" id="p-deep">
+      <div class="ah-kpis" id="deep-kpis"></div>
+      <section class="ah-card">
+        <h2>
+          Deep Audit: Dead Code · Migrations &amp; SRE · Frontend &amp; a11y · Telemetry · AST Clones
+          <span class="ah-badge" id="cnt-deep-total">0 findings</span>
+        </h2>
+        <div class="ah-hint">Import-aware symbol dead code (Python + JS/TS/Vue), SQL/Alembic migration safety &amp; SRE resilience, Vue/TS frontend &amp; a11y hygiene, local CI quality telemetry (Coverage, JUnit, Ruff, Mypy, TSC), and AST-normalized semantic code clones.</div>
+        <div class="ah-filter-bar" id="deep-cat-bar">
+          <button class="ah-chip active" data-cat="all">All Categories</button>
+          <button class="ah-chip" data-cat="deadcode">Dead Code</button>
+          <button class="ah-chip" data-cat="migsre">Migrations &amp; SRE</button>
+          <button class="ah-chip" data-cat="frontend">Frontend &amp; a11y</button>
+          <button class="ah-chip" data-cat="telemetry">Quality Telemetry</button>
+          <button class="ah-chip" data-cat="clones">AST Semantic Clones</button>
+          <span style="margin-left:8px;color:#525252;">|</span>
+          <button class="ah-chip active" data-sev="all">All Severities</button>
+          <button class="ah-chip" data-sev="CRITICAL">CRITICAL</button>
+          <button class="ah-chip" data-sev="HIGH">HIGH</button>
+          <button class="ah-chip" data-sev="MEDIUM">MEDIUM</button>
+          <button class="ah-chip" data-sev="LOW">LOW</button>
+        </div>
+        <input id="deep-search" class="ah-search" type="search" placeholder="Filter by rule, symbol, file path, domain or remediation...">
+        <div class="ah-table-wrap">
+          <table class="ah-table">
+            <thead>
+              <tr>
+                <th>Severity</th>
+                <th>Category</th>
+                <th>Rule / Symbol</th>
+                <th>Location (file:line)</th>
+                <th>Detail &amp; Remediation</th>
+              </tr>
+            </thead>
+            <tbody id="deep-table-body">
+              <tr><td colspan="5" class="ah-empty" style="text-align:center;">Loading ADR-080 P1+P2 diagnostics...</td></tr>
             </tbody>
           </table>
         </div>
@@ -1089,6 +1132,171 @@
       });
       if (searchEl) searchEl.addEventListener('input', renderTable);
       renderTable();
+    })();
+
+    // Tab 10: Deep Audit — Dead Code, Migrations & SRE, Frontend & a11y, Telemetry, AST Clones (ADR-080 P1+P2)
+    (async function loadDeepAuditTab10() {
+      function escHtml(v) {
+        return String(v ?? '').replace(/[&<>"']/g, m => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[m]));
+      }
+      const dc = hv4.dead_code_symbols || {};
+      const dcSum = dc.summary || {};
+      const ms = hv4.migration_sre || {};
+      const mig = ms.migration_safety || {};
+      const sre = ms.sre_resilience || {};
+      const feh = hv4.frontend_hygiene || {};
+      const feSum = feh.summary || {};
+      const qt = hv4.quality_telemetry || {};
+      const qtSum = qt.summary || {};
+      const scl = hv4.semantic_clones || {};
+
+      const rows = [];
+
+      // 1. Dead Code
+      (dc.vue_unused_components || []).forEach(x => rows.push({
+        cat: 'deadcode', catLabel: 'Dead Code', severity: String(x.severity || 'MEDIUM').toUpperCase(),
+        rule: x.rule || 'DEAD_VUE_COMPONENT', path: x.file || '', line: x.line || 1,
+        detail: x.detail || `Unused Vue component ${x.symbol || ''}`, remediation: x.remediation || '',
+      }));
+      (dc.python_dead_symbols || []).forEach(x => rows.push({
+        cat: 'deadcode', catLabel: 'Dead Code', severity: String(x.severity || 'LOW').toUpperCase(),
+        rule: x.rule || 'DEAD_PYTHON_SYMBOL', path: x.file || '', line: x.line || 1,
+        detail: x.detail || `Unreferenced Python symbol ${x.symbol || ''}`, remediation: x.remediation || '',
+      }));
+      (dc.js_unused_exports || []).forEach(x => rows.push({
+        cat: 'deadcode', catLabel: 'Dead Code', severity: String(x.severity || 'LOW').toUpperCase(),
+        rule: x.rule || 'DEAD_JS_EXPORT', path: x.file || '', line: x.line || 1,
+        detail: x.detail || `Unused JS/TS export ${x.symbol || ''}`, remediation: x.remediation || '',
+      }));
+
+      // 2. Migrations & SRE
+      (ms.findings || []).forEach(x => rows.push({
+        cat: 'migsre', catLabel: 'Migrations & SRE', severity: String(x.severity || 'MEDIUM').toUpperCase(),
+        rule: x.rule || 'MIG_SRE', path: x.path || '', line: x.line || 1,
+        detail: x.detail || '', remediation: x.remediation || '',
+      }));
+
+      // 3. Frontend & a11y
+      (feh.findings || []).forEach(x => rows.push({
+        cat: 'frontend', catLabel: 'Frontend & a11y', severity: String(x.severity || 'MEDIUM').toUpperCase(),
+        rule: x.rule || 'FE_HYGIENE', path: x.path || '', line: x.line || 1,
+        detail: x.detail || '', remediation: x.remediation || '',
+      }));
+
+      // 4. Quality Telemetry (JUnit failures, Ruff, Mypy, TSC, Low-coverage domains)
+      const junit = qt.junit || {};
+      (junit.failed_tests || []).forEach(x => rows.push({
+        cat: 'telemetry', catLabel: 'Quality Telemetry', severity: 'HIGH',
+        rule: 'JUNIT_FAILURE', path: x.file || x.classname || 'junit.xml', line: 1,
+        detail: `[${x.name}] ${x.message || 'Test failed'}`, remediation: 'Investigate failing test case in CI JUnit artifact.',
+      }));
+      ((qt.ruff && qt.ruff.findings) || []).forEach(x => rows.push({
+        cat: 'telemetry', catLabel: 'Quality Telemetry', severity: 'MEDIUM',
+        rule: `RUFF_${x.code || 'LINT'}`, path: x.path || '', line: x.line || 1,
+        detail: x.message || '', remediation: 'Run `ruff check --fix` to resolve lint diagnostics.',
+      }));
+      ((qt.typecheck && qt.typecheck.mypy && qt.typecheck.mypy.findings) || []).forEach(x => rows.push({
+        cat: 'telemetry', catLabel: 'Quality Telemetry', severity: 'MEDIUM',
+        rule: `MYPY_${x.code || 'TYPE'}`, path: x.path || '', line: x.line || 1,
+        detail: x.message || '', remediation: 'Resolve static type mismatch reported by mypy.',
+      }));
+      ((qt.typecheck && qt.typecheck.tsc && qt.typecheck.tsc.findings) || []).forEach(x => rows.push({
+        cat: 'telemetry', catLabel: 'Quality Telemetry', severity: 'MEDIUM',
+        rule: x.code || 'TSC_ERROR', path: x.path || '', line: x.line || 1,
+        detail: x.message || '', remediation: 'Resolve TypeScript / vue-tsc type error.',
+      }));
+      ((qt.coverage && qt.coverage.by_domain) || []).forEach(d => {
+        if (Number(d.coverage_pct) < 50) {
+          rows.push({
+            cat: 'telemetry', catLabel: 'Quality Telemetry', severity: 'LOW',
+            rule: 'LOW_DOMAIN_COVERAGE', path: d.domain || '', line: 1,
+            detail: `Domain coverage is ${d.coverage_pct}% across ${d.files_measured || 0} measured files`,
+            remediation: 'Add unit tests for uncovered branches in this domain.',
+          });
+        }
+      });
+
+      // 5. AST Semantic Clones
+      (scl.top_clones || []).forEach(g => {
+        const fns = g.functions || [];
+        const first = fns[0] || {};
+        const peers = fns.slice(1, 4).map(f => `${f.file}:${f.line} (${f.name})`).join(', ');
+        rows.push({
+          cat: 'clones', catLabel: 'AST Semantic Clones', severity: g.occurrences >= 4 ? 'HIGH' : 'MEDIUM',
+          rule: `AST_CLONE_${g.fingerprint || 'GRP'}`, path: first.file || '', line: first.line || 1,
+          detail: `${g.occurrences || 2} semantically identical functions (${g.statements || 0} stmts): ${first.name || ''}${peers ? ' ≅ ' + peers : ''}`,
+          remediation: 'Extract shared parameterized helper to eliminate structural duplication.',
+        });
+      });
+
+      const sevOrder = { CRITICAL: 0, HIGH: 1, MEDIUM: 2, LOW: 3 };
+      rows.sort((a, b) => (sevOrder[a.severity] ?? 4) - (sevOrder[b.severity] ?? 4) || a.path.localeCompare(b.path));
+
+      const dcTotal = dcSum.total ?? rows.filter(r => r.cat === 'deadcode').length;
+      const migTotal = mig.total_issues ?? 0;
+      const sreScore = sre.score_pct ?? 0;
+      const feTotal = feSum.total_issues ?? rows.filter(r => r.cat === 'frontend').length;
+      const cloneGroups = scl.clone_groups_count ?? 0;
+      const qtSources = qtSum.sources_count ?? 0;
+
+      document.getElementById('cnt-deep-total').textContent = `${rows.length} findings`;
+      document.getElementById('deep-kpis').innerHTML = [
+        { val: dcTotal, lbl: `Dead Code (Py:${dcSum.python_count || 0} JS:${dcSum.js_export_count || 0} Vue:${dcSum.vue_component_count || 0})`, col: dcTotal > 0 ? '#f59e0b' : '#34d399' },
+        { val: migTotal, lbl: 'SQL/Alembic Migration Risks', col: migTotal > 0 ? '#ef4444' : '#34d399' },
+        { val: `${sreScore}%`, lbl: `SRE Resilience (f-logs: ${sre.fstring_logging_count || 0})`, col: sreScore >= 75 ? '#34d399' : '#f59e0b' },
+        { val: feTotal, lbl: `Frontend & a11y (Lazy: ${feSum.lazy_route_coverage_pct ?? 100}%)`, col: feTotal > 0 ? '#38bdf8' : '#34d399' },
+        { val: qtSources, lbl: `Telemetry Sources (Cov: ${qtSum.coverage_pct != null ? qtSum.coverage_pct + '%' : 'N/A'})`, col: qtSources > 0 ? '#34d399' : '#94a3b8' },
+        { val: cloneGroups, lbl: `AST Semantic Clones (${scl.duplicated_functions_count || 0} fns)`, col: cloneGroups > 0 ? '#f59e0b' : '#34d399' },
+      ].map(k => `<div class="ah-kpi"><div class="ah-kpi-val" style="${k.col ? `color:${k.col};` : ''}">${k.val}</div><div class="ah-kpi-lbl">${k.lbl}</div></div>`).join('');
+
+      let activeCat = 'all';
+      let activeSev = 'all';
+      const searchEl = document.getElementById('deep-search');
+      const tbody = document.getElementById('deep-table-body');
+
+      function renderDeepTable() {
+        const q = (searchEl && searchEl.value ? searchEl.value : '').trim().toLowerCase();
+        const filtered = rows.filter(r => {
+          if (activeCat !== 'all' && r.cat !== activeCat) return false;
+          if (activeSev !== 'all' && r.severity !== activeSev) return false;
+          if (!q) return true;
+          return `${r.rule} ${r.path} ${r.detail} ${r.remediation} ${r.catLabel}`.toLowerCase().includes(q);
+        });
+        if (!filtered.length) {
+          tbody.innerHTML = '<tr><td colspan="5" class="ah-empty" style="text-align:center;padding:18px;">No deep audit findings match the selected filters.</td></tr>';
+          return;
+        }
+        tbody.innerHTML = filtered.slice(0, 250).map(r => {
+          const pClass = r.severity === 'CRITICAL' ? 'ah-p0' : (r.severity === 'HIGH' ? 'ah-p1' : 'ah-p2');
+          const safePath = escHtml(r.path).replace(/'/g, "\\'");
+          return `<tr>
+            <td><span class="ah-prio ${pClass}">${escHtml(r.severity)}</span></td>
+            <td><span class="ah-badge">${escHtml(r.catLabel)}</span></td>
+            <td><code>${escHtml(r.rule)}</code></td>
+            <td><code style="cursor:pointer;color:#38bdf8;" onclick="openInReader('${safePath}')">${escHtml(r.path)}:${r.line}</code></td>
+            <td><div>${escHtml(r.detail)}</div>${r.remediation ? `<div class="ah-remed">💡 ${escHtml(r.remediation)}</div>` : ''}</td>
+          </tr>`;
+        }).join('');
+      }
+
+      document.querySelectorAll('#deep-cat-bar .ah-chip[data-cat]').forEach(btn => {
+        btn.addEventListener('click', () => {
+          document.querySelectorAll('#deep-cat-bar .ah-chip[data-cat]').forEach(b => b.classList.remove('active'));
+          btn.classList.add('active');
+          activeCat = btn.dataset.cat;
+          renderDeepTable();
+        });
+      });
+      document.querySelectorAll('#deep-cat-bar .ah-chip[data-sev]').forEach(btn => {
+        btn.addEventListener('click', () => {
+          document.querySelectorAll('#deep-cat-bar .ah-chip[data-sev]').forEach(b => b.classList.remove('active'));
+          btn.classList.add('active');
+          activeSev = btn.dataset.sev;
+          renderDeepTable();
+        });
+      });
+      if (searchEl) searchEl.addEventListener('input', renderDeepTable);
+      renderDeepTable();
     })();
   })();
   </script>

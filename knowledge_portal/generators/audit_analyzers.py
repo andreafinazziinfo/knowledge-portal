@@ -15,6 +15,7 @@ Strictly enforces P4 Gate (excludes frozen/, .git, node_modules, venv, secrets).
 from __future__ import annotations
 
 import ast
+import hashlib
 import json
 import math
 import os
@@ -338,11 +339,24 @@ def analyze_coverage_reports(project_dir: Path) -> dict[str, Any]:
                 pass
 
     if not files_cov:
-        return {"available": False, "overall_pct": None, "files_measured": 0, "lowest_covered": []}
+        return {"available": False, "overall_pct": None, "files_measured": 0, "by_domain": [], "lowest_covered": []}
 
+    dom_vals: dict[str, list[float]] = defaultdict(list)
+    for fp, pct in files_cov.items():
+        dom_vals[_domain_bucket(fp)].append(pct)
+    by_domain = [
+        {"domain": dom, "coverage_pct": round(sum(vals) / len(vals), 1), "files_measured": len(vals)}
+        for dom, vals in sorted(dom_vals.items(), key=lambda kv: (-len(kv[1]), kv[0]))
+    ]
     overall = round(sum(files_cov.values()) / len(files_cov), 1)
     lowest = [{"path": p, "coverage_pct": pct} for p, pct in sorted(files_cov.items(), key=lambda kv: kv[1])[:20]]
-    return {"available": True, "overall_pct": overall, "files_measured": len(files_cov), "lowest_covered": lowest}
+    return {
+        "available": True,
+        "overall_pct": overall,
+        "files_measured": len(files_cov),
+        "by_domain": by_domain[:30],
+        "lowest_covered": lowest,
+    }
 
 
 def analyze_db_health(data_dir: Path) -> dict[str, Any]:
@@ -1597,6 +1611,157 @@ def _check_llms_txt_drift(project_dir: Path, data_dir: Path | None) -> dict[str,
     return {"status": status, "path": rel_p, "drift_hours": drift_h}
 
 
+
+
+class _AstNormalizer(ast.NodeTransformer):
+    """Normalize variable names and literals in a Python function AST for semantic clone detection (ADR-080 P2.2)."""
+
+    def __init__(self) -> None:
+        self._var_map: dict[str, str] = {}
+        self._counter = 0
+
+    def _norm_var(self, name: str) -> str:
+        if name in ("self", "cls", "True", "False", "None"):
+            return name
+        if name not in self._var_map:
+            self._var_map[name] = f"$V{self._counter}"
+            self._counter += 1
+        return self._var_map[name]
+
+    def visit_Name(self, node: ast.Name) -> ast.AST:
+        return ast.copy_location(ast.Name(id=self._norm_var(node.id), ctx=type(node.ctx)()), node)
+
+    def visit_arg(self, node: ast.arg) -> ast.AST:
+        return ast.copy_location(ast.arg(arg=self._norm_var(node.arg), annotation=None), node)
+
+    def visit_Constant(self, node: ast.Constant) -> ast.AST:
+        val = node.value
+        if isinstance(val, bool):
+            tok = "$BOOL"
+        elif isinstance(val, (int, float, complex)):
+            tok = "$NUM"
+        elif isinstance(val, str):
+            tok = "$STR"
+        elif val is None:
+            tok = "$NONE"
+        else:
+            tok = "$CONST"
+        return ast.copy_location(ast.Constant(value=tok), node)
+
+
+def _strip_docstring(body: list[ast.stmt]) -> list[ast.stmt]:
+    if (
+        body
+        and isinstance(body[0], ast.Expr)
+        and isinstance(body[0].value, ast.Constant)
+        and isinstance(body[0].value.value, str)
+    ):
+        return body[1:]
+    return body
+
+
+def _count_statements(stmts: list[ast.stmt]) -> int:
+    total = 0
+    for s in stmts:
+        total += 1
+        for child_list_name in ("body", "orelse", "finalbody"):
+            sub = getattr(s, child_list_name, None)
+            if isinstance(sub, list):
+                total += _count_statements(sub)
+        handlers = getattr(s, "handlers", None)
+        if isinstance(handlers, list):
+            for h in handlers:
+                if hasattr(h, "body"):
+                    total += _count_statements(h.body)
+    return total
+
+
+def analyze_semantic_clones(
+    project_dir: Path,
+    max_files: int = 2000,
+    min_statements: int = 8,
+) -> dict[str, Any]:
+    """Detect AST-normalized semantic code clones across Python functions >= min_statements (ADR-080 P2.2)."""
+    project_dir = Path(project_dir).resolve()
+    buckets: dict[str, list[dict[str, Any]]] = defaultdict(list)
+    funcs_analyzed = 0
+    scanned = 0
+
+    for root, dirs, files in os.walk(project_dir):
+        dirs[:] = [d for d in dirs if d not in _IGNORE_DIRS and not d.startswith(".")]
+        for fname in sorted(files):
+            if scanned >= max_files:
+                break
+            if not fname.endswith(".py"):
+                continue
+            fpath = Path(root) / fname
+            rel = str(fpath.relative_to(project_dir)).replace("\\", "/")
+            if _is_ignored_path(rel):
+                continue
+            if any(h in f"/{rel.lower()}" for h in ("/tests/", "/test/", "/test_", "_test.py", "conftest.py")):
+                continue
+            try:
+                if fpath.stat().st_size > 400_000:
+                    continue
+                src = fpath.read_text(encoding="utf-8", errors="replace")
+                with warnings.catch_warnings():
+                    warnings.simplefilter("ignore", SyntaxWarning)
+                    tree = ast.parse(src)
+            except Exception:
+                continue
+            scanned += 1
+
+            for node in ast.walk(tree):
+                if not isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef)):
+                    continue
+                if node.name.startswith("__") and node.name.endswith("__"):
+                    continue
+                body = _strip_docstring(list(node.body))
+                stmt_cnt = _count_statements(body)
+                if stmt_cnt < min_statements:
+                    continue
+                funcs_analyzed += 1
+                try:
+                    cloned = ast.Module(body=body, type_ignores=[])
+                    norm = _AstNormalizer().visit(cloned)
+                    dumped = ast.dump(norm, annotate_fields=False, include_attributes=False)
+                    fp = hashlib.sha256(dumped.encode("utf-8")).hexdigest()[:16]
+                except Exception:
+                    continue
+                buckets[fp].append({
+                    "file": rel,
+                    "line": getattr(node, "lineno", 1),
+                    "name": node.name,
+                    "statements": stmt_cnt,
+                })
+
+    clone_groups: list[dict[str, Any]] = []
+    for fp, items in buckets.items():
+        if len(items) < 2:
+            continue
+        unique_locs = {(i["file"], i["line"]) for i in items}
+        if len(unique_locs) < 2:
+            continue
+        clone_groups.append({
+            "fingerprint": fp,
+            "statements": items[0]["statements"],
+            "occurrences": len(items),
+            "files_involved": len({i["file"] for i in items}),
+            "functions": items[:8],
+        })
+
+    clone_groups.sort(key=lambda g: (-int(g["occurrences"]), -int(g["statements"]), g["fingerprint"]))
+    dup_funcs = sum(int(g["occurrences"]) for g in clone_groups)
+    return {
+        "method": "python_ast_normalized_v1",
+        "min_statements": min_statements,
+        "functions_analyzed": funcs_analyzed,
+        "clone_groups_count": len(clone_groups),
+        "duplicated_functions_count": dup_funcs,
+        "top_clones": clone_groups[:30],
+    }
+
+
 def analyze_health_v4(
     project_dir: Path,
     data_dir: Path | None = None,
@@ -1821,13 +1986,21 @@ def analyze_health_v4(
 
     all_doms = sorted(set(prod_by_domain.keys()) | set(test_by_domain.keys()))
     by_domain: list[dict[str, Any]] = []
+    cov_by_dom = {
+        str(c.get("domain")): c.get("coverage_pct")
+        for c in ((coverage or {}).get("by_domain") or [])
+        if isinstance(c, dict) and c.get("domain")
+    }
     for d in all_doms:
         pf = prod_by_domain[d]
         tf = test_by_domain[d]
         if pf == 0 and tf == 0:
             continue
         rp = round(100.0 * tf / pf, 1) if pf > 0 else 100.0
-        by_domain.append({"domain": d, "prod_files": pf, "test_files": tf, "ratio_pct": rp})
+        entry: dict[str, Any] = {"domain": d, "prod_files": pf, "test_files": tf, "ratio_pct": rp}
+        if d in cov_by_dom:
+            entry["coverage_pct"] = cov_by_dom[d]
+        by_domain.append(entry)
     by_domain.sort(key=lambda x: (-x["prod_files"], x["ratio_pct"]))
 
     # Check #8: Supply chain + Context bombs + llms.txt drift
@@ -1948,5 +2121,6 @@ def analyze_health_v4(
             "context_bombs": context_bombs[:20],
             "llms_txt_drift": llms_drift,
         },
+        "semantic_clones": analyze_semantic_clones(project_dir),
         "severity_summary": severity_summary,
     }

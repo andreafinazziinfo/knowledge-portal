@@ -355,13 +355,63 @@ def generate_arch_health(data_dir: Path, project_dir: Path | None = None) -> dic
         report["git_crime_scene"] = analyze_git_crime_scene(pdir, days=90)
         report["coverage"] = analyze_coverage_reports(pdir)
         report["extended_checks"] = analyze_extended_health_checks(pdir)
-        report["health_v4"] = analyze_health_v4(
+        from knowledge_portal.generators.call_graph import generate_call_graph
+        from knowledge_portal.generators.frontend_hygiene import analyze_frontend_hygiene
+        from knowledge_portal.generators.migration_sre import analyze_migration_and_sre
+        from knowledge_portal.generators.quality_telemetry import analyze_quality_telemetry
+
+        quality_telemetry = analyze_quality_telemetry(pdir, data_dir=data_dir)
+        if quality_telemetry.get("coverage", {}).get("available"):
+            report["coverage"] = quality_telemetry["coverage"]
+        migration_sre = analyze_migration_and_sre(pdir)
+        frontend_hygiene = analyze_frontend_hygiene(pdir)
+
+        dead_code_file = data_dir / "dead-code.json"
+        dead_code_data: dict[str, Any]
+        if dead_code_file.exists():
+            try:
+                dead_code_data = json.loads(dead_code_file.read_text(encoding="utf-8"))
+            except Exception:
+                dead_code_data = generate_call_graph(pdir, data_dir).get("dead_code") or {}
+        else:
+            dead_code_data = generate_call_graph(pdir, data_dir).get("dead_code") or {}
+
+        hv4 = analyze_health_v4(
             pdir,
             data_dir=data_dir,
             complexity=report["complexity"],
             git_crime_scene=report["git_crime_scene"],
             coverage=report["coverage"],
         )
+        hv4["dead_code_symbols"] = dead_code_data
+        hv4["quality_telemetry"] = quality_telemetry
+        hv4["migration_sre"] = migration_sre
+        hv4["frontend_hygiene"] = frontend_hygiene
+
+        mig_sev = (migration_sre.get("migration_safety") or {}).get("by_severity") or {}
+        sre_gaps = (migration_sre.get("sre_resilience") or {}).get("gaps") or []
+        fe_findings = frontend_hygiene.get("findings") or []
+        hv4["severity_summary"].extend([
+            {
+                "category": "Migration & SRE",
+                "critical": int(mig_sev.get("CRITICAL", 0)),
+                "high": int(mig_sev.get("HIGH", 0)) + sum(1 for g in sre_gaps if g.get("severity") == "HIGH"),
+                "medium": int(mig_sev.get("MEDIUM", 0)) + sum(1 for g in sre_gaps if g.get("severity") == "MEDIUM"),
+            },
+            {
+                "category": "Frontend & a11y",
+                "critical": sum(1 for f in fe_findings if f.get("severity") == "CRITICAL"),
+                "high": sum(1 for f in fe_findings if f.get("severity") == "HIGH"),
+                "medium": sum(1 for f in fe_findings if f.get("severity") == "MEDIUM"),
+            },
+            {
+                "category": "Dead Code",
+                "critical": 0,
+                "high": 0,
+                "medium": int((dead_code_data.get("summary") or {}).get("vue_component_count", 0)),
+            },
+        ])
+        report["health_v4"] = hv4
     else:
         report["complexity"] = {"files_analyzed": 0, "avg_maintainability_index": None, "avg_mccabe": None, "top_complex_files": [], "perf_bloat": {"large_files_count": 0, "large_files": [], "sql_select_star_files": 0, "sql_smells": []}, "ai_readiness": {"score": None, "docstring_coverage_pct": 0.0, "type_hint_coverage_pct": 0.0, "python_functions_analyzed": 0}}
         report["git_crime_scene"] = {"available": False, "hotspots": [], "temporal_coupling": [], "bus_factor_risks": []}
@@ -378,6 +428,11 @@ def generate_arch_health(data_dir: Path, project_dir: Path | None = None) -> dic
             "api_governance": {"mutating_routes_scanned": 0, "unprotected_count": 0, "unprotected_mutating_routes": [], "missing_response_model_count": 0, "missing_response_model": [], "openapi_spec": {"present": False, "path": None, "age_days": None}},
             "test_quality": {"by_domain": [], "test_smells_count": 0, "test_smells": []},
             "supply_chain_and_ai": {"pyproject_unpinned_count": 0, "pyproject_unpinned": [], "lockfiles_present": [], "has_lockfile": False, "context_bombs_count": 0, "context_bombs": [], "llms_txt_drift": {"status": "missing", "path": None, "drift_hours": None}},
+            "dead_code_symbols": {"summary": {"python_count": 0, "js_export_count": 0, "vue_component_count": 0, "js_count": 0, "total": 0}, "python_dead_symbols": [], "js_unused_exports": [], "vue_unused_components": []},
+            "quality_telemetry": {"available": False, "sources_found": [], "summary": {"sources_count": 0, "coverage_pct": None, "coverage_domains": 0, "junit_total": 0, "junit_failed": 0, "ruff_issues": 0, "mypy_errors": 0, "tsc_errors": 0}},
+            "migration_sre": {"migration_safety": {"files_scanned": 0, "total_issues": 0, "by_rule": {}, "by_severity": {"CRITICAL": 0, "HIGH": 0, "MEDIUM": 0}, "findings": []}, "sre_resilience": {"score_pct": 0, "gaps": [], "fstring_logging_count": 0}, "findings": []},
+            "frontend_hygiene": {"summary": {"fe_files_scanned": 0, "lazy_route_coverage_pct": 100.0, "god_stores_count": 0, "has_error_boundary": False, "a11y_issues_count": 0, "total_issues": 0}, "findings": []},
+            "semantic_clones": {"method": "python_ast_normalized_v1", "functions_analyzed": 0, "clone_groups_count": 0, "duplicated_functions_count": 0, "top_clones": []},
             "severity_summary": [],
         }
 
