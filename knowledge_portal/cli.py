@@ -109,6 +109,9 @@ def main():
         from knowledge_portal.generators.cve_ingestor import generate_cve_report
         from knowledge_portal.generators.compliance_evidence import generate_compliance_evidence
         from knowledge_portal.generators.llms_txt import generate_llms_manifests
+        from knowledge_portal.generators.git_dag import generate_git_dag
+        from knowledge_portal.generators.adr_graph import generate_adr_graph
+        from knowledge_portal.generators.mission_control import generate_mission_control
         generate_stack_inventory(target, out)
         generate_cve_report(target, out)
         generate_api_catalog(target, out)
@@ -119,6 +122,9 @@ def main():
         generate_ai_registry(target, out)
         generate_arch_health(out, project_dir=target)
         generate_compliance_evidence(target, out)
+        generate_git_dag(target, out)
+        generate_adr_graph(target, out)
+        generate_mission_control(target, out)
         generate_llms_manifests(target, out, template_dir)
 
         from knowledge_portal.indexer.search_index import generate_search_index

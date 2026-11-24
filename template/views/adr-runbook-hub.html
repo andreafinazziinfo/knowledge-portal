@@ -1,0 +1,322 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>ADR Timeline &amp; Interactive Runbook Hub</title>
+  <link rel="stylesheet" href="portal-theme.css?v=fp3">
+  <script src="../data/adr_graph.js" onerror="void(0)"></script>
+  <script src="live-reload.js"></script>
+  <script defer src="portal-ui.js?v=fp4"></script>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body { background: var(--bg, #0f0f0f); color: var(--text, #ececec); font-family: 'Inter', system-ui, sans-serif; min-height: 100vh; }
+    .wrap { max-width: 1400px; margin: 0 auto; padding: 18px 24px 64px; }
+    .topbar { display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 12px; border-bottom: 1px solid var(--border, rgba(255,255,255,0.08)); padding-bottom: 14px; margin-bottom: 16px; }
+    .topbar h1 { font-size: 20px; font-weight: 700; }
+    .sub { font-size: 12px; color: var(--text-muted, #8b8b8b); margin-top: 3px; }
+    .tabs { display: flex; gap: 6px; }
+    .tab-btn { background: var(--bg-elevated, #232323); color: var(--text-2, #b4b4b4); border: 1px solid var(--border-strong, rgba(255,255,255,0.16)); border-radius: 7px; padding: 7px 14px; font-size: 12px; font-weight: 600; cursor: pointer; }
+    .tab-btn.active { background: #38bdf8; color: #0f0f0f; border-color: #38bdf8; }
+    .kpi-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(145px, 1fr)); gap: 10px; margin-bottom: 16px; }
+    .kpi { background: var(--bg-card, #191919); border: 1px solid var(--border, rgba(255,255,255,0.08)); border-radius: 10px; padding: 12px 14px; }
+    .kpi-v { font-size: 22px; font-weight: 800; }
+    .kpi-l { font-size: 10px; text-transform: uppercase; letter-spacing: 0.06em; color: var(--text-muted, #8b8b8b); margin-top: 4px; }
+    .card { background: var(--bg-card, #191919); border: 1px solid var(--border, rgba(255,255,255,0.08)); border-radius: 10px; padding: 16px; margin-bottom: 16px; }
+    .card-h { display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 8px; margin-bottom: 12px; }
+    .card-h h2 { font-size: 12px; text-transform: uppercase; letter-spacing: 0.06em; color: var(--text-2, #b4b4b4); }
+    .controls { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; }
+    .search-in { background: var(--bg-sidebar, #141414); color: var(--text, #ececec); border: 1px solid var(--border-strong, rgba(255,255,255,0.16)); border-radius: 7px; padding: 6px 10px; font-size: 12px; min-width: 220px; }
+    .pill { background: var(--bg-elevated, #232323); color: var(--text-2, #b4b4b4); border: 1px solid var(--border, rgba(255,255,255,0.08)); border-radius: 999px; padding: 4px 10px; font-size: 11px; font-weight: 600; cursor: pointer; }
+    .pill.active { background: #38bdf8; color: #0f0f0f; border-color: #38bdf8; }
+    .svg-wrap { background: var(--bg-sidebar, #141414); border: 1px solid var(--border, rgba(255,255,255,0.08)); border-radius: 8px; overflow-x: auto; min-height: 170px; padding: 10px; }
+    .adr-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); gap: 10px; }
+    .adr-card { background: var(--bg-sidebar, #141414); border: 1px solid var(--border, rgba(255,255,255,0.08)); border-radius: 8px; padding: 12px; cursor: pointer; transition: border-color .15s; }
+    .adr-card:hover { border-color: #38bdf8; }
+    .badge { display: inline-block; padding: 2px 7px; border-radius: 4px; font-size: 10px; font-weight: 700; text-transform: uppercase; }
+    .st-Accepted { background: rgba(52,211,153,0.18); color: #34d399; }
+    .st-Proposed, .st-Draft { background: rgba(251,191,36,0.2); color: #fbbf24; }
+    .st-Superseded, .st-Deprecated, .st-Rejected { background: rgba(148,163,184,0.2); color: #9ca3af; }
+    .rb-layout { display: grid; grid-template-columns: 290px 1fr; gap: 16px; }
+    @media (max-width: 900px) { .rb-layout { grid-template-columns: 1fr; } }
+    .rb-item { background: var(--bg-sidebar, #141414); border: 1px solid var(--border, rgba(255,255,255,0.08)); border-radius: 7px; padding: 10px 12px; margin-bottom: 8px; cursor: pointer; }
+    .rb-item.active, .rb-item:hover { border-color: #38bdf8; }
+    .step-row { display: flex; align-items: flex-start; gap: 9px; padding: 8px 10px; background: var(--bg-sidebar, #141414); border: 1px solid var(--border, rgba(255,255,255,0.08)); border-radius: 7px; margin-bottom: 7px; font-size: 12.5px; cursor: pointer; }
+    .step-row.done { opacity: 0.65; text-decoration: line-through; }
+    .cmd-box { background: #111; border: 1px solid var(--border-strong, rgba(255,255,255,0.16)); border-radius: 7px; padding: 10px 12px; margin-top: 8px; position: relative; font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 11.5px; white-space: pre-wrap; color: #38bdf8; }
+    .copy-btn { position: absolute; right: 8px; top: 8px; background: #232323; color: #ececec; border: 1px solid rgba(255,255,255,0.18); border-radius: 5px; padding: 3px 8px; font-size: 10.5px; cursor: pointer; }
+    .prog-bar { height: 6px; background: rgba(255,255,255,0.08); border-radius: 999px; overflow: hidden; margin: 10px 0 14px; }
+    .prog-fill { height: 100%; background: #34d399; transition: width .2s; }
+    .hidden { display: none; }
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <div class="topbar">
+      <div>
+        <h1>📘 ADR Timeline &amp; Interactive Runbook Hub</h1>
+        <div class="sub">Architecture Decision Graph (Accepted / Proposed / Superseded) &amp; Operational Checklists</div>
+      </div>
+      <div class="tabs">
+        <button class="tab-btn active" id="tab-adr" type="button">ADR Decision Graph</button>
+        <button class="tab-btn" id="tab-rb" type="button">Interactive Runbooks</button>
+      </div>
+    </div>
+
+    <div class="kpi-grid" id="hub-kpis"></div>
+
+    <div id="panel-adr">
+      <section class="card">
+        <div class="card-h">
+          <h2>Chronological ADR Timeline &amp; Dependency Graph (SVG)</h2>
+          <div class="controls">
+            <input id="adr-search" class="search-in" type="search" placeholder="Search ADRs by ID, title, domain (/) ...">
+            <div id="status-filters" style="display:flex;gap:5px;flex-wrap:wrap;">
+              <button class="pill active" data-st="all" type="button">All</button>
+              <button class="pill" data-st="Accepted" type="button">Accepted</button>
+              <button class="pill" data-st="Proposed" type="button">Proposed</button>
+              <button class="pill" data-st="Superseded" type="button">Superseded</button>
+            </div>
+          </div>
+        </div>
+        <div class="svg-wrap" id="adr-svg"></div>
+      </section>
+
+      <section class="card">
+        <div class="card-h">
+          <h2>ADR Catalog</h2>
+          <span id="adr-cnt" style="font-size:11px;color:var(--text-muted,#8b8b8b);">0 records</span>
+        </div>
+        <div class="adr-grid" id="adr-cards"></div>
+      </section>
+    </div>
+
+    <div id="panel-rb" class="hidden">
+      <div class="rb-layout">
+        <section class="card">
+          <div class="card-h"><h2>Runbook Scenarios</h2></div>
+          <div id="rb-list"></div>
+        </section>
+        <section class="card">
+          <div class="card-h">
+            <h2 id="rb-title">Select a Runbook</h2>
+            <button class="pill" id="rb-reset" type="button">Reset Checklist</button>
+          </div>
+          <div id="rb-meta" style="font-size:12px;color:var(--text-muted,#8b8b8b);"></div>
+          <div class="prog-bar"><div class="prog-fill" id="rb-prog" style="width:0%;"></div></div>
+          <div id="rb-steps"></div>
+          <div id="rb-cmds"></div>
+        </section>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    function esc(s) { return String(s ?? '').replace(/[&<>"']/g, m => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m])); }
+    function openInReader(p) { if (p) try { window.parent.postMessage({ action: 'openFile', path: p }, '*'); } catch (_) {} }
+
+    let DATA = null;
+    let STATUS_FILTER = 'all';
+    let SELECTED_RB = null;
+
+    function statusColor(st) {
+      if (st === 'Accepted') return '#34d399';
+      if (st === 'Proposed' || st === 'Draft') return '#fbbf24';
+      return '#9ca3af';
+    }
+
+    function filteredAdrs() {
+      const q = (document.getElementById('adr-search').value || '').trim().toLowerCase();
+      return ((DATA && DATA.nodes) || []).filter(n => {
+        if (STATUS_FILTER !== 'all' && n.status !== STATUS_FILTER) return false;
+        if (q && !(`${n.id} ${n.title} ${n.domain} ${n.status} ${n.summary}`).toLowerCase().includes(q)) return false;
+        return true;
+      });
+    }
+
+    function renderAdrGraphAndCards() {
+      const nodes = filteredAdrs();
+      const kept = new Set(nodes.map(n => n.id));
+      const edges = ((DATA && DATA.edges) || []).filter(e => kept.has(e.source) && kept.has(e.target));
+
+      const svgBox = document.getElementById('adr-svg');
+      if (!nodes.length) {
+        svgBox.innerHTML = '<div style="padding:20px;font-size:12px;color:#8b8b8b;">No ADRs found under docs/adr/ or adr/. Add Markdown ADRs and re-scan.</div>';
+      } else {
+        const colW = 152, padX = 20, yNode = 76;
+        const W = Math.max(680, nodes.length * colW + 40);
+        const H = 160;
+        const pos = {};
+        nodes.forEach((n, i) => { pos[n.id] = { x: padX + i * colW, y: yNode, node: n }; });
+
+        const edgeSvg = edges.map(e => {
+          const s = pos[e.source], t = pos[e.target];
+          if (!s || !t) return '';
+          const x1 = s.x + 64, x2 = t.x + 64;
+          const mid = (x1 + x2) / 2;
+          const arcY = e.type === 'supersedes' ? 16 : 142;
+          const stroke = e.type === 'supersedes' ? '#fbbf24' : '#38bdf8';
+          const dash = e.type === 'supersedes' ? '4,3' : 'none';
+          return `<path d="M${x1},${yNode + (e.type === 'supersedes' ? 0 : 34)} Q${mid},${arcY} ${x2},${yNode + (e.type === 'supersedes' ? 0 : 34)}" fill="none" stroke="${stroke}" stroke-dasharray="${dash}" stroke-opacity="0.7" stroke-width="1.5"/>`;
+        }).join('');
+
+        const nodeSvg = nodes.map(n => {
+          const p = pos[n.id];
+          const col = statusColor(n.status);
+          return `<g transform="translate(${p.x},${p.y})" style="cursor:pointer;" onclick="openInReader('${esc(n.path)}')">
+            <rect width="132" height="34" rx="6" fill="#191919" stroke="${col}" stroke-width="1.4"/>
+            <text x="10" y="15" fill="#fff" font-size="11" font-weight="700">${esc(n.id)}</text>
+            <text x="10" y="28" fill="#9ca3af" font-size="9.5">${esc(n.domain)} · ${esc(n.status)}</text>
+          </g>`;
+        }).join('');
+
+        svgBox.innerHTML = `<svg width="100%" viewBox="0 0 ${W} ${H}" style="display:block;min-width:${Math.min(W, 640)}px;">${edgeSvg}${nodeSvg}</svg>`;
+      }
+
+      document.getElementById('adr-cnt').textContent = `${nodes.length} records`;
+      document.getElementById('adr-cards').innerHTML = nodes.length
+        ? nodes.map(n => `
+          <div class="adr-card" onclick="openInReader('${esc(n.path)}')">
+            <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:5px;">
+              <strong>${esc(n.id)}</strong>
+              <span class="badge st-${esc(n.status)}">${esc(n.status)}</span>
+            </div>
+            <div style="font-size:13px;font-weight:600;margin-bottom:4px;">${esc(n.title)}</div>
+            <div style="font-size:11px;color:var(--text-muted,#8b8b8b);line-height:1.4;">${esc(n.summary || n.path)}</div>
+            <div style="font-size:10.5px;color:#38bdf8;margin-top:6px;">${esc(n.domain)}${n.date ? ' · ' + esc(n.date) : ''}</div>
+          </div>
+        `).join('')
+        : '<div style="font-size:12px;color:var(--text-muted,#8b8b8b);">No matching ADRs.</div>';
+    }
+
+    function rbStorageKey(id) { return 'kp_runbook_chk_' + id; }
+    function loadChecked(id) {
+      try { return JSON.parse(localStorage.getItem(rbStorageKey(id)) || '{}'); } catch (_) { return {}; }
+    }
+    function saveChecked(id, map) {
+      try { localStorage.setItem(rbStorageKey(id), JSON.stringify(map)); } catch (_) {}
+    }
+
+    function renderRunbookDetail(rb) {
+      SELECTED_RB = rb;
+      document.getElementById('rb-title').textContent = rb.title;
+      document.getElementById('rb-meta').textContent = `${rb.category} · ${rb.path}`;
+      const state = loadChecked(rb.id);
+      const steps = rb.steps || [];
+      const doneCount = steps.filter(s => state[s.id] !== undefined ? state[s.id] : s.checked).length;
+      const pct = steps.length ? Math.round((doneCount / steps.length) * 100) : 0;
+      document.getElementById('rb-prog').style.width = pct + '%';
+
+      document.getElementById('rb-steps').innerHTML = steps.length
+        ? steps.map(s => {
+            const chk = state[s.id] !== undefined ? !!state[s.id] : !!s.checked;
+            return `<label class="step-row ${chk ? 'done' : ''}">
+              <input type="checkbox" data-sid="${esc(s.id)}" ${chk ? 'checked' : ''}>
+              <span>${esc(s.text)}</span>
+            </label>`;
+          }).join('')
+        : '<div style="font-size:12px;color:var(--text-muted,#8b8b8b);">No checklist steps parsed in this runbook.</div>';
+
+      document.querySelectorAll('#rb-steps input[type="checkbox"]').forEach(cb => {
+        cb.addEventListener('change', () => {
+          const cur = loadChecked(rb.id);
+          cur[cb.dataset.sid] = cb.checked;
+          saveChecked(rb.id, cur);
+          renderRunbookDetail(rb);
+        });
+      });
+
+      const cmds = rb.commands || [];
+      document.getElementById('rb-cmds').innerHTML = cmds.length
+        ? '<h3 style="font-size:11px;text-transform:uppercase;letter-spacing:0.06em;color:var(--text-muted,#8b8b8b);margin-top:14px;">Diagnostic / Ops Commands</h3>' +
+          cmds.map((c, idx) => `<div class="cmd-box"><button class="copy-btn" type="button" data-ci="${idx}">Copy</button>${esc(c)}</div>`).join('')
+        : '';
+
+      document.querySelectorAll('#rb-cmds .copy-btn').forEach(btn => {
+        btn.addEventListener('click', () => {
+          const text = cmds[Number(btn.dataset.ci)] || '';
+          if (navigator.clipboard && navigator.clipboard.writeText) navigator.clipboard.writeText(text);
+          btn.textContent = 'Copied!';
+          setTimeout(() => { btn.textContent = 'Copy'; }, 1400);
+        });
+      });
+    }
+
+    function renderRunbooks() {
+      const rbs = (DATA && DATA.runbooks) || [];
+      const list = document.getElementById('rb-list');
+      if (!rbs.length) {
+        list.innerHTML = '<div style="font-size:12px;color:var(--text-muted,#8b8b8b);">No runbooks found in docs/runbooks/ or docs/ops/.</div>';
+        return;
+      }
+      list.innerHTML = rbs.map((r, i) => `
+        <div class="rb-item ${SELECTED_RB && SELECTED_RB.id === r.id ? 'active' : ''}" data-ri="${i}">
+          <div style="font-size:12.5px;font-weight:700;">${esc(r.title)}</div>
+          <div style="font-size:11px;color:var(--text-muted,#8b8b8b);margin-top:2px;">${esc(r.category)} · ${r.step_count} steps</div>
+        </div>
+      `).join('');
+      list.querySelectorAll('.rb-item').forEach(el => {
+        el.addEventListener('click', () => {
+          renderRunbookDetail(rbs[Number(el.dataset.ri)]);
+          renderRunbooks();
+        });
+      });
+      if (!SELECTED_RB && rbs.length) renderRunbookDetail(rbs[0]);
+    }
+
+    function render(d) {
+      DATA = d;
+      const s = d.summary || {};
+      document.getElementById('hub-kpis').innerHTML = [
+        { v: s.total_adrs ?? 0, l: 'Total ADRs', col: '#38bdf8' },
+        { v: s.accepted_count ?? 0, l: 'Accepted', col: '#34d399' },
+        { v: s.proposed_count ?? 0, l: 'Proposed / Draft', col: '#fbbf24' },
+        { v: s.superseded_count ?? 0, l: 'Superseded', col: '#9ca3af' },
+        { v: s.edges_count ?? 0, l: 'ADR Links', col: '#c084fc' },
+        { v: s.total_runbooks ?? 0, l: 'Runbooks', col: '#38bdf8' },
+      ].map(k => `<div class="kpi"><div class="kpi-v" style="color:${k.col};">${k.v}</div><div class="kpi-l">${k.l}</div></div>`).join('');
+      renderAdrGraphAndCards();
+      renderRunbooks();
+    }
+
+    async function init() {
+      if (window.ADR_GRAPH && window.ADR_GRAPH.summary) { render(window.ADR_GRAPH); return; }
+      for (const u of ['/api/adr-graph', '../data/adr-graph.json']) {
+        try {
+          const r = await fetch(u);
+          if (r.ok) { const j = await r.json(); if (j && j.summary) { render(j); return; } }
+        } catch (_) {}
+      }
+    }
+
+    document.getElementById('tab-adr').addEventListener('click', () => {
+      document.getElementById('tab-adr').classList.add('active');
+      document.getElementById('tab-rb').classList.remove('active');
+      document.getElementById('panel-adr').classList.remove('hidden');
+      document.getElementById('panel-rb').classList.add('hidden');
+    });
+    document.getElementById('tab-rb').addEventListener('click', () => {
+      document.getElementById('tab-rb').classList.add('active');
+      document.getElementById('tab-adr').classList.remove('active');
+      document.getElementById('panel-rb').classList.remove('hidden');
+      document.getElementById('panel-adr').classList.add('hidden');
+    });
+    document.getElementById('adr-search').addEventListener('input', renderAdrGraphAndCards);
+    document.querySelectorAll('#status-filters .pill').forEach(btn => {
+      btn.addEventListener('click', () => {
+        document.querySelectorAll('#status-filters .pill').forEach(b => b.classList.remove('active'));
+        btn.classList.add('active');
+        STATUS_FILTER = btn.dataset.st || 'all';
+        renderAdrGraphAndCards();
+      });
+    });
+    document.getElementById('rb-reset').addEventListener('click', () => {
+      if (!SELECTED_RB) return;
+      saveChecked(SELECTED_RB.id, {});
+      renderRunbookDetail(SELECTED_RB);
+    });
+
+    init();
+  </script>
+</body>
+</html>

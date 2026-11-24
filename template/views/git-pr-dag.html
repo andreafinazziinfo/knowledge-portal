@@ -1,0 +1,274 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Git, Stacked-PR DAG &amp; Worktree Hygiene Matrix</title>
+  <link rel="stylesheet" href="portal-theme.css?v=fp3">
+  <script src="../assets/d3.v7.min.js"></script>
+  <script src="../data/git_dag.js" onerror="void(0)"></script>
+  <script src="live-reload.js"></script>
+  <script defer src="portal-ui.js?v=fp4"></script>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body { background: var(--bg, #0f0f0f); color: var(--text, #ececec); font-family: 'Inter', system-ui, sans-serif; min-height: 100vh; }
+    .wrap { max-width: 1400px; margin: 0 auto; padding: 18px 24px 64px; }
+    .topbar { display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 12px; border-bottom: 1px solid var(--border, rgba(255,255,255,0.08)); padding-bottom: 14px; margin-bottom: 18px; }
+    .topbar h1 { font-size: 20px; font-weight: 700; }
+    .sub { font-size: 12px; color: var(--text-muted, #8b8b8b); margin-top: 3px; }
+    .btn { background: var(--bg-elevated, #232323); color: var(--text, #ececec); border: 1px solid var(--border-strong, rgba(255,255,255,0.16)); border-radius: 7px; padding: 6px 12px; font-size: 12px; font-weight: 600; cursor: pointer; }
+    .btn:hover { border-color: #38bdf8; }
+    .kpi-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(135px, 1fr)); gap: 10px; margin-bottom: 16px; }
+    .kpi { background: var(--bg-card, #191919); border: 1px solid var(--border, rgba(255,255,255,0.08)); border-radius: 10px; padding: 12px 14px; }
+    .kpi-v { font-size: 22px; font-weight: 800; }
+    .kpi-l { font-size: 10px; text-transform: uppercase; letter-spacing: 0.06em; color: var(--text-muted, #8b8b8b); margin-top: 4px; }
+    .card { background: var(--bg-card, #191919); border: 1px solid var(--border, rgba(255,255,255,0.08)); border-radius: 10px; padding: 16px; margin-bottom: 16px; }
+    .card-h { display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 8px; margin-bottom: 12px; }
+    .card-h h2 { font-size: 12px; text-transform: uppercase; letter-spacing: 0.06em; color: var(--text-2, #b4b4b4); }
+    .split { display: grid; grid-template-columns: 1.5fr 1fr; gap: 16px; margin-bottom: 16px; }
+    @media (max-width: 980px) { .split { grid-template-columns: 1fr; } }
+    .dag-box { background: var(--bg-sidebar, #141414); border: 1px solid var(--border, rgba(255,255,255,0.08)); border-radius: 8px; overflow-x: auto; min-height: 220px; padding: 8px; }
+    .controls { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; }
+    .search-in { background: var(--bg-sidebar, #141414); color: var(--text, #ececec); border: 1px solid var(--border-strong, rgba(255,255,255,0.16)); border-radius: 7px; padding: 6px 10px; font-size: 12px; min-width: 210px; }
+    .pill { background: var(--bg-elevated, #232323); color: var(--text-2, #b4b4b4); border: 1px solid var(--border, rgba(255,255,255,0.08)); border-radius: 999px; padding: 4px 10px; font-size: 11px; font-weight: 600; cursor: pointer; }
+    .pill.active { background: #38bdf8; color: #0f0f0f; border-color: #38bdf8; }
+    table { width: 100%; border-collapse: collapse; font-size: 12px; }
+    th, td { text-align: left; padding: 8px 10px; border-bottom: 1px solid var(--border, rgba(255,255,255,0.08)); }
+    th { font-size: 10.5px; text-transform: uppercase; letter-spacing: 0.05em; color: var(--text-muted, #8b8b8b); }
+    .badge { display: inline-block; padding: 2px 7px; border-radius: 4px; font-size: 10px; font-weight: 700; text-transform: uppercase; }
+    .st-clean { background: rgba(52,211,153,0.18); color: #34d399; }
+    .st-dirty { background: rgba(251,191,36,0.2); color: #fbbf24; }
+    .st-detached { background: rgba(192,132,252,0.2); color: #c084fc; }
+    .st-stale { background: rgba(239,68,68,0.2); color: #ef4444; }
+    .st-locked { background: rgba(56,189,248,0.2); color: #38bdf8; }
+    .merge-item { background: var(--bg-sidebar, #141414); border: 1px solid var(--border, rgba(255,255,255,0.08)); border-radius: 7px; padding: 9px 11px; margin-bottom: 7px; font-size: 12px; }
+    .wf-grid { display: flex; gap: 8px; flex-wrap: wrap; }
+    .wf-chip { background: var(--bg-sidebar, #141414); border: 1px solid var(--border, rgba(255,255,255,0.08)); border-radius: 7px; padding: 7px 11px; font-size: 11.5px; }
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <div class="topbar">
+      <div>
+        <h1>🌿 Stacked-PR DAG &amp; Worktree Hygiene Matrix</h1>
+        <div class="sub" id="gd-sub">Local Git Worktrees, Branch Topology, Stacked PR Merge Order &amp; CI Workflows</div>
+      </div>
+      <button class="btn" id="btn-refresh" type="button">↻ Live Refresh</button>
+    </div>
+
+    <div class="kpi-grid" id="gd-kpis"></div>
+
+    <div class="split">
+      <section class="card">
+        <div class="card-h">
+          <h2>Layered Branch &amp; Stacked-PR DAG (SVG)</h2>
+          <span id="dag-mode" style="font-size:11px;color:var(--text-muted,#8b8b8b);"></span>
+        </div>
+        <div class="dag-box" id="dag-svg"></div>
+      </section>
+
+      <section class="card">
+        <div class="card-h">
+          <h2>Recommended Merge Order</h2>
+          <span id="merge-cnt" style="font-size:11px;color:#38bdf8;">0 steps</span>
+        </div>
+        <div id="merge-list" style="max-height:280px;overflow-y:auto;"></div>
+      </section>
+    </div>
+
+    <section class="card">
+      <div class="card-h">
+        <h2>Worktree Hygiene Matrix</h2>
+        <div class="controls">
+          <input id="wt-search" class="search-in" type="search" placeholder="Filter worktree or branch (/) ...">
+          <div id="wt-filters" style="display:flex;gap:5px;flex-wrap:wrap;">
+            <button class="pill active" data-st="all" type="button">All</button>
+            <button class="pill" data-st="clean" type="button">Clean</button>
+            <button class="pill" data-st="dirty" type="button">Dirty</button>
+            <button class="pill" data-st="detached" type="button">Detached</button>
+            <button class="pill" data-st="stale" type="button">Stale</button>
+            <button class="pill" data-st="locked" type="button">Locked</button>
+          </div>
+        </div>
+      </div>
+      <div style="overflow-x:auto;">
+        <table>
+          <thead>
+            <tr>
+              <th>Worktree</th>
+              <th>Branch</th>
+              <th>HEAD</th>
+              <th>Status</th>
+              <th>Modified</th>
+              <th>Age (days)</th>
+            </tr>
+          </thead>
+          <tbody id="wt-tbody"></tbody>
+        </table>
+      </div>
+    </section>
+
+    <section class="card">
+      <div class="card-h">
+        <h2>CI / GitHub Actions Workflows</h2>
+        <span id="wf-cnt" style="font-size:11px;color:var(--text-muted,#8b8b8b);">0 workflows</span>
+      </div>
+      <div class="wf-grid" id="wf-list"></div>
+    </section>
+  </div>
+
+  <script>
+    function esc(s) { return String(s ?? '').replace(/[&<>"']/g, m => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m])); }
+    let DATA = null;
+    let STATUS_FILTER = 'all';
+
+    function ciColor(st) {
+      if (st === 'green' || st === 'active') return '#34d399';
+      if (st === 'red' || st === 'stale') return '#ef4444';
+      if (st === 'pending') return '#fbbf24';
+      if (st === 'draft' || st === 'merged') return '#9ca3af';
+      return '#38bdf8';
+    }
+
+    function renderDag(d) {
+      const box = document.getElementById('dag-svg');
+      box.innerHTML = '';
+      const nodes = d.nodes || [];
+      const edges = d.edges || [];
+      document.getElementById('dag-mode').textContent = (d.open_prs && d.open_prs.length)
+        ? `${d.open_prs.length} Open PRs (gh live)`
+        : `Offline Local Branch Topology (${nodes.length} nodes)`;
+
+      if (!nodes.length) {
+        box.innerHTML = '<div style="padding:24px;font-size:12px;color:#8b8b8b;">No git branches or open PRs detected.</div>';
+        return;
+      }
+
+      const byDepth = {};
+      nodes.forEach(n => {
+        const dp = n.depth || 0;
+        (byDepth[dp] = byDepth[dp] || []).push(n);
+      });
+      const depths = Object.keys(byDepth).map(Number).sort((a, b) => a - b);
+      const colW = 210, rowH = 44, padX = 20, padY = 20;
+      const maxRows = Math.max(...depths.map(dp => byDepth[dp].length), 1);
+      const W = Math.max(640, depths.length * colW + 40);
+      const H = Math.max(190, maxRows * rowH + 40);
+
+      const pos = {};
+      depths.forEach((dp, ci) => {
+        byDepth[dp].forEach((n, ri) => {
+          pos[n.id] = { x: padX + ci * colW, y: padY + ri * rowH, node: n };
+        });
+      });
+
+      const edgePaths = edges.map(e => {
+        const s = pos[e.source], t = pos[e.target];
+        if (!s || !t) return '';
+        const x1 = s.x + 172, y1 = s.y + 15, x2 = t.x, y2 = t.y + 15;
+        const mx = (x1 + x2) / 2;
+        return `<path d="M${x1},${y1} C${mx},${y1} ${mx},${y2} ${x2},${y2}" fill="none" stroke="rgba(148,163,184,0.45)" stroke-width="1.6"/>`;
+      }).join('');
+
+      const nodeEls = nodes.map(n => {
+        const p = pos[n.id];
+        if (!p) return '';
+        const col = ciColor(n.ci_status);
+        const lbl = (n.label || n.id).slice(0, 24);
+        return `<g transform="translate(${p.x},${p.y})">
+          <rect width="172" height="30" rx="6" fill="#191919" stroke="${col}" stroke-width="1.4"/>
+          <circle cx="11" cy="15" r="4" fill="${col}"/>
+          <text x="21" y="19" fill="#ececec" font-size="11" font-family="Inter,system-ui,sans-serif">${esc(lbl)}</text>
+        </g>`;
+      }).join('');
+
+      box.innerHTML = `<svg width="100%" viewBox="0 0 ${W} ${H}" style="display:block;min-width:${Math.min(W, 600)}px;">${edgePaths}${nodeEls}</svg>`;
+    }
+
+    function renderWorktrees() {
+      const tbody = document.getElementById('wt-tbody');
+      const q = (document.getElementById('wt-search').value || '').trim().toLowerCase();
+      const rows = ((DATA && DATA.worktrees) || []).filter(w => {
+        if (STATUS_FILTER !== 'all' && w.status !== STATUS_FILTER) return false;
+        if (q && !(`${w.name} ${w.branch} ${w.head} ${w.status}`).toLowerCase().includes(q)) return false;
+        return true;
+      });
+      if (!rows.length) {
+        tbody.innerHTML = '<tr><td colspan="6" style="color:var(--text-muted,#8b8b8b);text-align:center;padding:18px;">No matching worktrees.</td></tr>';
+        return;
+      }
+      tbody.innerHTML = rows.map(w => `
+        <tr>
+          <td><strong>${esc(w.name)}</strong>${w.is_primary ? ' <span class="badge st-locked">primary</span>' : ''}</td>
+          <td><code>${esc(w.branch)}</code></td>
+          <td><code>${esc(w.head || '-')}</code></td>
+          <td><span class="badge st-${esc(w.status)}">${esc(w.status)}</span></td>
+          <td>${w.modified_files ?? 0}</td>
+          <td>${w.age_days == null ? '-' : w.age_days}</td>
+        </tr>
+      `).join('');
+    }
+
+    function render(d) {
+      DATA = d;
+      const s = d.summary || {};
+      document.getElementById('gd-sub').textContent = `Default branch: ${d.default_branch || 'main'} · Current: ${d.current_branch || '-'} (${d.head_sha || '-'})`;
+
+      document.getElementById('gd-kpis').innerHTML = [
+        { v: s.total_worktrees ?? 0, l: 'Total Worktrees', col: '#38bdf8' },
+        { v: s.clean_worktrees ?? 0, l: 'Clean', col: '#34d399' },
+        { v: s.dirty_worktrees ?? 0, l: 'Dirty', col: (s.dirty_worktrees || 0) > 0 ? '#fbbf24' : '#34d399' },
+        { v: s.detached_worktrees ?? 0, l: 'Detached', col: '#c084fc' },
+        { v: s.stale_worktrees ?? 0, l: 'Stale (>14d)', col: (s.stale_worktrees || 0) > 0 ? '#ef4444' : '#34d399' },
+        { v: s.open_prs_count ?? 0, l: 'Open PRs', col: '#38bdf8' },
+        { v: s.stacked_chains_count ?? 0, l: 'Stacked Chains', col: '#fbbf24' },
+        { v: s.workflows_count ?? 0, l: 'CI Workflows', col: '#ececec' },
+      ].map(k => `<div class="kpi"><div class="kpi-v" style="color:${k.col};">${k.v}</div><div class="kpi-l">${k.l}</div></div>`).join('');
+
+      renderDag(d);
+      renderWorktrees();
+
+      const mo = d.merge_order || [];
+      document.getElementById('merge-cnt').textContent = `${mo.length} steps`;
+      document.getElementById('merge-list').innerHTML = mo.length
+        ? mo.map(m => `<div class="merge-item"><strong>${m.step}. #${m.pr_number}</strong> ${esc(m.title)}<div style="font-size:11px;color:var(--text-muted,#8b8b8b);margin-top:3px;"><code>${esc(m.head)}</code> → <code>${esc(m.base)}</code> · CI: <strong style="color:${ciColor(m.ci_status)};">${esc(m.ci_status)}</strong></div></div>`).join('')
+        : '<div style="font-size:12px;color:var(--text-muted,#8b8b8b);">No open stacked PRs (offline or zero open PRs). Local branches are shown in the DAG.</div>';
+
+      const wfs = d.workflows || [];
+      document.getElementById('wf-cnt').textContent = `${wfs.length} workflows`;
+      document.getElementById('wf-list').innerHTML = wfs.length
+        ? wfs.map(wf => `<div class="wf-chip"><strong>${esc(wf.name)}</strong><div style="font-size:10.5px;color:var(--text-muted,#8b8b8b);margin-top:2px;">${esc(wf.file)} · ${(wf.triggers || []).join(', ') || 'manual'}</div></div>`).join('')
+        : '<div style="font-size:12px;color:var(--text-muted,#8b8b8b);">No .github/workflows/*.yml detected.</div>';
+    }
+
+    async function loadData(refresh) {
+      if (!refresh && window.GIT_DAG && window.GIT_DAG.summary) {
+        render(window.GIT_DAG);
+        return;
+      }
+      const urls = refresh ? ['/api/git-dag?refresh=1'] : ['/api/git-dag', '../data/git-dag.json'];
+      for (const u of urls) {
+        try {
+          const r = await fetch(u);
+          if (r.ok) {
+            const j = await r.json();
+            if (j && j.summary) { render(j); return; }
+          }
+        } catch (_) {}
+      }
+    }
+
+    document.getElementById('wt-search').addEventListener('input', renderWorktrees);
+    document.querySelectorAll('#wt-filters .pill').forEach(btn => {
+      btn.addEventListener('click', () => {
+        document.querySelectorAll('#wt-filters .pill').forEach(b => b.classList.remove('active'));
+        btn.classList.add('active');
+        STATUS_FILTER = btn.dataset.st || 'all';
+        renderWorktrees();
+      });
+    });
+    document.getElementById('btn-refresh').addEventListener('click', () => loadData(true));
+    loadData(false);
+  </script>
+</body>
+</html>

@@ -10,6 +10,10 @@
     "db-lineage",
     "floorplan",
     "api-catalog",
-    "data-explorer"
+    "data-explorer",
+    "mission-control",
+    "git-pr-dag",
+    "adr-runbook-hub",
+    "ai-mission-launcher"
   ]
 }

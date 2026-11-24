@@ -1041,6 +1041,12 @@
       </button>
       <select id="mobile-view-picker" onchange="if(this.value){switchTab(this.value); this.value='';}" title="Quick View Picker">
         <option value="" disabled selected>Views ▾</option>
+        <optgroup label="Control Hub (ADR-081)">
+          <option value="mission-control">🎯 Mission Control (Bento Hub)</option>
+          <option value="git-pr-dag">🌿 Git &amp; Stacked-PR DAG</option>
+          <option value="adr-runbook-hub">📘 ADR &amp; Runbook Hub</option>
+          <option value="ai-mission-launcher">🚀 AI Mission Launcher</option>
+        </optgroup>
         <optgroup label="Graphs &amp; Audit">
           <option value="graph-studio">★ Graph Studio (20 Modes)</option>
           <option value="arch-health">★ Health &amp; Audit 4.0</option>
@@ -1069,9 +1075,20 @@
       </select>
       <div class="tabs-left">
         <button class="tab-button active" data-tab="home" onclick="switchTab('home')">Home</button>
+        <button class="tab-button" data-tab="mission-control" onclick="switchTab('mission-control')">🎯 Mission Control</button>
         <button class="tab-button" data-tab="reader" onclick="switchTab('reader')">Reader</button>
         <button class="tab-button" data-tab="graph-studio" onclick="switchTab('graph-studio')">Graph Studio</button>
         <button class="tab-button" data-tab="arch-health" onclick="switchTab('arch-health')">Health &amp; Audit</button>
+
+        <div class="nav-dd" data-group="control-hub">
+          <button class="nav-dd-btn" type="button" onclick="toggleNavDropdown(this)">Control Hub ▾</button>
+          <div class="nav-dd-menu">
+            <button class="nav-dd-item tab-button" data-tab="mission-control" onclick="switchTabFromMenu('mission-control')">🎯 Mission Control</button>
+            <button class="nav-dd-item tab-button" data-tab="git-pr-dag" onclick="switchTabFromMenu('git-pr-dag')">🌿 Git &amp; PR DAG</button>
+            <button class="nav-dd-item tab-button" data-tab="adr-runbook-hub" onclick="switchTabFromMenu('adr-runbook-hub')">📘 ADR &amp; Runbook Hub</button>
+            <button class="nav-dd-item tab-button" data-tab="ai-mission-launcher" onclick="switchTabFromMenu('ai-mission-launcher')">🚀 AI Mission Launcher</button>
+          </div>
+        </div>
 
         <div class="nav-dd" data-group="architecture">
           <button class="nav-dd-btn" type="button" onclick="toggleNavDropdown(this)">Architecture ▾</button>
@@ -1270,6 +1287,44 @@
           </div>
 
           <div style="font-size:11px; font-weight:700; text-transform:uppercase; letter-spacing:0.06em; color:#b4b4b4; margin: 20px 0 8px 0; display:flex; align-items:center; gap:6px;">
+            <span>🎯</span> Control Hub — Executive Command &amp; Engineering Ops
+          </div>
+          <div class="views-hub-grid">
+            <div class="view-hub-card" data-view-id="mission-control" onclick="switchTab('mission-control')">
+              <div class="hub-card-icon">🎯</div>
+              <div class="hub-card-content">
+                <div class="hub-card-title">Mission Control (Bento Hub)</div>
+                <div class="hub-card-desc">Executive KPIs, 6 subsystem traffic lights, prioritized P0/P1/P2 anomalies &amp; quick-jump views.</div>
+              </div>
+              <span class="hub-card-badge">Command</span>
+            </div>
+            <div class="view-hub-card" data-view-id="git-pr-dag" onclick="switchTab('git-pr-dag')">
+              <div class="hub-card-icon">🌿</div>
+              <div class="hub-card-content">
+                <div class="hub-card-title">Stacked-PR DAG &amp; Worktrees</div>
+                <div class="hub-card-desc">Layered SVG branch/PR DAG, recommended Merge Order &amp; filterable worktree hygiene matrix.</div>
+              </div>
+              <span class="hub-card-badge">Git DAG</span>
+            </div>
+            <div class="view-hub-card" data-view-id="adr-runbook-hub" onclick="switchTab('adr-runbook-hub')">
+              <div class="hub-card-icon">📘</div>
+              <div class="hub-card-content">
+                <div class="hub-card-title">ADR Timeline &amp; Runbook Hub</div>
+                <div class="hub-card-desc">Chronological ADR dependency graph &amp; interactive operational checklists with copyable commands.</div>
+              </div>
+              <span class="hub-card-badge">Governance</span>
+            </div>
+            <div class="view-hub-card" data-view-id="ai-mission-launcher" onclick="switchTab('ai-mission-launcher')">
+              <div class="hub-card-icon">🚀</div>
+              <div class="hub-card-content">
+                <div class="hub-card-title">AI Mission &amp; CodeMode Workbench</div>
+                <div class="hub-card-desc">Token-budgeted AI Mission Packs, AST-sandboxed CodeMode runner &amp; MCP v2 prompt catalog.</div>
+              </div>
+              <span class="hub-card-badge">AI Copilot</span>
+            </div>
+          </div>
+
+          <div style="font-size:11px; font-weight:700; text-transform:uppercase; letter-spacing:0.06em; color:#b4b4b4; margin: 20px 0 8px 0; display:flex; align-items:center; gap:6px;">
             <span>📜</span> Governance, API &amp; Documentazione Tecnica
           </div>
           <div class="views-hub-grid">
@@ -1420,6 +1475,26 @@
     <div class="tab-pane" id="pane-ai-registry">
       <button class="fullscreen-btn" onclick="toggleFullscreen('pane-ai-registry')" title="Fullscreen">⛶</button>
       <iframe id="ai-registry-iframe" data-src="views/ai-registry.html" title="AI / LLM &amp; Prompt Governance Registry" style="width:100%; height:100%; border:none; background:#0f0f0f;"></iframe>
+    </div>
+
+    <div class="tab-pane" id="pane-mission-control">
+      <button class="fullscreen-btn" onclick="toggleFullscreen('pane-mission-control')" title="Fullscreen">⛶</button>
+      <iframe id="mission-control-iframe" data-src="views/mission-control.html" title="Mission Control Bento Command Center" style="width:100%; height:100%; border:none; background:#0f0f0f;"></iframe>
+    </div>
+
+    <div class="tab-pane" id="pane-git-pr-dag">
+      <button class="fullscreen-btn" onclick="toggleFullscreen('pane-git-pr-dag')" title="Fullscreen">⛶</button>
+      <iframe id="git-pr-dag-iframe" data-src="views/git-pr-dag.html" title="Stacked-PR DAG &amp; Worktree Hygiene Matrix" style="width:100%; height:100%; border:none; background:#0f0f0f;"></iframe>
+    </div>
+
+    <div class="tab-pane" id="pane-adr-runbook-hub">
+      <button class="fullscreen-btn" onclick="toggleFullscreen('pane-adr-runbook-hub')" title="Fullscreen">⛶</button>
+      <iframe id="adr-runbook-hub-iframe" data-src="views/adr-runbook-hub.html" title="ADR Timeline &amp; Interactive Runbook Hub" style="width:100%; height:100%; border:none; background:#0f0f0f;"></iframe>
+    </div>
+
+    <div class="tab-pane" id="pane-ai-mission-launcher">
+      <button class="fullscreen-btn" onclick="toggleFullscreen('pane-ai-mission-launcher')" title="Fullscreen">⛶</button>
+      <iframe id="ai-mission-launcher-iframe" data-src="views/ai-mission-launcher.html" title="AI Mission Pack &amp; CodeMode Workbench" style="width:100%; height:100%; border:none; background:#0f0f0f;"></iframe>
     </div>
 
     <div class="tab-pane" id="pane-graph-studio">
@@ -1891,7 +1966,7 @@
     let currentFileName = null;
     let isEditing = false;
     let activeTab = 'home';
-    const TAB_IDS = ['home', 'reader', 'graph', 'canvas', 'tree', 'graph-studio', 'arch-health', 'sequence-tracer', 'impact-simulator', 'config-matrix', 'iac-topology', 'ai-registry', 'floorplan', 'stack-ecosystem', 'data-explorer', 'db-lineage', 'async-topology', 'visual-explainer', 'api-catalog', 'adr-governance', 'quant-codex', 'runbook-ops', 'framework-constitution', 'frontend-state', 'worker-tasks', 'threat-matrix', 'data-ingestion', 'live-telemetry', 'console'];
+    const TAB_IDS = ['home', 'mission-control', 'git-pr-dag', 'adr-runbook-hub', 'ai-mission-launcher', 'reader', 'graph', 'canvas', 'tree', 'graph-studio', 'arch-health', 'sequence-tracer', 'impact-simulator', 'config-matrix', 'iac-topology', 'ai-registry', 'floorplan', 'stack-ecosystem', 'data-explorer', 'db-lineage', 'async-topology', 'visual-explainer', 'api-catalog', 'adr-governance', 'quant-codex', 'runbook-ops', 'framework-constitution', 'frontend-state', 'worker-tasks', 'threat-matrix', 'data-ingestion', 'live-telemetry', 'console'];
 
     // ── Load File (Reader) ──
     function loadFile(filePath) {
@@ -3027,6 +3102,10 @@
       { id: 'async-topology', title: 'AsyncAPI & WebSocket', desc: 'Mappa dei flussi realtime, bridge Redis Pub/Sub e socket', icon: '⚡', tags: 'websocket socket redis async' },
       { id: 'visual-explainer', title: '✨ Visual Explainer Hub', desc: 'Hub centrale dei 9 spiegatori interattivi sequenziali', icon: '✨', tags: 'visual explainer suite hub' },
       { id: 'graph-studio', title: 'Graph Studio (20 Modes)', desc: 'Unified 2D/3D Graph, CodeCity, Edge Bundling, Radial Tree, Icicle, Hive Plot, Arch Diff', icon: '🕸️', tags: 'studio graph 3d codecity radial tree icicle hive sankey' },
+      { id: 'mission-control', title: '🎯 Mission Control (Bento Command Center)', desc: 'Executive KPIs, 6 subsystem traffic lights, prioritized anomalies & quick-jump cards', icon: '🎯', tags: 'mission control bento hub kpi executive anomalies' },
+      { id: 'git-pr-dag', title: '🌿 Stacked-PR DAG & Worktree Hygiene', desc: 'Layered branch/PR DAG, recommended merge order & filterable worktree status matrix', icon: '🌿', tags: 'git pr dag worktree branches stacked merge ci' },
+      { id: 'adr-runbook-hub', title: '📘 ADR Timeline & Interactive Runbook Hub', desc: 'Chronological ADR dependency graph & interactive runbook checklists', icon: '📘', tags: 'adr decision graph timeline runbook checklist ops' },
+      { id: 'ai-mission-launcher', title: '🚀 AI Mission Pack & CodeMode Workbench', desc: 'Token-budgeted AI context packs, AST-sandboxed CodeMode & MCP v2 catalog', icon: '🚀', tags: 'ai mission pack codemode mcp prompt sandbox' },
       { id: 'arch-health', title: 'Health & Audit Center 4.0', desc: '16 zero-dep audit pillars: OWASP, SRE, API, DB N+1, CodeScene Risk, Martin Metrics', icon: '🩺', tags: 'health audit owasp security sre reliability martin dsm' },
       { id: 'api-catalog', title: '🌐 Live API & Endpoint Explorer', desc: 'Auto-discovered HTTP & WebSocket endpoints with auth, handler links, and OpenAPI 3.1', icon: '🌐', tags: 'api rest fastapi express go openapi router endpoints' },
       { id: 'adr-governance', title: '⚖️ ADR Governance', desc: 'Architecture Decision Records matrix and trade-off ledger', icon: '⚖️', tags: 'adr decisions governance architecture' },
@@ -3332,6 +3411,10 @@
       available.add('config-matrix');
       available.add('iac-topology');
       available.add('ai-registry');
+      available.add('mission-control');
+      available.add('git-pr-dag');
+      available.add('adr-runbook-hub');
+      available.add('ai-mission-launcher');
       ['graph','graph_3d','canvas','canvas_3d','tree','tree_3d','graph_full'].forEach(k => available.delete(k));
 
       // Top bar tabs

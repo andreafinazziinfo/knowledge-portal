@@ -129,7 +129,11 @@
     'frontend-state.html': { title: 'UI State & Stores', what: 'Mappa degli store frontend, azioni e stato reattivo.', how: 'Cerca uno store per vederne proprietà e collegamenti.', topic: 'store' },
     'worker-tasks.html': { title: 'Worker & Scheduled Tasks', what: 'Code asincrone, task schedulati e job di background.', how: 'Ispeziona frequenza, coda e dipendenze di ciascun task.', topic: 'worker' },
     'threat-matrix.html': { title: 'Threat Matrix & Security', what: 'Perimetri di sicurezza, access control e mitigazioni.', how: 'Filtra per severità o superficie di attacco.', topic: 'security' },
-    'runbook-ops.html': { title: 'Ops Incident Runbook', what: 'Procedure operative di recovery, diagnostica e deploy.', how: 'Segui le checklist in caso di incident o manutenzione.', topic: 'runbook' }
+    'runbook-ops.html': { title: 'Ops Incident Runbook', what: 'Procedure operative di recovery, diagnostica e deploy.', how: 'Segui le checklist in caso di incident o manutenzione.', topic: 'runbook' },
+    'mission-control.html': { title: 'Mission Control Command Center', what: 'Bento Command Center esecutivo con KPI North Star, semafori sottosistemi e feed anomalie P0/P1/P2.', how: 'Filtra per severità e clicca una cella o card per saltare alla vista di dettaglio.', topic: 'mission-control' },
+    'git-pr-dag.html': { title: 'Stacked-PR DAG & Worktree Hygiene', what: 'Grafo SVG di branch/PR impilate, ordine di merge consigliato e matrice igiene worktree.', how: 'Premi / per filtrare i worktree per nome o stato (clean, dirty, detached, stale).', topic: 'git-dag' },
+    'adr-runbook-hub.html': { title: 'ADR Timeline & Interactive Runbook Hub', what: 'Timeline/grafo dipendenze ADR e reader interattivo dei runbook con checklist salvate in localStorage.', how: 'Alterna tra ADR Decision Graph e Interactive Runbooks; premi / per filtrare.', topic: 'adr' },
+    'ai-mission-launcher.html': { title: 'AI Mission Pack & CodeMode Workbench', what: 'Generatore di Mission Pack AI con budget token, sandbox CodeMode read-only e catalogo MCP v2.', how: 'Scegli un preset o esegui uno snippet CodeMode e copia il context pack per il tuo agente AI.', topic: 'ai-mission' }
   };
 
   if (pageName && pageName !== 'dashboard.html' && pageName !== 'graph-studio.html') {

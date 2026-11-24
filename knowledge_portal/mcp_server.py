@@ -562,6 +562,53 @@ class PortalMcpEngine:
         f = self.data_dir / "quality-telemetry.json"
         return json.loads(f.read_text(encoding="utf-8")) if f.exists() else analyze_quality_telemetry(self.project_dir, self.data_dir)
 
+    def git_dag(self, refresh: bool = False, include_gh: bool = True) -> dict[str, Any]:
+        from knowledge_portal.generators.git_dag import generate_git_dag
+        f = self.data_dir / "git-dag.json"
+        if not refresh and f.exists():
+            try:
+                return json.loads(f.read_text(encoding="utf-8"))
+            except (OSError, json.JSONDecodeError):
+                pass
+        return generate_git_dag(self.project_dir, self.data_dir, include_gh=include_gh)
+
+    def adr_graph(self, domain: str = "", status: str = "") -> dict[str, Any]:
+        from knowledge_portal.generators.adr_graph import generate_adr_graph
+        f = self.data_dir / "adr-graph.json"
+        if f.exists():
+            try:
+                data = json.loads(f.read_text(encoding="utf-8"))
+            except (OSError, json.JSONDecodeError):
+                data = generate_adr_graph(self.project_dir, self.data_dir)
+        else:
+            data = generate_adr_graph(self.project_dir, self.data_dir)
+
+        dom = (domain or "").strip().lower()
+        st = (status or "").strip().lower()
+        if dom or st:
+            nodes = [
+                n for n in (data.get("nodes") or [])
+                if (not dom or str(n.get("domain", "")).lower() == dom)
+                and (not st or str(n.get("status", "")).lower() == st)
+            ]
+            kept = {n.get("id") for n in nodes}
+            edges = [
+                e for e in (data.get("edges") or [])
+                if e.get("source") in kept and e.get("target") in kept
+            ]
+            return {**data, "nodes": nodes, "edges": edges, "filtered": True}
+        return data
+
+    def mission_control(self, refresh: bool = False) -> dict[str, Any]:
+        from knowledge_portal.generators.mission_control import generate_mission_control
+        f = self.data_dir / "mission-control.json"
+        if not refresh and f.exists():
+            try:
+                return json.loads(f.read_text(encoding="utf-8"))
+            except (OSError, json.JSONDecodeError):
+                pass
+        return generate_mission_control(self.project_dir, self.data_dir)
+
     def deep_audit(self) -> dict[str, Any]:
         rep = self.health_audit()
         hv4 = rep.get("health_v4") or {}
@@ -809,6 +856,37 @@ TOOLS_SPEC: list[dict[str, Any]] = [
         },
     },
     {
+        "name": "portal_git_dag",
+        "description": "Inspect Git worktree hygiene matrix (clean/dirty/detached/stale), local branches, optional open PRs, stacked-PR DAG, recommended Merge Order, and CI workflows.",
+        "inputSchema": {
+            "type": "object",
+            "properties": {
+                "refresh": {"type": "boolean", "default": False, "description": "Force live re-scan of git worktrees and branches"},
+            },
+        },
+    },
+    {
+        "name": "portal_adr_graph",
+        "description": "Query Architecture Decision Record (ADR) timeline, superseding/dependency graph, and interactive Runbook catalog with checklists.",
+        "inputSchema": {
+            "type": "object",
+            "properties": {
+                "domain": {"type": "string", "default": "", "description": "Optional domain filter (Security, DataOps, Infra/CI, AI/MCP, Portal/UI, Architecture, General)"},
+                "status": {"type": "string", "default": "", "description": "Optional status filter (Accepted, Proposed, Superseded, Deprecated, Draft)"},
+            },
+        },
+    },
+    {
+        "name": "portal_mission_control",
+        "description": "Fetch the Executive Bento Mission Control snapshot (North Star KPIs, 6 subsystem traffic lights, prioritized P0/P1/P2 anomalies, and quick-jump cards).",
+        "inputSchema": {
+            "type": "object",
+            "properties": {
+                "refresh": {"type": "boolean", "default": False, "description": "Re-aggregate from latest portal artifacts"},
+            },
+        },
+    },
+    {
         "name": "portal_discover",
         "description": "Code Mode SDK discovery: returns the compact typed read-only `portal.*` API reference for writing multi-step query pipelines.",
         "inputSchema": {
@@ -875,6 +953,9 @@ def handle_jsonrpc_request(engine: PortalMcpEngine, req: dict[str, Any], code_mo
                     {"uri": "portal://cve-report", "name": "CVE & SBOM Vulnerability Report", "description": "Local CVE reports correlated with CycloneDX 1.5 SBOM", "mimeType": "application/json"},
                     {"uri": "portal://dead-code", "name": "Symbol-Level Dead Code Report", "description": "Python dead symbols, unused JS/TS exports, and unimported Vue components", "mimeType": "application/json"},
                     {"uri": "portal://quality-telemetry", "name": "Unified Quality Telemetry", "description": "Domain coverage, JUnit XML, Ruff, Mypy, and Vue-TSC/TSC local CI reports", "mimeType": "application/json"},
+                    {"uri": "portal://git-dag", "name": "Git & Stacked-PR DAG", "description": "Worktree hygiene matrix, stacked PR chains, and recommended merge order", "mimeType": "application/json"},
+                    {"uri": "portal://adr-graph", "name": "ADR Decision Graph & Runbooks", "description": "Chronological ADR dependency graph and interactive runbook checklists", "mimeType": "application/json"},
+                    {"uri": "portal://mission-control", "name": "Executive Mission Control", "description": "Bento Command Center KPIs, subsystem traffic lights, and prioritized anomalies", "mimeType": "application/json"},
                 ]
             },
         }
@@ -907,6 +988,12 @@ def handle_jsonrpc_request(engine: PortalMcpEngine, req: dict[str, Any], code_mo
             return {"jsonrpc": "2.0", "id": req_id, "result": {"contents": [{"uri": uri, "mimeType": "application/json", "text": json.dumps(engine.dead_code(), indent=2)}]}}
         if uri == "portal://quality-telemetry":
             return {"jsonrpc": "2.0", "id": req_id, "result": {"contents": [{"uri": uri, "mimeType": "application/json", "text": json.dumps(engine.quality_telemetry(), indent=2)}]}}
+        if uri == "portal://git-dag":
+            return {"jsonrpc": "2.0", "id": req_id, "result": {"contents": [{"uri": uri, "mimeType": "application/json", "text": json.dumps(engine.git_dag(), indent=2)}]}}
+        if uri == "portal://adr-graph":
+            return {"jsonrpc": "2.0", "id": req_id, "result": {"contents": [{"uri": uri, "mimeType": "application/json", "text": json.dumps(engine.adr_graph(), indent=2)}]}}
+        if uri == "portal://mission-control":
+            return {"jsonrpc": "2.0", "id": req_id, "result": {"contents": [{"uri": uri, "mimeType": "application/json", "text": json.dumps(engine.mission_control(), indent=2)}]}}
         return {"jsonrpc": "2.0", "id": req_id, "error": {"code": -32602, "message": f"Unknown resource URI: {uri}"}}
 
     if method == "prompts/list":
@@ -963,6 +1050,9 @@ def handle_jsonrpc_request(engine: PortalMcpEngine, req: dict[str, Any], code_mo
             "portal_cve_report": lambda _a: engine.cve_report(),
             "portal_dead_code": lambda _a: engine.dead_code(),
             "portal_deep_audit": lambda _a: engine.deep_audit(),
+            "portal_git_dag": lambda a: engine.git_dag(refresh=bool(a.get("refresh", False))),
+            "portal_adr_graph": lambda a: engine.adr_graph(domain=a.get("domain", ""), status=a.get("status", "")),
+            "portal_mission_control": lambda a: engine.mission_control(refresh=bool(a.get("refresh", False))),
             "portal_discover": lambda a: engine.codemode_discover(a.get("topic", "")),
             "portal_codemode": lambda a: engine.codemode_execute(a.get("code", "")),
         }

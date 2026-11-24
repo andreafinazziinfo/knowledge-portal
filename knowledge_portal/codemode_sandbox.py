@@ -87,6 +87,9 @@ class PortalReadOnlySDK:
         "telemetry",
         "context_pack",
         "read_doc",
+        "git_dag",
+        "adr_graph",
+        "mission_control",
     })
 
     def __init__(self, engine: Any) -> None:
@@ -158,6 +161,15 @@ class PortalReadOnlySDK:
     def read_doc(self, path: str, max_chars: int = 8000) -> dict[str, Any]:
         return self._engine.read_doc(path, max_chars=max_chars)
 
+    def git_dag(self, refresh: bool = False) -> dict[str, Any]:
+        return self._engine.git_dag(refresh=refresh)
+
+    def adr_graph(self, domain: str = "", status: str = "") -> dict[str, Any]:
+        return self._engine.adr_graph(domain=domain, status=status)
+
+    def mission_control(self, refresh: bool = False) -> dict[str, Any]:
+        return self._engine.mission_control(refresh=refresh)
+
 
 def get_codemode_sdk_reference(topic: str = "") -> dict[str, Any]:
     """Return typed SDK reference for `portal_discover` (~1k token footprint)."""
@@ -180,6 +192,9 @@ def get_codemode_sdk_reference(topic: str = "") -> dict[str, Any]:
         {"call": "portal.telemetry()", "returns": "Live host & portal sync telemetry dict"},
         {"call": "portal.context_pack(topic, max_tokens=4000)", "returns": "{topic, estimated_tokens, markdown}"},
         {"call": "portal.read_doc(path, max_chars=8000)", "returns": "{path, content, truncated}"},
+        {"call": "portal.git_dag(refresh=False)", "returns": "{default_branch, summary, worktrees, open_prs, stacked_chains, merge_order, workflows}"},
+        {"call": "portal.adr_graph(domain='', status='')", "returns": "{total_adrs, by_status, by_domain, nodes, edges, runbooks}"},
+        {"call": "portal.mission_control(refresh=False)", "returns": "{kpis, subsystems, anomalies, quick_jumps, hub_extension}"},
     ]
     q = (topic or "").strip().lower()
     if q:

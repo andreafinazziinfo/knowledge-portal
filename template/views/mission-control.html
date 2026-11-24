@@ -1,0 +1,256 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Mission Control — Bento Command Center</title>
+  <link rel="stylesheet" href="portal-theme.css?v=fp3">
+  <script src="../data/mission_control.js" onerror="void(0)"></script>
+  <script src="live-reload.js"></script>
+  <script defer src="portal-ui.js?v=fp4"></script>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body { background: var(--bg, #0f0f0f); color: var(--text, #ececec); font-family: 'Inter', system-ui, sans-serif; min-height: 100vh; }
+    .wrap { max-width: 1400px; margin: 0 auto; padding: 18px 24px 64px; }
+    .topbar { display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 12px; border-bottom: 1px solid var(--border, rgba(255,255,255,0.08)); padding-bottom: 14px; margin-bottom: 18px; }
+    .topbar h1 { font-size: 20px; font-weight: 700; letter-spacing: -0.01em; }
+    .topbar .sub { font-size: 12px; color: var(--text-muted, #8b8b8b); margin-top: 3px; }
+    .actions { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; }
+    .btn { background: var(--bg-elevated, #232323); color: var(--text, #ececec); border: 1px solid var(--border-strong, rgba(255,255,255,0.16)); border-radius: 7px; padding: 6px 12px; font-size: 12px; font-weight: 600; cursor: pointer; transition: border-color .15s; }
+    .btn:hover { border-color: #38bdf8; }
+    .btn.primary { background: #38bdf8; color: #0f0f0f; border-color: #38bdf8; }
+    .kpi-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(155px, 1fr)); gap: 12px; margin-bottom: 18px; }
+    .kpi { background: var(--bg-card, #191919); border: 1px solid var(--border, rgba(255,255,255,0.08)); border-radius: 10px; padding: 14px 16px; position: relative; overflow: hidden; }
+    .kpi-val { font-size: 24px; font-weight: 800; line-height: 1.1; }
+    .kpi-lbl { font-size: 10px; text-transform: uppercase; letter-spacing: 0.06em; color: var(--text-muted, #8b8b8b); margin-top: 5px; }
+    .kpi-sub { font-size: 11px; color: var(--text-2, #b4b4b4); margin-top: 4px; }
+    .bento { display: grid; grid-template-columns: 1.5fr 1fr; gap: 16px; margin-bottom: 18px; }
+    @media (max-width: 980px) { .bento { grid-template-columns: 1fr; } }
+    .card { background: var(--bg-card, #191919); border: 1px solid var(--border, rgba(255,255,255,0.08)); border-radius: 10px; padding: 16px; }
+    .card-h { display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px; gap: 8px; }
+    .card-h h2 { font-size: 12px; text-transform: uppercase; letter-spacing: 0.06em; color: var(--text-2, #b4b4b4); }
+    .sub-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 10px; }
+    .sub-cell { background: var(--bg-sidebar, #141414); border: 1px solid var(--border, rgba(255,255,255,0.08)); border-radius: 8px; padding: 12px; cursor: pointer; transition: border-color .15s, transform .15s; }
+    .sub-cell:hover { border-color: #38bdf8; transform: translateY(-1px); }
+    .sub-top { display: flex; justify-content: space-between; align-items: center; gap: 6px; margin-bottom: 6px; }
+    .sub-title { font-size: 12.5px; font-weight: 700; }
+    .dot { width: 10px; height: 10px; border-radius: 50%; flex-shrink: 0; }
+    .dot-green { background: #34d399; box-shadow: 0 0 8px rgba(52,211,153,0.5); }
+    .dot-amber { background: #fbbf24; box-shadow: 0 0 8px rgba(251,191,36,0.5); }
+    .dot-red { background: #ef4444; box-shadow: 0 0 8px rgba(239,68,68,0.5); }
+    .sub-metric { font-size: 15px; font-weight: 700; margin-bottom: 3px; }
+    .sub-detail { font-size: 11px; color: var(--text-muted, #8b8b8b); line-height: 1.35; }
+    .filter-pills { display: flex; gap: 5px; }
+    .pill { background: var(--bg-elevated, #232323); color: var(--text-2, #b4b4b4); border: 1px solid var(--border, rgba(255,255,255,0.08)); border-radius: 999px; padding: 3px 9px; font-size: 10.5px; font-weight: 600; cursor: pointer; }
+    .pill.active { background: #38bdf8; color: #0f0f0f; border-color: #38bdf8; }
+    .anom-list { display: flex; flex-direction: column; gap: 8px; max-height: 330px; overflow-y: auto; }
+    .anom { background: var(--bg-sidebar, #141414); border: 1px solid var(--border, rgba(255,255,255,0.08)); border-left: 3px solid #38bdf8; border-radius: 7px; padding: 10px 12px; display: flex; justify-content: space-between; align-items: center; gap: 10px; }
+    .anom.P0 { border-left-color: #ef4444; }
+    .anom.P1 { border-left-color: #fbbf24; }
+    .anom.P2 { border-left-color: #38bdf8; }
+    .sev-badge { font-size: 10px; font-weight: 800; padding: 2px 6px; border-radius: 4px; margin-right: 6px; }
+    .sev-P0 { background: #ef4444; color: #fff; }
+    .sev-P1 { background: #fbbf24; color: #0f0f0f; }
+    .sev-P2 { background: #38bdf8; color: #0f0f0f; }
+    .jump-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(190px, 1fr)); gap: 10px; }
+    .jump { background: var(--bg-sidebar, #141414); border: 1px solid var(--border, rgba(255,255,255,0.08)); border-radius: 8px; padding: 11px 13px; cursor: pointer; display: flex; align-items: center; gap: 10px; transition: border-color .15s; text-align: left; color: inherit; }
+    .jump:hover { border-color: #38bdf8; }
+    .jump-ico { font-size: 20px; }
+    .jump-t { font-size: 12.5px; font-weight: 700; }
+    .jump-d { font-size: 11px; color: var(--text-muted, #8b8b8b); margin-top: 2px; }
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <div class="topbar">
+      <div>
+        <h1>🎯 Mission Control — Bento Command Center</h1>
+        <div class="sub" id="mc-subtitle">Executive Single Pane of Glass · Architecture, Security, Git DAG, ADRs &amp; AI Readiness</div>
+      </div>
+      <div class="actions">
+        <button class="btn" id="btn-refresh" type="button">↻ Refresh</button>
+        <button class="btn" id="btn-export" type="button">⬇ Export JSON</button>
+        <button class="btn primary" id="btn-ai-launch" type="button">🚀 Launch AI Mission</button>
+      </div>
+    </div>
+
+    <div class="kpi-grid" id="mc-kpis"></div>
+
+    <div class="bento">
+      <section class="card">
+        <div class="card-h">
+          <h2>Subsystem Traffic-Light Matrix</h2>
+          <span id="mc-updated" style="font-size:11px;color:var(--text-muted,#8b8b8b);"></span>
+        </div>
+        <div class="sub-grid" id="mc-subsystems"></div>
+      </section>
+
+      <section class="card">
+        <div class="card-h">
+          <h2>Priority Anomaly &amp; Action Feed</h2>
+          <div class="filter-pills" id="sev-filters">
+            <button class="pill active" data-sev="ALL" type="button">All</button>
+            <button class="pill" data-sev="P0" type="button">P0</button>
+            <button class="pill" data-sev="P1" type="button">P1</button>
+            <button class="pill" data-sev="P2" type="button">P2</button>
+          </div>
+        </div>
+        <div class="anom-list" id="mc-anomalies"></div>
+      </section>
+    </div>
+
+    <section class="card">
+      <div class="card-h">
+        <h2>Quick-Jump Command Views</h2>
+        <span style="font-size:11px;color:var(--text-muted,#8b8b8b);">1-click navigation across Knowledge Portal</span>
+      </div>
+      <div class="jump-grid" id="mc-jumps"></div>
+    </section>
+  </div>
+
+  <script>
+    function esc(s) { return String(s ?? '').replace(/[&<>"']/g, m => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m])); }
+    function jumpToView(tabId) {
+      if (!tabId) return;
+      try {
+        if (window.parent && window.parent !== window && typeof window.parent.switchTab === 'function') {
+          window.parent.switchTab(tabId);
+          return;
+        }
+        window.parent.postMessage({ action: 'switchTab', tab: tabId }, '*');
+      } catch (_) {}
+      if (window.self === window.top) {
+        window.location.href = tabId + '.html';
+      }
+    }
+
+    let CURRENT_DATA = null;
+    let ACTIVE_SEV = 'ALL';
+
+    function renderSparkline(score) {
+      const pct = Math.max(0, Math.min(100, Number(score) || 0));
+      const col = pct >= 80 ? '#34d399' : (pct >= 60 ? '#fbbf24' : '#ef4444');
+      const dash = Math.round((pct / 100) * 88);
+      return `<svg width="36" height="36" viewBox="0 0 36 36" style="position:absolute;right:12px;top:12px;" aria-hidden="true">
+        <circle cx="18" cy="18" r="14" fill="none" stroke="rgba(255,255,255,0.1)" stroke-width="3.5"/>
+        <circle cx="18" cy="18" r="14" fill="none" stroke="${col}" stroke-width="3.5" stroke-dasharray="${dash} 88" stroke-linecap="round" transform="rotate(-90 18 18)"/>
+      </svg>`;
+    }
+
+    function renderAnomalies() {
+      const box = document.getElementById('mc-anomalies');
+      const items = (CURRENT_DATA && CURRENT_DATA.anomalies) || [];
+      const filtered = ACTIVE_SEV === 'ALL' ? items : items.filter(a => a.severity === ACTIVE_SEV);
+      if (!filtered.length) {
+        box.innerHTML = '<div style="font-size:12px;color:#34d399;padding:12px;background:var(--bg-sidebar,#141414);border-radius:7px;">✅ No anomalies matching filter. All systems nominal.</div>';
+        return;
+      }
+      box.innerHTML = filtered.map(a => `
+        <div class="anom ${esc(a.severity)}">
+          <div>
+            <div style="font-size:12.5px;font-weight:700;margin-bottom:3px;">
+              <span class="sev-badge sev-${esc(a.severity)}">${esc(a.severity)}</span>
+              <span>${esc(a.title)}</span>
+            </div>
+            <div style="font-size:11px;color:var(--text-muted,#8b8b8b);">${esc(a.detail)}</div>
+          </div>
+          <button class="btn" type="button" onclick="jumpToView('${esc(a.view)}')">${esc(a.action_label || 'Open')}</button>
+        </div>
+      `).join('');
+    }
+
+    function render(d) {
+      CURRENT_DATA = d;
+      const k = d.kpis || {};
+      const scoreCol = (k.health_score || 0) >= 80 ? '#34d399' : ((k.health_score || 0) >= 60 ? '#fbbf24' : '#ef4444');
+      document.getElementById('mc-subtitle').textContent = `Project: ${d.project_name || 'Workspace'} · ${k.total_nodes || 0} AST nodes · ${k.total_edges || 0} edges`;
+      document.getElementById('mc-updated').textContent = d.generated_at ? ('Updated ' + d.generated_at.slice(0, 19).replace('T', ' ') + ' UTC') : '';
+
+      const kpiCards = [
+        { v: `${k.health_score ?? 0}`, sub: `Grade ${k.grade || 'N/A'}`, l: 'Arch Health', col: scoreCol, extra: renderSparkline(k.health_score) },
+        { v: k.runtime_bugs_count ?? 0, sub: `${k.critical_findings ?? 0} CRITICAL`, l: 'Runtime Bugs v2', col: (k.critical_findings || 0) > 0 ? '#ef4444' : '#34d399' },
+        { v: k.cve_total ?? 0, sub: `${k.cve_critical_high ?? 0} Crit/High`, l: 'CI / CVE Alerts', col: (k.cve_critical_high || 0) > 0 ? '#ef4444' : '#34d399' },
+        { v: k.dead_code_count ?? 0, sub: 'Unreferenced symbols', l: 'Dead Code', col: (k.dead_code_count || 0) > 20 ? '#fbbf24' : '#ececec' },
+        { v: `${k.compliance_score ?? 0}%`, sub: `${k.controls_passed ?? 0}/${k.controls_total ?? 0} controls`, l: 'Compliance', col: (k.compliance_score || 0) >= 80 ? '#34d399' : '#fbbf24' },
+        { v: `${k.open_prs ?? 0} / ${k.active_worktrees ?? 0}`, sub: `${k.stacked_chains ?? 0} stacked · ${k.stale_worktrees ?? 0} stale`, l: 'PRs / Worktrees', col: '#38bdf8' },
+        { v: `${k.total_adrs ?? 0} / ${k.total_runbooks ?? 0}`, sub: `${k.proposed_adrs ?? 0} proposed ADRs`, l: 'ADRs / Runbooks', col: '#c084fc' },
+        { v: k.ai_readiness || 'READY', sub: `${k.ai_sdks ?? 0} SDKs · ${k.ai_prompts ?? 0} prompts`, l: 'AI Mission Ready', col: '#34d399' },
+      ];
+      document.getElementById('mc-kpis').innerHTML = kpiCards.map(c => `
+        <div class="kpi">
+          ${c.extra || ''}
+          <div class="kpi-val" style="color:${c.col};">${esc(c.v)}</div>
+          <div class="kpi-lbl">${esc(c.l)}</div>
+          <div class="kpi-sub">${esc(c.sub)}</div>
+        </div>
+      `).join('');
+
+      const subs = d.subsystems || [];
+      document.getElementById('mc-subsystems').innerHTML = subs.map(s => `
+        <div class="sub-cell" onclick="jumpToView('${esc(s.view)}')">
+          <div class="sub-top">
+            <span class="sub-title">${esc(s.title)}</span>
+            <span class="dot dot-${esc(s.status || 'amber')}" title="${esc(s.status)}"></span>
+          </div>
+          <div class="sub-metric">${esc(s.metric)}</div>
+          <div class="sub-detail">${esc(s.detail)}</div>
+        </div>
+      `).join('');
+
+      renderAnomalies();
+
+      const jumps = d.quick_jumps || [];
+      document.getElementById('mc-jumps').innerHTML = jumps.map(j => `
+        <button class="jump" type="button" onclick="jumpToView('${esc(j.id)}')">
+          <span class="jump-ico">${esc(j.icon || '📊')}</span>
+          <div>
+            <div class="jump-t">${esc(j.title)}</div>
+            <div class="jump-d">${esc(j.desc)}</div>
+          </div>
+        </button>
+      `).join('');
+    }
+
+    async function loadData(refresh) {
+      if (!refresh && window.MISSION_CONTROL && window.MISSION_CONTROL.kpis) {
+        render(window.MISSION_CONTROL);
+        return;
+      }
+      const urls = refresh
+        ? ['/api/mission-control?refresh=1']
+        : ['/api/mission-control', '../data/mission-control.json'];
+      for (const u of urls) {
+        try {
+          const r = await fetch(u);
+          if (r.ok) {
+            const j = await r.json();
+            if (j && j.kpis) { render(j); return; }
+          }
+        } catch (_) {}
+      }
+    }
+
+    document.querySelectorAll('#sev-filters .pill').forEach(btn => {
+      btn.addEventListener('click', () => {
+        document.querySelectorAll('#sev-filters .pill').forEach(b => b.classList.remove('active'));
+        btn.classList.add('active');
+        ACTIVE_SEV = btn.dataset.sev || 'ALL';
+        renderAnomalies();
+      });
+    });
+
+    document.getElementById('btn-refresh').addEventListener('click', () => loadData(true));
+    document.getElementById('btn-ai-launch').addEventListener('click', () => jumpToView('ai-mission-launcher'));
+    document.getElementById('btn-export').addEventListener('click', () => {
+      if (!CURRENT_DATA) return;
+      const blob = new Blob([JSON.stringify(CURRENT_DATA, null, 2)], { type: 'application/json' });
+      const a = document.createElement('a');
+      a.href = URL.createObjectURL(blob);
+      a.download = 'mission-control-brief.json';
+      a.click();
+    });
+
+    loadData(false);
+  </script>
+</body>
+</html>

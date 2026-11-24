@@ -1,0 +1,303 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>AI Mission Pack &amp; CodeMode Workbench</title>
+  <link rel="stylesheet" href="portal-theme.css?v=fp3">
+  <script src="live-reload.js"></script>
+  <script defer src="portal-ui.js?v=fp4"></script>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body { background: var(--bg, #0f0f0f); color: var(--text, #ececec); font-family: 'Inter', system-ui, sans-serif; min-height: 100vh; }
+    .wrap { max-width: 1440px; margin: 0 auto; padding: 18px 24px 64px; }
+    .topbar { display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 12px; border-bottom: 1px solid var(--border, rgba(255,255,255,0.08)); padding-bottom: 14px; margin-bottom: 16px; }
+    .topbar h1 { font-size: 20px; font-weight: 700; }
+    .sub { font-size: 12px; color: var(--text-muted, #8b8b8b); margin-top: 3px; }
+    .workbench { display: grid; grid-template-columns: 280px 1fr 1.1fr; gap: 14px; align-items: start; }
+    @media (max-width: 1100px) { .workbench { grid-template-columns: 1fr; } }
+    .card { background: var(--bg-card, #191919); border: 1px solid var(--border, rgba(255,255,255,0.08)); border-radius: 10px; padding: 14px; margin-bottom: 14px; }
+    .card h2 { font-size: 11.5px; text-transform: uppercase; letter-spacing: 0.06em; color: var(--text-2, #b4b4b4); margin-bottom: 10px; display: flex; justify-content: space-between; align-items: center; }
+    .preset { width: 100%; text-align: left; background: var(--bg-sidebar, #141414); color: var(--text, #ececec); border: 1px solid var(--border, rgba(255,255,255,0.08)); border-radius: 7px; padding: 9px 11px; margin-bottom: 7px; cursor: pointer; transition: border-color .15s; }
+    .preset:hover { border-color: #38bdf8; }
+    .preset-t { font-size: 12px; font-weight: 700; }
+    .preset-d { font-size: 10.5px; color: var(--text-muted, #8b8b8b); margin-top: 2px; }
+    .inp, .ta { width: 100%; background: var(--bg-sidebar, #141414); color: var(--text, #ececec); border: 1px solid var(--border-strong, rgba(255,255,255,0.16)); border-radius: 7px; padding: 8px 10px; font-size: 12px; font-family: inherit; margin-bottom: 8px; }
+    .ta { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; min-height: 120px; resize: vertical; }
+    .row { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; margin-bottom: 8px; }
+    .btn { background: var(--bg-elevated, #232323); color: var(--text, #ececec); border: 1px solid var(--border-strong, rgba(255,255,255,0.16)); border-radius: 7px; padding: 7px 12px; font-size: 12px; font-weight: 600; cursor: pointer; }
+    .btn:hover { border-color: #38bdf8; }
+    .btn.primary { background: #38bdf8; color: #0f0f0f; border-color: #38bdf8; }
+    .out-pre { background: #111; border: 1px solid var(--border, rgba(255,255,255,0.08)); border-radius: 8px; padding: 12px; font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 11.5px; line-height: 1.45; white-space: pre-wrap; word-break: break-word; max-height: 520px; overflow-y: auto; color: #e5e7eb; }
+    .mcp-item { background: var(--bg-sidebar, #141414); border: 1px solid var(--border, rgba(255,255,255,0.08)); border-radius: 6px; padding: 7px 9px; margin-bottom: 6px; font-size: 11px; display: flex; justify-content: space-between; align-items: center; gap: 6px; }
+    .mcp-item code { color: #38bdf8; font-size: 11px; }
+    .badge { font-size: 10px; font-weight: 700; padding: 2px 7px; border-radius: 4px; background: rgba(56,189,248,0.18); color: #38bdf8; }
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <div class="topbar">
+      <div>
+        <h1>🚀 AI Mission Pack &amp; CodeMode Workbench</h1>
+        <div class="sub">Generate token-budgeted AI context packs, run AST-sandboxed CodeMode queries &amp; copy ready-to-use MCP prompts</div>
+      </div>
+      <div class="row" style="margin:0;">
+        <span class="badge" id="tok-badge">~0 tokens</span>
+        <button class="btn primary" id="btn-copy-out" type="button">📋 Copy Context Pack</button>
+        <button class="btn" id="btn-dl-md" type="button">⬇ Export .md</button>
+      </div>
+    </div>
+
+    <div class="workbench">
+      <!-- Column 1: Presets & MCP Catalog -->
+      <div>
+        <section class="card">
+          <h2>1-Click Mission Presets</h2>
+          <div id="preset-list"></div>
+        </section>
+
+        <section class="card">
+          <h2>MCP v2 Tools &amp; Resources</h2>
+          <div id="mcp-catalog" style="max-height:290px;overflow-y:auto;"></div>
+        </section>
+      </div>
+
+      <!-- Column 2: Mission Builder & CodeMode Sandbox -->
+      <div>
+        <section class="card">
+          <h2>Interactive Mission Pack Builder</h2>
+          <input id="mission-task" class="inp" type="search" placeholder="Task or target module (e.g. server auth, git_dag, api_catalog) ...">
+          <div class="row">
+            <label style="font-size:11.5px;color:var(--text-muted,#8b8b8b);">Budget: <strong id="tok-lbl">4000</strong> tokens</label>
+            <input id="mission-budget" type="range" min="1000" max="12000" step="500" value="4000" style="flex:1;">
+          </div>
+          <div class="row">
+            <button class="btn primary" id="btn-run-mission" type="button">⚡ Generate Mission Pack</button>
+            <button class="btn" id="btn-run-impact" type="button">💥 Blast Radius</button>
+            <button class="btn" id="btn-run-pr" type="button">🌿 PR Context</button>
+          </div>
+        </section>
+
+        <section class="card">
+          <h2>CodeMode Read-Only AST Sandbox</h2>
+          <textarea id="cm-code" class="ta">mc = portal.mission_control()
+dag = portal.git_dag()
+result = {
+    "health": mc.get("kpis", {}).get("health_score"),
+    "anomalies": len(mc.get("anomalies", [])),
+    "worktrees": dag.get("summary", {}).get("total_worktrees", 0),
+}</textarea>
+          <div class="row">
+            <button class="btn primary" id="btn-run-cm" type="button">▶ Run in Sandbox</button>
+            <button class="btn" id="btn-cm-adr" type="button">Sample: ADRs</button>
+            <button class="btn" id="btn-cm-health" type="button">Sample: Health</button>
+          </div>
+        </section>
+
+        <section class="card">
+          <h2>Recent Missions</h2>
+          <div id="hist-list" style="font-size:11.5px;color:var(--text-muted,#8b8b8b);">No missions run yet.</div>
+        </section>
+      </div>
+
+      <!-- Column 3: Structured Output -->
+      <section class="card">
+        <h2>
+          <span>Structured Output</span>
+          <span id="out-mode" class="badge">READY</span>
+        </h2>
+        <pre class="out-pre" id="out-pre"># AI Mission Workbench Ready
+
+Select a 1-click preset on the left, enter a task in the Mission Pack Builder,
+or execute a read-only Python query in the CodeMode AST Sandbox.
+
+All outputs are formatted for direct copy-paste into any AI coding agent.</pre>
+      </section>
+    </div>
+  </div>
+
+  <script>
+    function esc(s) { return String(s ?? '').replace(/[&<>"']/g, m => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m])); }
+    const HIST_KEY = 'kp_ai_mission_history_v1';
+    let LAST_TEXT = '';
+
+    const PRESETS = [
+      { id: 'blast', title: '💥 Pre-PR Blast Radius', desc: 'Impact + callers + invariants check', task: 'server', mode: 'mission' },
+      { id: 'onboard', title: '🧭 Onboard Core Module', desc: 'Context pack + call chains + health', task: 'mcp_server', mode: 'mission' },
+      { id: 'security', title: '🛡️ Security & Invariants Audit', desc: 'Read-only invariants + compliance', task: 'security', mode: 'invariants' },
+      { id: 'git', title: '🌿 Review Stacked PR & Worktrees', desc: 'Git DAG + PR doc-drift context', task: 'main', mode: 'pr' },
+      { id: 'adr', title: '📘 ADR & Runbook Briefing', desc: 'Summarize ADRs & runbooks via CodeMode', mode: 'cm_adr' },
+      { id: 'exec', title: '🎯 Executive Mission Control Brief', desc: 'KPI snapshot + top anomalies', mode: 'mc' },
+    ];
+
+    const MCP_CATALOG = [
+      { name: 'portal_mission_control', prompt: 'Call portal_mission_control() and summarize top P0/P1 anomalies and subsystem health.' },
+      { name: 'portal_git_dag', prompt: 'Call portal_git_dag() and list recommended PR merge order and stale/dirty worktrees.' },
+      { name: 'portal_adr_graph', prompt: 'Call portal_adr_graph() and summarize accepted vs proposed ADRs and available runbooks.' },
+      { name: 'portal_mission_pack', prompt: 'Call portal_mission_pack(task="<your-task>", max_tokens=4000) before editing any files.' },
+      { name: 'portal_validate_change', prompt: 'Call portal_validate_change(paths=["path/to/file.py"]) to verify invariants and blast radius.' },
+      { name: 'portal_codemode', prompt: 'Call portal_codemode(code="result = portal.mission_control()[\'kpis\']") for custom read-only queries.' },
+      { name: 'portal://mission-control', prompt: 'Read MCP resource portal://mission-control for the executive JSON snapshot.' },
+      { name: 'portal://git-dag', prompt: 'Read MCP resource portal://git-dag for worktree hygiene and stacked-PR DAG.' },
+      { name: 'portal://adr-graph', prompt: 'Read MCP resource portal://adr-graph for the ADR dependency graph and runbooks.' },
+    ];
+
+    function setOutput(label, text) {
+      LAST_TEXT = text;
+      document.getElementById('out-mode').textContent = label;
+      document.getElementById('out-pre').textContent = text;
+      const est = Math.max(1, Math.round(text.length / 4));
+      document.getElementById('tok-badge').textContent = `~${est} tokens`;
+    }
+
+    function pushHistory(title) {
+      let arr = [];
+      try { arr = JSON.parse(localStorage.getItem(HIST_KEY) || '[]'); } catch (_) {}
+      arr.unshift({ title, ts: new Date().toISOString().slice(11, 19) });
+      arr = arr.slice(0, 8);
+      try { localStorage.setItem(HIST_KEY, JSON.stringify(arr)); } catch (_) {}
+      renderHistory(arr);
+    }
+
+    function renderHistory(arr) {
+      const box = document.getElementById('hist-list');
+      if (!arr || !arr.length) { box.textContent = 'No missions run yet.'; return; }
+      box.innerHTML = arr.map(h => `<div style="padding:4px 0;border-bottom:1px solid var(--border,rgba(255,255,255,0.06));">${esc(h.ts)} · <strong>${esc(h.title)}</strong></div>`).join('');
+    }
+
+    async function runMissionPack(task) {
+      const q = (task || document.getElementById('mission-task').value || 'architecture').trim();
+      const budget = document.getElementById('mission-budget').value || '4000';
+      setOutput('LOADING', `Generating Mission Pack for "${q}"...`);
+      try {
+        const r = await fetch(`/api/mission-pack?task=${encodeURIComponent(q)}&max_tokens=${encodeURIComponent(budget)}`);
+        const j = await r.json();
+        setOutput('MISSION PACK', j.markdown || JSON.stringify(j, null, 2));
+        pushHistory(`Mission: ${q}`);
+      } catch (e) {
+        setOutput('ERROR', 'Failed to fetch /api/mission-pack: ' + e.message);
+      }
+    }
+
+    async function runImpact() {
+      const q = (document.getElementById('mission-task').value || 'server').trim();
+      setOutput('LOADING', `Computing blast radius for "${q}"...`);
+      try {
+        const r = await fetch(`/api/impact?target=${encodeURIComponent(q)}&depth=3`);
+        const j = await r.json();
+        setOutput('BLAST RADIUS', JSON.stringify(j, null, 2));
+        pushHistory(`Impact: ${q}`);
+      } catch (e) {
+        setOutput('ERROR', e.message);
+      }
+    }
+
+    async function runPrContext(base) {
+      const b = base || 'main';
+      setOutput('LOADING', `Computing PR context against "${b}"...`);
+      try {
+        const r = await fetch(`/api/pr-context?base=${encodeURIComponent(b)}`);
+        const j = await r.json();
+        setOutput('PR CONTEXT', j.pr_comment_markdown || JSON.stringify(j, null, 2));
+        pushHistory(`PR Context: ${b}`);
+      } catch (e) {
+        setOutput('ERROR', e.message);
+      }
+    }
+
+    async function runCodeMode(codeOverride) {
+      const code = codeOverride || document.getElementById('cm-code').value;
+      if (codeOverride) document.getElementById('cm-code').value = codeOverride;
+      setOutput('SANDBOX', 'Executing CodeMode AST sandbox...');
+      try {
+        const r = await fetch('/api/codemode', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ code }),
+        });
+        const j = await r.json();
+        setOutput(j.ok ? 'CODEMODE OK' : 'CODEMODE ERR', JSON.stringify(j, null, 2));
+        pushHistory('CodeMode query');
+      } catch (e) {
+        setOutput('ERROR', e.message);
+      }
+    }
+
+    document.getElementById('preset-list').innerHTML = PRESETS.map(p => `
+      <button class="preset" type="button" data-pid="${p.id}">
+        <div class="preset-t">${esc(p.title)}</div>
+        <div class="preset-d">${esc(p.desc)}</div>
+      </button>
+    `).join('');
+
+    document.querySelectorAll('.preset').forEach(btn => {
+      btn.addEventListener('click', async () => {
+        const p = PRESETS.find(x => x.id === btn.dataset.pid);
+        if (!p) return;
+        if (p.mode === 'mission') {
+          document.getElementById('mission-task').value = p.task;
+          await runMissionPack(p.task);
+        } else if (p.mode === 'pr') {
+          await runPrContext(p.task);
+        } else if (p.mode === 'invariants') {
+          const r = await fetch('/api/invariants');
+          setOutput('INVARIANTS', JSON.stringify(await r.json(), null, 2));
+          pushHistory('Invariants Audit');
+        } else if (p.mode === 'mc') {
+          const r = await fetch('/api/mission-control');
+          setOutput('MISSION CONTROL', JSON.stringify(await r.json(), null, 2));
+          pushHistory('Executive Brief');
+        } else if (p.mode === 'cm_adr') {
+          await runCodeMode('g = portal.adr_graph()\nresult = {"summary": g.get("summary"), "runbooks": [r.get("title") for r in g.get("runbooks", [])]}');
+        }
+      });
+    });
+
+    document.getElementById('mcp-catalog').innerHTML = MCP_CATALOG.map((m, i) => `
+      <div class="mcp-item">
+        <code>${esc(m.name)}</code>
+        <button class="btn" style="padding:3px 7px;font-size:10.5px;" type="button" data-mi="${i}">Copy Prompt</button>
+      </div>
+    `).join('');
+
+    document.querySelectorAll('#mcp-catalog button').forEach(btn => {
+      btn.addEventListener('click', () => {
+        const item = MCP_CATALOG[Number(btn.dataset.mi)];
+        if (item && navigator.clipboard && navigator.clipboard.writeText) {
+          navigator.clipboard.writeText(item.prompt);
+        }
+        btn.textContent = 'Copied!';
+        setTimeout(() => { btn.textContent = 'Copy Prompt'; }, 1300);
+      });
+    });
+
+    document.getElementById('mission-budget').addEventListener('input', e => {
+      document.getElementById('tok-lbl').textContent = e.target.value;
+    });
+    document.getElementById('btn-run-mission').addEventListener('click', () => runMissionPack());
+    document.getElementById('btn-run-impact').addEventListener('click', runImpact);
+    document.getElementById('btn-run-pr').addEventListener('click', () => runPrContext('main'));
+    document.getElementById('btn-run-cm').addEventListener('click', () => runCodeMode());
+    document.getElementById('btn-cm-adr').addEventListener('click', () => runCodeMode('g = portal.adr_graph()\nresult = {"total_adrs": g.get("total_adrs"), "by_status": g.get("by_status"), "runbooks": len(g.get("runbooks", []))}'));
+    document.getElementById('btn-cm-health').addEventListener('click', () => runCodeMode('h = portal.health()\nresult = h.get("summary", {})'));
+
+    document.getElementById('btn-copy-out').addEventListener('click', () => {
+      const txt = LAST_TEXT || document.getElementById('out-pre').textContent || '';
+      if (navigator.clipboard && navigator.clipboard.writeText) navigator.clipboard.writeText(txt);
+      const b = document.getElementById('btn-copy-out');
+      b.textContent = '✅ Copied!';
+      setTimeout(() => { b.textContent = '📋 Copy Context Pack'; }, 1400);
+    });
+    document.getElementById('btn-dl-md').addEventListener('click', () => {
+      const txt = LAST_TEXT || document.getElementById('out-pre').textContent || '';
+      const blob = new Blob([txt], { type: 'text/markdown' });
+      const a = document.createElement('a');
+      a.href = URL.createObjectURL(blob);
+      a.download = 'ai-mission-pack.md';
+      a.click();
+    });
+
+    try { renderHistory(JSON.parse(localStorage.getItem(HIST_KEY) || '[]')); } catch (_) {}
+  </script>
+</body>
+</html>

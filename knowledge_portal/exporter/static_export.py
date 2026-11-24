@@ -22,6 +22,9 @@ from knowledge_portal.generators.compliance_evidence import generate_compliance_
 from knowledge_portal.generators.cve_ingestor import generate_cve_report
 from knowledge_portal.generators.stack_inventory import generate_stack_inventory
 from knowledge_portal.generators.llms_txt import generate_llms_manifests
+from knowledge_portal.generators.git_dag import generate_git_dag
+from knowledge_portal.generators.adr_graph import generate_adr_graph
+from knowledge_portal.generators.mission_control import generate_mission_control
 
 def export_static_portal(source_dir: Path, output_dir: Path, project_name: Optional[str] = None) -> Dict[str, Any]:
     source_dir = source_dir.resolve()
@@ -63,6 +66,9 @@ def export_static_portal(source_dir: Path, output_dir: Path, project_name: Optio
     generate_stack_inventory(source_dir, data_dir)
     generate_cve_report(source_dir, data_dir)
     generate_compliance_evidence(source_dir, data_dir)
+    generate_git_dag(source_dir, data_dir)
+    generate_adr_graph(source_dir, data_dir)
+    generate_mission_control(source_dir, data_dir)
     generate_llms_manifests(source_dir, data_dir, output_dir, project_name=project_name)
 
     # 3. Generate Search Index into output_dir/views/data/omni-search-index.json

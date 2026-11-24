@@ -135,9 +135,12 @@ class PortalRequestHandler(SimpleHTTPRequestHandler):
 
     def _run_background_rebuild(self) -> None:
         try:
+            from knowledge_portal.generators.adr_graph import generate_adr_graph
             from knowledge_portal.generators.api_catalog import generate_api_catalog
             from knowledge_portal.generators.arch_health import generate_arch_health
+            from knowledge_portal.generators.git_dag import generate_git_dag
             from knowledge_portal.generators.llms_txt import generate_llms_manifests
+            from knowledge_portal.generators.mission_control import generate_mission_control
             from knowledge_portal.generators.stack_inventory import generate_stack_inventory
             from knowledge_portal.scanner.polyglot import scan_polyglot_codebase
 
@@ -149,6 +152,9 @@ class PortalRequestHandler(SimpleHTTPRequestHandler):
             generate_stack_inventory(self.project_dir, data_dir)
             PortalRequestHandler._rebuild_state.update({"phase": "health", "processed": 3, "percent": 75, "message": "Running Health Engine 4.0..."})
             generate_arch_health(data_dir, project_dir=self.project_dir)
+            generate_git_dag(self.project_dir, data_dir)
+            generate_adr_graph(self.project_dir, data_dir)
+            generate_mission_control(self.project_dir, data_dir)
             generate_llms_manifests(self.project_dir, data_dir, self.template_dir)
             PortalRequestHandler._rebuild_state.update({"rebuilding": False, "phase": "done", "processed": 4, "percent": 100, "message": "Rebuild complete"})
         except Exception as exc:
@@ -500,6 +506,25 @@ class PortalRequestHandler(SimpleHTTPRequestHandler):
             from knowledge_portal.mcp_server import PortalMcpEngine
             eng = PortalMcpEngine(self.project_dir, self.template_dir / "data")
             self.send_json(eng.quality_telemetry())
+
+        elif path == "/api/git-dag":
+            from knowledge_portal.mcp_server import PortalMcpEngine
+            refresh = query.get("refresh", ["0"])[0] in ("1", "true", "yes")
+            eng = PortalMcpEngine(self.project_dir, self.template_dir / "data")
+            self.send_json(eng.git_dag(refresh=refresh))
+
+        elif path == "/api/adr-graph":
+            from knowledge_portal.mcp_server import PortalMcpEngine
+            domain = query.get("domain", [""])[0]
+            status = query.get("status", [""])[0]
+            eng = PortalMcpEngine(self.project_dir, self.template_dir / "data")
+            self.send_json(eng.adr_graph(domain=domain, status=status))
+
+        elif path == "/api/mission-control":
+            from knowledge_portal.mcp_server import PortalMcpEngine
+            refresh = query.get("refresh", ["0"])[0] in ("1", "true", "yes")
+            eng = PortalMcpEngine(self.project_dir, self.template_dir / "data")
+            self.send_json(eng.mission_control(refresh=refresh))
 
         elif path == "/api/file":
             filepath = query.get("path", [""])[0]
