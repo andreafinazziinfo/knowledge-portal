@@ -1828,7 +1828,7 @@ def analyze_health_v4(
             continue
         rp = round(100.0 * tf / pf, 1) if pf > 0 else 100.0
         by_domain.append({"domain": d, "prod_files": pf, "test_files": tf, "ratio_pct": rp})
-    by_domain.sort(key=lambda x: (x["ratio_pct"], -x["prod_files"]))
+    by_domain.sort(key=lambda x: (-x["prod_files"], x["ratio_pct"]))
 
     # Check #8: Supply chain + Context bombs + llms.txt drift
     sc_info = _check_pyproject_and_lockfiles(project_dir)
