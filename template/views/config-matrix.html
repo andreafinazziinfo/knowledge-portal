@@ -48,6 +48,7 @@
       <input id="cm-q" class="inp" type="search" placeholder="Filter variable name or file..." oninput="render()">
       <button class="chip active" onclick="setMode('all', this)">All</button>
       <button class="chip" onclick="setMode('drift', this)">Drift Only</button>
+      <button class="chip" onclick="setMode('builtin', this)">Built-in</button>
       <button class="chip" onclick="setMode('flags', this)">Feature Flags</button>
     </div>
 
@@ -88,7 +89,8 @@
     function render() {
       const q = (document.getElementById('cm-q').value || '').trim().toLowerCase();
       const rows = (DATA.variables || []).filter(v => {
-        if (mode === 'drift' && v.status === 'OK') return false;
+        if (mode === 'drift' && (v.status === 'OK' || v.status === 'BUILTIN')) return false;
+        if (mode === 'builtin' && v.status !== 'BUILTIN') return false;
         if (mode === 'flags' && !v.is_feature_flag) return false;
         if (!q) return true;
         return `${v.name} ${(v.files || []).join(' ')}`.toLowerCase().includes(q);
@@ -118,6 +120,7 @@
         { v: s.total_variables ?? 0, l: 'Total Env Vars' },
         { v: s.undocumented_count ?? 0, l: 'Undocumented (Drift)', col: (s.undocumented_count || 0) > 0 ? '#ef4444' : '#34d399' },
         { v: s.unused_count ?? 0, l: 'Unused in .env.example', col: '#f59e0b' },
+        { v: s.builtin_count ?? 0, l: 'Built-in (Vite/Node/OS)', col: '#38bdf8' },
         { v: s.feature_flags_count ?? 0, l: 'Feature Flags', col: '#818cf8' },
       ].map(k => `<div class="kpi"><div class="kpi-v" style="${k.col ? 'color:' + k.col : ''}">${k.v}</div><div class="kpi-l">${k.l}</div></div>`).join('');
       render();

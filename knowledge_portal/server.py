@@ -425,7 +425,7 @@ class PortalRequestHandler(SimpleHTTPRequestHandler):
             eng = PortalMcpEngine(self.project_dir, self.template_dir / "data")
             rep = eng.health_audit()
             if fmt == "sarif":
-                self.send_json(render_sarif_report(rep))
+                self.send_json(render_sarif_report(rep, iac_topology=eng.iac_topology(), cve_report=eng.cve_report()))
             else:
                 md_bytes = render_markdown_report(rep, project_name=self.project_dir.name).encode("utf-8")
                 self.send_response(200)
@@ -485,6 +485,11 @@ class PortalRequestHandler(SimpleHTTPRequestHandler):
             fw = query.get("framework", ["all"])[0]
             eng = PortalMcpEngine(self.project_dir, self.template_dir / "data")
             self.send_json(eng.compliance_posture(framework=fw))
+
+        elif path == "/api/cve-report":
+            from knowledge_portal.mcp_server import PortalMcpEngine
+            eng = PortalMcpEngine(self.project_dir, self.template_dir / "data")
+            self.send_json(eng.cve_report())
 
         elif path == "/api/file":
             filepath = query.get("path", [""])[0]

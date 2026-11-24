@@ -44,6 +44,7 @@ def generate_compliance_evidence(project_dir: Path, data_dir: Path) -> dict[str,
     sbom = _load_json(data_dir / "sbom.cdx.json")
     iac = _load_json(data_dir / "iac-topology.json")
     ai_reg = _load_json(data_dir / "ai-registry.json")
+    cve = _load_json(data_dir / "cve-report.json")
 
     hv4 = health.get("health_v4") or {}
     owasp = hv4.get("owasp_audit") or {}
@@ -52,6 +53,10 @@ def generate_compliance_evidence(project_dir: Path, data_dir: Path) -> dict[str,
     obs = hv4.get("observability") or {}
     sc = hv4.get("supply_chain_and_ai") or {}
     h_sum = health.get("summary") or {}
+    cve_sum = cve.get("summary") or {}
+    cve_crit = int(cve_sum.get("critical", 0))
+    cve_high = int(cve_sum.get("high", 0))
+    cve_total = int(cve_sum.get("total", 0))
 
     has_license = any((project_dir / f).is_file() for f in ("LICENSE", "LICENSE.md", "LICENSE.txt"))
     has_security_md = any((project_dir / f).is_file() for f in ("SECURITY.md", ".github/SECURITY.md"))
@@ -76,9 +81,9 @@ def generate_compliance_evidence(project_dir: Path, data_dir: Path) -> dict[str,
         _ctrl("SOC2", "CC6.1", "Logical Access & Auth on Mutating APIs",
               "PASS" if unauth_routes == 0 else ("WARN" if unauth_routes <= 2 else "FAIL"),
               f"{unauth_routes} unprotected mutating routes scanned (arch-health.json)"),
-        _ctrl("SOC2", "CC6.6", "Zero Critical OWASP Vulnerabilities / Secrets",
-              "PASS" if ow_crit == 0 else "FAIL",
-              f"{ow_crit} CRITICAL OWASP findings (arch-health.json)"),
+        _ctrl("SOC2", "CC6.6", "Zero Critical OWASP / CVE Vulnerabilities",
+              "PASS" if (ow_crit == 0 and cve_crit == 0) else "FAIL",
+              f"{ow_crit} CRITICAL OWASP findings, {cve_crit} CRITICAL CVEs ({cve_total} total CVEs)"),
         _ctrl("SOC2", "CC7.1", "System Monitoring & Health Probes",
               "PASS" if has_probes else "WARN",
               f"/health probe present={has_probes}, Reliability AST issues={rel.get('total_issues', 0)}"),
@@ -87,9 +92,9 @@ def generate_compliance_evidence(project_dir: Path, data_dir: Path) -> dict[str,
               f"CI workflows={has_ci}, CODEOWNERS={has_codeowners}, Cycles={cycles}"),
 
         # ISO 27001:2022
-        _ctrl("ISO27001", "A.8.8", "Software Supply Chain & SBOM Inventory",
-              "PASS" if (has_sbom and has_lockfile) else "WARN",
-              f"CycloneDX SBOM={has_sbom} ({len(sbom.get('components') or [])} components), lockfile={has_lockfile}"),
+        _ctrl("ISO27001", "A.8.8", "Software Supply Chain, SBOM & CVE Management",
+              "FAIL" if cve_crit > 0 else ("WARN" if (cve_high > 0 or not (has_sbom and has_lockfile)) else "PASS"),
+              f"CycloneDX SBOM={has_sbom} ({len(sbom.get('components') or [])} components), lockfile={has_lockfile}, CVEs={cve_total} (CRITICAL={cve_crit}, HIGH={cve_high})"),
         _ctrl("ISO27001", "A.8.9", "Infrastructure & Container Hardening",
               "PASS" if iac_misconfigs == 0 else ("WARN" if iac_misconfigs <= 3 else "FAIL"),
               f"{iac_misconfigs} IaC/Docker/GHA misconfigurations (iac-topology.json)"),

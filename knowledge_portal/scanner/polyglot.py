@@ -524,6 +524,28 @@ class PolyglotScanner:
         clean = re.sub(r"--.*", "", content)
         clean = re.sub(r"/\*.*?\*/", "", clean, flags=re.DOTALL)
 
+        def _ensure_table(tname: str, is_view: bool = False) -> Dict[str, Any]:
+            if tname not in self.db_tables:
+                self.db_tables[tname] = {
+                    "name": tname,
+                    "schema": "public",
+                    "is_view": is_view,
+                    "is_hypertable": False,
+                    "is_cagg": False,
+                    "compression_enabled": False,
+                    "columns": [],
+                    "foreign_keys": [],
+                    "readers": [],
+                    "writers": [],
+                    "ddl_sources": []
+                }
+            return self.db_tables[tname]
+
+        def _add_ddl_source(tbl_entry: Dict[str, Any], kind: str) -> None:
+            entry = {"file": rel_path, "kind": kind}
+            if entry not in tbl_entry["ddl_sources"]:
+                tbl_entry["ddl_sources"].append(entry)
+
         table_block_pattern = re.compile(
             r"CREATE\s+TABLE\s+(?:IF\s+NOT\s+EXISTS\s+)?([A-Za-z0-9_.\"']+)\s*\((.*?)\)(?:\s*;|\s*$)",
             re.IGNORECASE | re.DOTALL
@@ -551,19 +573,8 @@ class PolyglotScanner:
                         "line": 1,
                         "doc": "SQL Table"
                     })
-                    if current_raw not in self.db_tables:
-                        self.db_tables[current_raw] = {
-                            "name": current_raw,
-                            "schema": "public",
-                            "is_view": False,
-                            "is_hypertable": False,
-                            "is_cagg": False,
-                            "columns": [],
-                            "foreign_keys": [],
-                            "readers": [],
-                            "writers": [],
-                            "ddl_sources": [{"file": rel_path, "kind": "CREATE_TABLE"}]
-                        }
+                    tbl_entry = _ensure_table(current_raw)
+                    _add_ddl_source(tbl_entry, "CREATE_TABLE")
                     continue
 
                 m_fk = fk_pattern.search(line)
@@ -579,100 +590,225 @@ class PolyglotScanner:
                         "source_table": current_raw,
                         "target_table": ref_tbl
                     })
-            return
+        else:
+            for m in matches:
+                raw_tbl = m.group(1).strip("\"'").split(".")[-1]
+                body = m.group(2)
+                t_id = f"sql_tbl_{sanitize_id(rel_path)}_{raw_tbl}"
 
-        for m in matches:
-            raw_tbl = m.group(1).strip("\"'").split(".")[-1]
-            body = m.group(2)
-            t_id = f"sql_tbl_{sanitize_id(rel_path)}_{raw_tbl}"
+                self.nodes.append({
+                    "id": t_id,
+                    "label": f"🗄️ {raw_tbl}",
+                    "type": "table",
+                    "lang": "sql",
+                    "path": rel_path,
+                    "line": 1,
+                    "doc": "SQL Table"
+                })
 
-            self.nodes.append({
-                "id": t_id,
-                "label": f"🗄️ {raw_tbl}",
-                "type": "table",
-                "lang": "sql",
-                "path": rel_path,
-                "line": 1,
-                "doc": "SQL Table"
-            })
+                columns: List[Dict[str, Any]] = []
+                fks: List[Dict[str, Any]] = []
+                pk_cols = set()
 
-            columns: List[Dict[str, Any]] = []
-            fks: List[Dict[str, Any]] = []
-            pk_cols = set()
-
-            lines = [stmt.strip() for stmt in body.splitlines() if stmt.strip()]
-            for item in lines:
-                item = item.rstrip(",")
-                fk_m = re.search(r"FOREIGN\s+KEY\s*\(([^\)]+)\)\s*REFERENCES\s+([A-Za-z0-9_.\"']+)\s*(?:\(([^\)]+)\))?", item, re.IGNORECASE)
-                if fk_m:
-                    fk_col = fk_m.group(1).strip()
-                    ref_tbl = fk_m.group(2).strip("\"'").split(".")[-1]
-                    fks.append({
-                        "name": f"fk_{raw_tbl}_{ref_tbl}",
-                        "source_table": raw_tbl,
-                        "target_table": ref_tbl,
-                        "column": fk_col
-                    })
-                    self.edges.append({
-                        "source": t_id,
-                        "target": ref_tbl,
-                        "type": "foreign_key"
-                    })
-                    continue
-
-                pk_m = re.search(r"PRIMARY\s+KEY\s*\(([^\)]+)\)", item, re.IGNORECASE)
-                if pk_m:
-                    for c in pk_m.group(1).split(","):
-                        pk_cols.add(c.strip().strip("\"'"))
-                    continue
-
-                parts = item.split()
-                if parts and parts[0].upper() not in ["CONSTRAINT", "CHECK", "UNIQUE", "INDEX"]:
-                    cname = parts[0].strip("\"'")
-                    ctype = parts[1] if len(parts) > 1 else "TEXT"
-                    is_pk = "PRIMARY KEY" in item.upper()
-                    if is_pk:
-                        pk_cols.add(cname)
-                    nullable = "NOT NULL" not in item.upper() and not is_pk
-
-                    inline_ref = re.search(r"REFERENCES\s+([A-Za-z0-9_.\"']+)", item, re.IGNORECASE)
-                    if inline_ref:
-                        ref_tbl = inline_ref.group(1).strip("\"'").split(".")[-1]
+                lines = [stmt.strip() for stmt in body.splitlines() if stmt.strip()]
+                for item in lines:
+                    item = item.rstrip(",")
+                    fk_m = re.search(r"FOREIGN\s+KEY\s*\(([^\)]+)\)\s*REFERENCES\s+([A-Za-z0-9_.\"']+)\s*(?:\(([^\)]+)\))?", item, re.IGNORECASE)
+                    if fk_m:
+                        fk_col = fk_m.group(1).strip()
+                        ref_tbl = fk_m.group(2).strip("\"'").split(".")[-1]
                         fks.append({
                             "name": f"fk_{raw_tbl}_{ref_tbl}",
                             "source_table": raw_tbl,
                             "target_table": ref_tbl,
-                            "column": cname
+                            "column": fk_col
                         })
                         self.edges.append({
                             "source": t_id,
                             "target": ref_tbl,
                             "type": "foreign_key"
                         })
+                        continue
 
-                    columns.append({
+                    pk_m = re.search(r"PRIMARY\s+KEY\s*\(([^\)]+)\)", item, re.IGNORECASE)
+                    if pk_m:
+                        for c in pk_m.group(1).split(","):
+                            pk_cols.add(c.strip().strip("\"'"))
+                        continue
+
+                    parts = item.split()
+                    if parts and parts[0].upper() not in ["CONSTRAINT", "CHECK", "UNIQUE", "INDEX"]:
+                        cname = parts[0].strip("\"'")
+                        ctype = parts[1] if len(parts) > 1 else "TEXT"
+                        is_pk = "PRIMARY KEY" in item.upper()
+                        if is_pk:
+                            pk_cols.add(cname)
+                        nullable = "NOT NULL" not in item.upper() and not is_pk
+
+                        inline_ref = re.search(r"REFERENCES\s+([A-Za-z0-9_.\"']+)", item, re.IGNORECASE)
+                        if inline_ref:
+                            ref_tbl = inline_ref.group(1).strip("\"'").split(".")[-1]
+                            fks.append({
+                                "name": f"fk_{raw_tbl}_{ref_tbl}",
+                                "source_table": raw_tbl,
+                                "target_table": ref_tbl,
+                                "column": cname
+                            })
+                            self.edges.append({
+                                "source": t_id,
+                                "target": ref_tbl,
+                                "type": "foreign_key"
+                            })
+
+                        columns.append({
+                            "name": cname,
+                            "type": ctype.upper(),
+                            "pk": is_pk,
+                            "nullable": nullable
+                        })
+
+                for col in columns:
+                    if col["name"] in pk_cols:
+                        col["pk"] = True
+
+                tbl_entry = _ensure_table(raw_tbl)
+                existing_col_names = {c["name"] for c in tbl_entry["columns"]}
+                for col in columns:
+                    if col["name"] not in existing_col_names:
+                        tbl_entry["columns"].append(col)
+                        existing_col_names.add(col["name"])
+                    elif col.get("pk"):
+                        for ec in tbl_entry["columns"]:
+                            if ec["name"] == col["name"]:
+                                ec["pk"] = True
+                for fk in fks:
+                    if fk not in tbl_entry["foreign_keys"]:
+                        tbl_entry["foreign_keys"].append(fk)
+                _add_ddl_source(tbl_entry, "CREATE_TABLE")
+
+        # ADR-080 P0.1: TimescaleDB create_hypertable(...) — handles SELECT/PERFORM, multi-line, DO $$/$ht$, by_range(...)
+        hypertable_re = re.compile(
+            r"create_hypertable\s*\(\s*['\"]([A-Za-z0-9_.\"]+)['\"]\s*,\s*"
+            r"(?:by_range\s*\(\s*['\"]([A-Za-z0-9_]+)['\"](?:\s*,\s*INTERVAL\s*['\"]([^'\"]+)['\"])?[^)]*\)|['\"]([A-Za-z0-9_]+)['\"])",
+            re.IGNORECASE | re.DOTALL,
+        )
+        for m_ht in hypertable_re.finditer(clean):
+            ht_tbl = m_ht.group(1).strip("\"'").split(".")[-1]
+            time_col = m_ht.group(2) or m_ht.group(4)
+            chunk_interval = m_ht.group(3)
+            tbl_entry = _ensure_table(ht_tbl)
+            tbl_entry["is_hypertable"] = True
+            if time_col:
+                tbl_entry["hypertable_time_column"] = time_col
+            if chunk_interval:
+                tbl_entry["chunk_interval"] = chunk_interval
+            _add_ddl_source(tbl_entry, "CREATE_HYPERTABLE")
+
+        # ADR-080 P0.1: TimescaleDB Continuous Aggregates (CREATE MATERIALIZED VIEW ... WITH (timescaledb.continuous))
+        cagg_re = re.compile(
+            r"CREATE\s+MATERIALIZED\s+VIEW\s+(?:IF\s+NOT\s+EXISTS\s+)?([A-Za-z0-9_.\"']+)\s+"
+            r"WITH\s*\([^)]*timescaledb\.continuous[^)]*\)\s+AS\b",
+            re.IGNORECASE | re.DOTALL,
+        )
+        for m_cagg in cagg_re.finditer(clean):
+            cagg_name = m_cagg.group(1).strip("\"'").split(".")[-1]
+            tbl_entry = _ensure_table(cagg_name, is_view=True)
+            tbl_entry["is_view"] = True
+            tbl_entry["is_hypertable"] = True
+            tbl_entry["is_cagg"] = True
+            _add_ddl_source(tbl_entry, "CREATE_CAGG")
+            c_id = f"sql_cagg_{sanitize_id(rel_path)}_{cagg_name}"
+            self.nodes.append({
+                "id": c_id,
+                "label": f"📊 {cagg_name}",
+                "type": "table",
+                "lang": "sql",
+                "path": rel_path,
+                "line": 1,
+                "doc": "TimescaleDB Continuous Aggregate (CAGG)"
+            })
+            tail = clean[m_cagg.end():m_cagg.end() + 500]
+            m_src = re.search(r"\bFROM\s+([A-Za-z0-9_.\"']+)", tail, re.IGNORECASE)
+            if m_src:
+                src_tbl = m_src.group(1).strip("\"'").split(".")[-1]
+                tbl_entry["source_table"] = src_tbl
+                self.edges.append({"source": c_id, "target": src_tbl, "type": "cagg_source"})
+
+        # ADR-080 P0.1: ALTER TABLE ... ADD COLUMN / ADD CONSTRAINT / PRIMARY KEY / FOREIGN KEY / SET (timescaledb.compress)
+        alter_re = re.compile(
+            r"ALTER\s+TABLE\s+(?:IF\s+EXISTS\s+)?(?:ONLY\s+)?([A-Za-z0-9_.\"']+)\s+(.*?);",
+            re.IGNORECASE | re.DOTALL,
+        )
+        for m_alt in alter_re.finditer(clean):
+            alt_tbl = m_alt.group(1).strip("\"'").split(".")[-1]
+            alt_body = m_alt.group(2)
+            tbl_entry = _ensure_table(alt_tbl)
+            touched = False
+
+            # ADD COLUMN [IF NOT EXISTS] col TYPE
+            for m_col in re.finditer(
+                r"ADD\s+COLUMN\s+(?:IF\s+NOT\s+EXISTS\s+)?([A-Za-z0-9_\"']+)\s+([A-Za-z0-9_]+)",
+                alt_body,
+                re.IGNORECASE,
+            ):
+                cname = m_col.group(1).strip("\"'")
+                ctype = m_col.group(2).upper()
+                if not any(c["name"] == cname for c in tbl_entry["columns"]):
+                    tbl_entry["columns"].append({
                         "name": cname,
-                        "type": ctype.upper(),
-                        "pk": is_pk,
-                        "nullable": nullable
+                        "type": ctype,
+                        "pk": False,
+                        "nullable": "NOT NULL" not in alt_body[m_col.start():m_col.end() + 40].upper(),
                     })
+                    touched = True
 
-            for col in columns:
-                if col["name"] in pk_cols:
-                    col["pk"] = True
+            # ADD [CONSTRAINT name] PRIMARY KEY (cols)
+            for m_pk in re.finditer(
+                r"ADD\s+(?:CONSTRAINT\s+[A-Za-z0-9_\"']+\s+)?PRIMARY\s+KEY\s*\(([^\)]+)\)",
+                alt_body,
+                re.IGNORECASE,
+            ):
+                pk_set = {c.strip().strip("\"'") for c in m_pk.group(1).split(",") if c.strip()}
+                for c in tbl_entry["columns"]:
+                    if c["name"] in pk_set:
+                        c["pk"] = True
+                for pk_c in pk_set:
+                    if not any(c["name"] == pk_c for c in tbl_entry["columns"]):
+                        tbl_entry["columns"].append({"name": pk_c, "type": "TEXT", "pk": True, "nullable": False})
+                touched = True
 
-            self.db_tables[raw_tbl] = {
-                "name": raw_tbl,
-                "schema": "public",
-                "is_view": False,
-                "is_hypertable": False,
-                "is_cagg": False,
-                "columns": columns,
-                "foreign_keys": fks,
-                "readers": [],
-                "writers": [],
-                "ddl_sources": [{"file": rel_path, "kind": "CREATE_TABLE"}]
-            }
+            # ADD [CONSTRAINT name] FOREIGN KEY (col) REFERENCES ref_tbl
+            for m_fk in re.finditer(
+                r"ADD\s+(?:CONSTRAINT\s+([A-Za-z0-9_\"']+)\s+)?FOREIGN\s+KEY\s*\(([^\)]+)\)\s*REFERENCES\s+([A-Za-z0-9_.\"']+)",
+                alt_body,
+                re.IGNORECASE,
+            ):
+                fk_name = (m_fk.group(1) or f"fk_{alt_tbl}_{m_fk.group(3)}").strip("\"'")
+                fk_col = m_fk.group(2).strip().strip("\"'")
+                ref_tbl = m_fk.group(3).strip("\"'").split(".")[-1]
+                fk_obj = {
+                    "name": fk_name,
+                    "source_table": alt_tbl,
+                    "target_table": ref_tbl,
+                    "column": fk_col,
+                }
+                if fk_obj not in tbl_entry["foreign_keys"]:
+                    tbl_entry["foreign_keys"].append(fk_obj)
+                    self.edges.append({
+                        "source": f"sql_tbl_{sanitize_id(rel_path)}_{alt_tbl}",
+                        "target": ref_tbl,
+                        "type": "foreign_key",
+                    })
+                touched = True
+
+            # SET (timescaledb.compress ...)
+            if re.search(r"\bSET\s*\([^)]*timescaledb\.compress", alt_body, re.IGNORECASE):
+                tbl_entry["compression_enabled"] = True
+                tbl_entry["is_hypertable"] = True
+                touched = True
+
+            if touched:
+                _add_ddl_source(tbl_entry, "ALTER_TABLE")
 
     def scan(self, max_files: int = 15000) -> Tuple[List[Dict[str, Any]], List[Dict[str, Any]]]:
         supported_exts = {
@@ -874,11 +1010,17 @@ def scan_polyglot_codebase(target_dir: Path, output_dir: Path) -> Dict[str, Any]
 
     # Write db-schema.json and db_schema.js
     total_fks = sum(len(t.get("foreign_keys", [])) for t in scanner.db_tables.values())
+    hypertables_cnt = sum(1 for t in scanner.db_tables.values() if t.get("is_hypertable") and not t.get("is_cagg"))
+    caggs_cnt = sum(1 for t in scanner.db_tables.values() if t.get("is_cagg"))
+    compressed_cnt = sum(1 for t in scanner.db_tables.values() if t.get("compression_enabled"))
     db_schema_data = {
-        "schema_version": "1.0.0",
+        "schema_version": "1.1.0",
         "summary": {
             "total_tables": len(scanner.db_tables),
-            "relationships_count": total_fks
+            "relationships_count": total_fks,
+            "hypertables_count": hypertables_cnt,
+            "caggs_count": caggs_cnt,
+            "compressed_count": compressed_cnt,
         },
         "tables": list(scanner.db_tables.values())
     }

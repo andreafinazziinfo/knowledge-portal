@@ -19,6 +19,7 @@ from knowledge_portal.generators.config_matrix import generate_config_matrix
 from knowledge_portal.generators.iac_topology import generate_iac_topology
 from knowledge_portal.generators.ai_registry import generate_ai_registry
 from knowledge_portal.generators.compliance_evidence import generate_compliance_evidence
+from knowledge_portal.generators.cve_ingestor import generate_cve_report
 from knowledge_portal.generators.stack_inventory import generate_stack_inventory
 from knowledge_portal.generators.llms_txt import generate_llms_manifests
 
@@ -60,6 +61,7 @@ def export_static_portal(source_dir: Path, output_dir: Path, project_name: Optio
     generate_iac_topology(source_dir, data_dir)
     generate_ai_registry(source_dir, data_dir)
     generate_stack_inventory(source_dir, data_dir)
+    generate_cve_report(source_dir, data_dir)
     generate_compliance_evidence(source_dir, data_dir)
     generate_llms_manifests(source_dir, data_dir, output_dir, project_name=project_name)
 

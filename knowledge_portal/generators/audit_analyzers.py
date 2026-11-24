@@ -346,19 +346,62 @@ def analyze_coverage_reports(project_dir: Path) -> dict[str, Any]:
 
 
 def analyze_db_health(data_dir: Path) -> dict[str, Any]:
-    """Inspect db-schema.json for tables missing primary keys or foreign keys."""
+    """Inspect db-schema.json for tables missing primary keys, hypertables, and CAGGs."""
     schema_file = Path(data_dir) / "db-schema.json"
     if not schema_file.exists():
-        return {"available": False, "total_tables": 0, "tables_without_pk": [], "unreferenced_tables": []}
+        return {
+            "available": False,
+            "total_tables": 0,
+            "tables_without_pk": [],
+            "unreferenced_tables": [],
+            "hypertables_count": 0,
+            "caggs_count": 0,
+            "compressed_count": 0,
+            "hypertables": [],
+            "caggs": [],
+        }
     try:
         schema = json.loads(schema_file.read_text(encoding="utf-8"))
     except Exception:
-        return {"available": False, "total_tables": 0, "tables_without_pk": [], "unreferenced_tables": []}
+        return {
+            "available": False,
+            "total_tables": 0,
+            "tables_without_pk": [],
+            "unreferenced_tables": [],
+            "hypertables_count": 0,
+            "caggs_count": 0,
+            "compressed_count": 0,
+            "hypertables": [],
+            "caggs": [],
+        }
 
     tables = schema.get("tables") or []
     no_pk: list[str] = []
+    hypertables: list[dict[str, Any]] = []
+    caggs: list[dict[str, Any]] = []
+    compressed_count = 0
     for tbl in tables:
         if not isinstance(tbl, dict):
+            continue
+        tname = str(tbl.get("name", "unknown"))
+        is_cagg = bool(tbl.get("is_cagg"))
+        is_ht = bool(tbl.get("is_hypertable"))
+        is_view = bool(tbl.get("is_view"))
+        if tbl.get("compression_enabled"):
+            compressed_count += 1
+        if is_cagg:
+            caggs.append({
+                "name": tname,
+                "source_table": tbl.get("source_table"),
+            })
+        elif is_ht:
+            hypertables.append({
+                "name": tname,
+                "time_column": tbl.get("hypertable_time_column"),
+                "chunk_interval": tbl.get("chunk_interval"),
+                "compression_enabled": bool(tbl.get("compression_enabled")),
+            })
+        if is_view or is_cagg:
             continue
         cols = tbl.get("columns") or []
         has_pk = any(
@@ -367,8 +410,17 @@ def analyze_db_health(data_dir: Path) -> dict[str, Any]:
             for c in cols
         )
         if not has_pk:
-            no_pk.append(str(tbl.get("name", "unknown")))
-    return {"available": True, "total_tables": len(tables), "tables_without_pk": no_pk[:20]}
+            no_pk.append(tname)
+    return {
+        "available": True,
+        "total_tables": len(tables),
+        "tables_without_pk": no_pk[:20],
+        "hypertables_count": len(hypertables),
+        "caggs_count": len(caggs),
+        "compressed_count": compressed_count,
+        "hypertables": hypertables[:30],
+        "caggs": caggs[:30],
+    }
 
 
 def record_health_history(data_dir: Path, summary: dict[str, Any]) -> list[dict[str, Any]]:
@@ -837,13 +889,193 @@ def _is_test_rel(rel: str) -> bool:
     return any(h in low for h in ("/tests/", "/test/", "/test_", "test_", "_test.py", ".spec.", ".test.", "conftest.py"))
 
 
+_TEST_SUBDIR_SKIP = frozenset({"unit", "integration", "e2e", "functional", "fixtures", "helpers", "mocks", "__tests__"})
+_ASYNC_BLOCKING_PATH_METHODS = frozenset({"read_text", "write_text", "read_bytes", "write_bytes"})
+_ASYNC_BLOCKING_SUBPROCESS = frozenset({"run", "call", "check_output", "check_call", "popen"})
+_ASYNC_BLOCKING_OS = frozenset({"system", "popen"})
+_ASYNC_BLOCKING_SHUTIL = frozenset({"copy", "copy2", "copytree", "rmtree", "move"})
+_UNCLOSED_RESOURCE_RECVS = frozenset({"sqlite3", "psycopg2", "httpx", "tempfile"})
+
+# JS / TS / Vue Runtime Antipatterns (ADR-080 P0.2, 100% stdlib)
+_VUE_TEMPLATE_RE = re.compile(r"<template[^>]*>(.*?)</template>", re.IGNORECASE | re.DOTALL)
+_VUE_VFOR_TAG_RE = re.compile(r"<[a-zA-Z][a-zA-Z0-9_-]*\b[^>]*\bv-for\s*=[^>]*>", re.DOTALL)
+_VUE_KEY_ATTR_RE = re.compile(r"(?::key|v-bind:key)\s*=", re.IGNORECASE)
+_VUE_PROP_MUTATION_RE = re.compile(r"\bprops\.[a-zA-Z_$][a-zA-Z0-9_$]*(?:\s*(?:=(?!=)|\+=|-=|\*=|/=)|\.(?:push|pop|splice|shift|unshift|sort|reverse)\s*\()")
+_JS_SET_INTERVAL_RE = re.compile(r"\bsetInterval\s*\(")
+_JS_ADD_LISTENER_RE = re.compile(r"\b(?:window|document)\.addEventListener\s*\(")
+_TS_FLOATING_PROMISE_RE = re.compile(r"^\s*(?:fetch|axios\.(?:get|post|put|patch|delete|request)|api\.(?:get|post|put|patch|delete|request))\s*\(")
+
+
 def _domain_bucket(rel: str) -> str:
     parts = [p for p in rel.replace("\\", "/").split("/") if p]
+    if not parts:
+        return "root"
+    # ADR-080 P0.1: Map centralized test folders to production domain structure
+    if len(parts) >= 3 and parts[0] == "backend" and parts[1] in ("tests", "test"):
+        sub = [p for p in parts[2:-1] if p.lower() not in _TEST_SUBDIR_SKIP]
+        if sub:
+            return f"backend/app/{sub[0]}"
+        return "backend/app"
+    if len(parts) >= 3 and parts[0] == "frontend" and parts[1] in ("tests", "test", "__tests__"):
+        sub = [p for p in parts[2:-1] if p.lower() not in _TEST_SUBDIR_SKIP]
+        if sub:
+            return f"frontend/src/{sub[0]}"
+        return "frontend/src"
     if len(parts) >= 3 and parts[0] in ("backend", "frontend", "src", "packages"):
         return f"{parts[0]}/{parts[1]}/{parts[2]}" if parts[1] in ("app", "src") else f"{parts[0]}/{parts[1]}"
     if len(parts) >= 2:
         return f"{parts[0]}/{parts[1]}"
-    return parts[0] if parts else "root"
+    return parts[0]
+
+
+def _resolve_test_domain(rel: str, prod_domains: set[str]) -> str:
+    """Resolve a test file path to the best matching production domain bucket (ADR-080 P0.1)."""
+    base = _domain_bucket(rel)
+    if base in prod_domains:
+        return base
+
+    low_rel = rel.replace("\\", "/").lower()
+    parts = [p for p in low_rel.split("/") if p]
+    stem = Path(parts[-1]).stem if parts else ""
+    stem_clean = re.sub(r"^(?:test_)|(?:_test|\.spec|\.test)$", "", stem)
+    stem_tokens = [t for t in re.split(r"[_\-.]+", stem_clean) if len(t) >= 2]
+
+    # Prefer domains sharing the same top-level root (backend/frontend/etc.)
+    root_prefix = parts[0] if parts else ""
+    scoped = [d for d in prod_domains if d.startswith(f"{root_prefix}/")] or list(prod_domains)
+
+    # 1. Exact folder token match in test path against prod domain leaf
+    folder_tokens = [p for p in parts[:-1] if p not in _TEST_SUBDIR_SKIP and p not in ("tests", "test", "backend", "frontend")]
+    for tok in folder_tokens:
+        for d in sorted(scoped):
+            leaf = d.rsplit("/", 1)[-1].lower()
+            if tok == leaf or tok == leaf.rstrip("s") or leaf == f"{tok}s":
+                return d
+
+    # 2. Filename stem token match against prod domain leaf
+    for tok in stem_tokens:
+        for d in sorted(scoped):
+            leaf = d.rsplit("/", 1)[-1].lower()
+            if tok == leaf or tok == leaf.rstrip("s") or leaf == f"{tok}s":
+                return d
+
+    # 3. Domain-specific prefix heuristics (e.g., backend/tests/test_x.py -> backend/app/services or backend/app)
+    if root_prefix == "backend":
+        for fallback in ("backend/app/services", "backend/app/api", "backend/app/core", "backend/app"):
+            if fallback in prod_domains:
+                if "api" in stem_tokens or "route" in stem_tokens or "endpoint" in stem_tokens:
+                    if "backend/app/api" in prod_domains:
+                        return "backend/app/api"
+                if "core" in stem_tokens or "config" in stem_tokens or "auth" in stem_tokens:
+                    if "backend/app/core" in prod_domains:
+                        return "backend/app/core"
+                return fallback
+    elif root_prefix == "frontend":
+        for fallback in ("frontend/src/components", "frontend/src/stores", "frontend/src/views", "frontend/src"):
+            if fallback in prod_domains:
+                return fallback
+    elif scoped:
+        # Generic repo (e.g. tests/unit/test_foo.py -> pkg/generators etc.)
+        for tok in stem_tokens:
+            for d in sorted(prod_domains):
+                if tok in d.lower():
+                    return d
+        return sorted(prod_domains)[0]
+
+    return base
+
+
+def _scan_js_vue_antipatterns(rel: str, src: str, ext: str) -> list[dict[str, Any]]:
+    """Stdlib regex/structural detector for JS/TS/Vue runtime bugs (ADR-080 P0.2)."""
+    findings: list[dict[str, Any]] = []
+    lines = src.splitlines()
+
+    def _has_ignore(lineno: int) -> bool:
+        if 1 <= lineno <= len(lines):
+            ln = lines[lineno - 1]
+            return "nosec" in ln or "eslint-disable" in ln
+        return False
+
+    # 1. Vue template: v-for without :key / v-bind:key
+    if ext == ".vue":
+        for tmpl_m in _VUE_TEMPLATE_RE.finditer(src):
+            tmpl_start_line = src[: tmpl_m.start()].count("\n") + 1
+            tmpl_body = tmpl_m.group(1)
+            for tag_m in _VUE_VFOR_TAG_RE.finditer(tmpl_body):
+                tag_txt = tag_m.group(0)
+                if not _VUE_KEY_ATTR_RE.search(tag_txt):
+                    lineno = tmpl_start_line + tmpl_body[: tag_m.start()].count("\n")
+                    if not _has_ignore(lineno):
+                        findings.append({
+                            "language": "vue",
+                            "severity": "HIGH",
+                            "rule": "VUE_VFOR_NO_KEY",
+                            "path": rel,
+                            "line": lineno,
+                            "detail": "`v-for` directive used without `:key` attribute.",
+                            "remediation": "Add a stable `:key=\"item.id\"` to the `v-for` element to prevent DOM patching bugs.",
+                        })
+
+    # 2. Direct prop mutation & floating promises (line-level)
+    for lineno, line in enumerate(lines, 1):
+        s = line.strip()
+        if not s or s.startswith(("//", "/*", "*")) or _has_ignore(lineno):
+            continue
+        if _VUE_PROP_MUTATION_RE.search(s):
+            findings.append({
+                "language": "vue" if ext == ".vue" else "ts",
+                "severity": "HIGH",
+                "rule": "VUE_PROP_MUTATION",
+                "path": rel,
+                "line": lineno,
+                "detail": "Direct mutation of `props.*` detected.",
+                "remediation": "Emit an event (`emit('update:...')`) or clone into local reactive state instead of mutating props.",
+            })
+        if _TS_FLOATING_PROMISE_RE.search(line):
+            # Check if chained with .then / .catch on this or next line
+            next_ln = lines[lineno].strip() if lineno < len(lines) else ""
+            if not any(tok in s for tok in (".then(", ".catch(", ".finally(", "await ", "return ", "void ")) and not next_ln.startswith((".then(", ".catch(")):
+                findings.append({
+                    "language": "vue" if ext == ".vue" else "ts",
+                    "severity": "MEDIUM",
+                    "rule": "TS_FLOATING_PROMISE",
+                    "path": rel,
+                    "line": lineno,
+                    "detail": f"Unhandled async call without `await` or `.catch()`: `{s[:65]}`",
+                    "remediation": "Await the Promise inside `try/catch` or attach `.catch(...)` to prevent unhandled rejections.",
+                })
+
+    # 3. Leaked timers / global event listeners without cleanup
+    has_unmount = any(k in src for k in ("onUnmounted", "onBeforeUnmount", "beforeUnmount", "unmounted", "componentWillUnmount"))
+    if _JS_SET_INTERVAL_RE.search(src) and "clearInterval" not in src and not has_unmount:
+        for lineno, line in enumerate(lines, 1):
+            if _JS_SET_INTERVAL_RE.search(line) and not line.strip().startswith("//") and not _has_ignore(lineno):
+                findings.append({
+                    "language": "vue" if ext == ".vue" else "ts",
+                    "severity": "HIGH",
+                    "rule": "JS_LEAKED_LISTENER_OR_TIMER",
+                    "path": rel,
+                    "line": lineno,
+                    "detail": "`setInterval()` registered without `clearInterval()` or unmount cleanup.",
+                    "remediation": "Store the timer ID and call `clearInterval(id)` inside `onUnmounted()`.",
+                })
+                break
+
+    if _JS_ADD_LISTENER_RE.search(src) and "removeEventListener" not in src and not has_unmount:
+        for lineno, line in enumerate(lines, 1):
+            if _JS_ADD_LISTENER_RE.search(line) and not line.strip().startswith("//") and not _has_ignore(lineno):
+                findings.append({
+                    "language": "vue" if ext == ".vue" else "ts",
+                    "severity": "HIGH",
+                    "rule": "JS_LEAKED_LISTENER_OR_TIMER",
+                    "path": rel,
+                    "line": lineno,
+                    "detail": "Global `addEventListener()` registered without `removeEventListener()` or unmount cleanup.",
+                    "remediation": "Remove the listener in `onUnmounted()` to prevent memory leaks across route transitions.",
+                })
+                break
+
+    return findings
 
 
 def _call_name_parts(call: ast.Call) -> tuple[str, str]:
@@ -886,14 +1118,17 @@ def _scan_python_ast_v4(
     missing_resp_model: list[dict[str, Any]],
     test_smells: list[dict[str, Any]],
     counters: Counter[str],
+    py_runtime_v2: list[dict[str, Any]] | None = None,
 ) -> None:
-    """Single-pass Python AST scanner for all ADR-075 checks."""
+    """Single-pass Python AST scanner for all ADR-075 + ADR-080 P0.1/P0.2 checks."""
     try:
         tree = ast.parse(src)
     except Exception:
         return
 
     lines = src.splitlines()
+    if py_runtime_v2 is None:
+        py_runtime_v2 = []
 
     def _has_nosec(lineno: int) -> bool:
         if 1 <= lineno <= len(lines):
@@ -924,8 +1159,74 @@ def _scan_python_ast_v4(
                     test_smells.append({"rule": "ASSERT_LESS_TEST", "path": rel, "line": lineno, "detail": f"{node.name} has no assert / pytest.raises"})
         return
 
-    # 2. Production Python AST single-pass walk with parent/loop/async context
-    def _visit(node: ast.AST, in_async_fn: str | None, in_loop: bool) -> None:
+    # 1b. ADR-080 P0.1: Pre-scan module for APIRouter/FastAPI instances & router-level dependencies
+    declared_routers: set[str] = set()
+    protected_routers: set[str] = set()
+    for stmt in tree.body:
+        if isinstance(stmt, ast.Assign) and isinstance(stmt.value, ast.Call):
+            _, cname = _call_name_parts(stmt.value)
+            if cname in ("apirouter", "fastapi"):
+                has_deps = any(kw.arg == "dependencies" for kw in stmt.value.keywords)
+                for tgt in stmt.targets:
+                    if isinstance(tgt, ast.Name):
+                        rname = tgt.id.lower()
+                        declared_routers.add(rname)
+                        if has_deps:
+                            protected_routers.add(rname)
+        elif isinstance(stmt, ast.Expr) and isinstance(stmt.value, ast.Call):
+            _, cname = _call_name_parts(stmt.value)
+            if cname == "include_router" and stmt.value.args:
+                if any(kw.arg == "dependencies" for kw in stmt.value.keywords):
+                    arg0 = stmt.value.args[0]
+                    if isinstance(arg0, ast.Name):
+                        rname = arg0.id.lower()
+                        declared_routers.add(rname)
+                        protected_routers.add(rname)
+
+    def _is_mutable_default(d: ast.AST) -> bool:
+        if isinstance(d, (ast.List, ast.Dict, ast.Set)):
+            return True
+        if isinstance(d, ast.Call) and isinstance(d.func, ast.Name) and d.func.id in ("list", "dict", "set"):
+            return True
+        return False
+
+    def _extract_target_names(target: ast.AST) -> set[str]:
+        names: set[str] = set()
+        if isinstance(target, ast.Name):
+            names.add(target.id)
+        elif isinstance(target, (ast.Tuple, ast.List)):
+            for elt in target.elts:
+                names.update(_extract_target_names(elt))
+        return names
+
+    def _has_close_call(fn_node: ast.AST) -> bool:
+        for sub in ast.walk(fn_node):
+            if isinstance(sub, ast.Call) and isinstance(sub.func, ast.Attribute) and sub.func.attr == "close":
+                return True
+        return False
+
+    def _is_resource_open_call(call: ast.Call) -> str | None:
+        recv, fname = _call_name_parts(call)
+        if recv == "" and fname == "open":
+            return "open()"
+        if recv == "sqlite3" and fname == "connect":
+            return "sqlite3.connect()"
+        if recv == "httpx" and fname in ("client", "asyncclient"):
+            return f"httpx.{call.func.attr}()" if isinstance(call.func, ast.Attribute) else "httpx.Client()"
+        if recv == "tempfile" and fname == "namedtemporaryfile":
+            return "tempfile.NamedTemporaryFile()"
+        return None
+
+    # 2. Production Python AST single-pass walk with parent/loop/async/with/thread-offload context
+    def _visit(
+        node: ast.AST,
+        in_async_fn: str | None,
+        in_loop: bool,
+        loop_vars: frozenset[str],
+        in_with_item: bool,
+        in_thread_offload: bool,
+        enclosing_fn_has_close: bool,
+    ) -> None:
         # High-entropy secret assignment check
         if isinstance(node, ast.Assign) and isinstance(node.value, ast.Constant) and isinstance(node.value.value, str):
             val = node.value.value.strip()
@@ -945,11 +1246,12 @@ def _scan_python_ast_v4(
                             })
                             break
 
-        # Reliability: Silent except: pass / bare except:
+        # Reliability: Silent except: pass / bare except: + Swallowed Exception (ADR-080 P0.2)
         if isinstance(node, ast.ExceptHandler):
             lineno = getattr(node, "lineno", 1)
             if not _has_nosec(lineno):
                 is_bare = node.type is None
+                is_broad = is_bare or (isinstance(node.type, ast.Name) and node.type.id in ("Exception", "BaseException"))
                 is_pass_only = len(node.body) == 1 and (
                     isinstance(node.body[0], ast.Pass)
                     or (isinstance(node.body[0], ast.Expr) and isinstance(node.body[0].value, ast.Constant) and node.body[0].value.value is Ellipsis)
@@ -960,13 +1262,66 @@ def _scan_python_ast_v4(
                         "line": lineno,
                         "kind": "bare_except" if is_bare else "except_pass",
                     })
+                if is_broad and len(node.body) == 1 and isinstance(node.body[0], ast.Return):
+                    has_log_or_raise = False
+                    for sub in ast.walk(node):
+                        if isinstance(sub, ast.Raise):
+                            has_log_or_raise = True
+                            break
+                        if isinstance(sub, ast.Call):
+                            r_sub, f_sub = _call_name_parts(sub)
+                            if any(h in r_sub for h in ("log", "logger", "logging", "sentry")) or f_sub in ("exception", "error", "warning", "warn"):
+                                has_log_or_raise = True
+                                break
+                    if not has_log_or_raise:
+                        py_runtime_v2.append({
+                            "language": "python",
+                            "severity": "HIGH",
+                            "rule": "SWALLOWED_EXCEPTION",
+                            "path": rel,
+                            "line": lineno,
+                            "detail": "Broad `except Exception:` silently returns without logging or re-raising.",
+                            "remediation": "Log the exception (`logger.warning`/`logger.exception`) or catch a specific exception type.",
+                        })
 
-        # API Contract Governance on route decorators
+        # Mutable default arguments (ADR-080 P0.2) + API Contract Governance on route decorators
         if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef)):
+            fn_lineno = getattr(node, "lineno", 1)
+            if not _has_nosec(fn_lineno):
+                all_defaults = list(node.args.defaults) + [d for d in node.args.kw_defaults if d is not None]
+                for d_node in all_defaults:
+                    if _is_mutable_default(d_node):
+                        py_runtime_v2.append({
+                            "language": "python",
+                            "severity": "MEDIUM",
+                            "rule": "MUTABLE_DEFAULT_ARG",
+                            "path": rel,
+                            "line": fn_lineno,
+                            "detail": f"Mutable default argument in `{node.name}()` (shared across calls).",
+                            "remediation": "Use `None` as default and initialize inside the function body (`if arg is None: arg = []`).",
+                        })
+                        break
+
+            # Late-binding closure in loop for inner def
+            if in_loop and loop_vars and not _has_nosec(fn_lineno):
+                bound_args = {a.arg for a in node.args.args + node.args.kwonlyargs + node.args.posonlyargs}
+                used_names = {n.id for n in ast.walk(node) if isinstance(n, ast.Name) and isinstance(n.ctx, ast.Load)}
+                leaked = sorted((used_names & loop_vars) - bound_args)
+                if leaked:
+                    py_runtime_v2.append({
+                        "language": "python",
+                        "severity": "MEDIUM",
+                        "rule": "LATE_BINDING_CLOSURE",
+                        "path": rel,
+                        "line": fn_lineno,
+                        "detail": f"Inner function `{node.name}` captures loop variable `{leaked[0]}` by reference.",
+                        "remediation": f"Bind it as a default argument (`{leaked[0]}={leaked[0]}`) or use `functools.partial`.",
+                    })
+
             for dec in node.decorator_list:
                 if isinstance(dec, ast.Call):
                     recv, method = _call_name_parts(dec)
-                    if method in ("post", "put", "patch", "delete") and recv in ("app", "router", "api_router", "bp", "blueprint"):
+                    if method in ("post", "put", "patch", "delete") and (recv in ("app", "router", "api_router", "bp", "blueprint") or recv in declared_routers):
                         route_str = ""
                         if dec.args and isinstance(dec.args[0], ast.Constant) and isinstance(dec.args[0].value, str):
                             route_str = dec.args[0].value
@@ -974,9 +1329,14 @@ def _scan_python_ast_v4(
                             continue
                         counters["mutating_routes_scanned"] += 1
                         lineno = getattr(node, "lineno", 1)
-                        # Check auth dependency in decorator kwargs or function args/defaults
+                        # Check auth dependency: router-level, decorator kwargs, or function args/defaults
                         dec_kw_names = {kw.arg for kw in dec.keywords if kw.arg}
-                        has_auth = "dependencies" in dec_kw_names
+                        has_auth = False
+                        if recv in protected_routers:
+                            has_auth = True
+                            counters["router_protected_routes"] += 1
+                        if not has_auth and "dependencies" in dec_kw_names:
+                            has_auth = True
                         if not has_auth:
                             arg_names = [a.arg.lower() for a in node.args.args + node.args.kwonlyargs]
                             if any(any(h in an for h in _AUTH_PARAM_HINTS) for an in arg_names):
@@ -1006,7 +1366,41 @@ def _scan_python_ast_v4(
                                 "func": node.name,
                             })
 
-        # Calls: SQLi AST, Missing timeout=, Async blocking I/O, Observability print(), DB N+1 in loops
+        # Late-binding closure in loop for lambda (ADR-080 P0.2)
+        if isinstance(node, ast.Lambda) and in_loop and loop_vars:
+            lineno = getattr(node, "lineno", 1)
+            if not _has_nosec(lineno):
+                bound_args = {a.arg for a in node.args.args + node.args.kwonlyargs + node.args.posonlyargs}
+                used_names = {n.id for n in ast.walk(node.body) if isinstance(n, ast.Name) and isinstance(n.ctx, ast.Load)}
+                leaked = sorted((used_names & loop_vars) - bound_args)
+                if leaked:
+                    py_runtime_v2.append({
+                        "language": "python",
+                        "severity": "MEDIUM",
+                        "rule": "LATE_BINDING_CLOSURE",
+                        "path": rel,
+                        "line": lineno,
+                        "detail": f"`lambda` inside loop captures variable `{leaked[0]}` by late binding.",
+                        "remediation": f"Capture loop variable eagerly: `lambda {leaked[0]}={leaked[0]}: ...`.",
+                    })
+
+        # Resource leak: open() / httpx.Client() / sqlite3.connect() assigned outside `with` (ADR-080 P0.2)
+        if isinstance(node, ast.Assign) and isinstance(node.value, ast.Call) and not in_with_item and not enclosing_fn_has_close:
+            lineno = getattr(node, "lineno", 1)
+            if not _has_nosec(lineno):
+                res_call = _is_resource_open_call(node.value)
+                if res_call:
+                    py_runtime_v2.append({
+                        "language": "python",
+                        "severity": "MEDIUM",
+                        "rule": "UNCLOSED_RESOURCE",
+                        "path": rel,
+                        "line": lineno,
+                        "detail": f"`{res_call}` assigned outside a `with` context manager without `.close()`.",
+                        "remediation": f"Use `with {res_call} as ...:` to guarantee deterministic cleanup.",
+                    })
+
+        # Calls: SQLi AST, Missing timeout=, Async blocking I/O (extended), Observability print(), DB N+1 in loops
         if isinstance(node, ast.Call):
             lineno = getattr(node, "lineno", 1)
             recv, fname = _call_name_parts(node)
@@ -1033,14 +1427,44 @@ def _scan_python_ast_v4(
                             "call": f"{recv}.{fname}" if recv else fname,
                         })
 
-            # Reliability: Blocking I/O inside async def
-            if in_async_fn and not _has_nosec(lineno):
-                if (recv == "time" and fname == "sleep") or (recv == "requests" and fname in _HTTP_TIMEOUT_CALLS):
+            # Reliability: Blocking I/O inside async def (ADR-080 P0.2 extended, excludes to_thread/run_in_executor)
+            if in_async_fn and not in_thread_offload and not _has_nosec(lineno):
+                blocking_call: str | None = None
+                if recv == "time" and fname == "sleep":
+                    blocking_call = "time.sleep"
+                elif recv == "requests" and fname in _HTTP_TIMEOUT_CALLS:
+                    blocking_call = f"requests.{fname}"
+                elif recv == "httpx" and fname in _HTTP_TIMEOUT_CALLS:
+                    blocking_call = f"httpx.{fname}"
+                elif recv == "" and fname == "open":
+                    blocking_call = "open"
+                elif recv == "subprocess" and fname in _ASYNC_BLOCKING_SUBPROCESS:
+                    blocking_call = f"subprocess.{fname}"
+                elif recv == "os" and fname in _ASYNC_BLOCKING_OS:
+                    blocking_call = f"os.{fname}"
+                elif fname == "urlopen":
+                    blocking_call = f"{recv}.urlopen" if recv else "urlopen"
+                elif recv in ("psycopg2", "sqlite3") and fname == "connect":
+                    blocking_call = f"{recv}.connect"
+                elif recv == "shutil" and fname in _ASYNC_BLOCKING_SHUTIL:
+                    blocking_call = f"shutil.{fname}"
+                elif fname in _ASYNC_BLOCKING_PATH_METHODS:
+                    blocking_call = f"Path.{fname}"
+                if blocking_call:
                     async_blocking.append({
                         "path": rel,
                         "line": lineno,
                         "func": in_async_fn,
-                        "call": f"{recv}.{fname}",
+                        "call": blocking_call,
+                    })
+                    py_runtime_v2.append({
+                        "language": "python",
+                        "severity": "CRITICAL",
+                        "rule": "ASYNC_BLOCKING_IO",
+                        "path": rel,
+                        "line": lineno,
+                        "detail": f"Blocking `{blocking_call}()` called directly inside `async def {in_async_fn}()`.",
+                        "remediation": "Offload via `await asyncio.to_thread(...)` or use an async client (`aiofiles`/`httpx.AsyncClient`).",
                     })
 
             # Observability: print() in production code
@@ -1060,16 +1484,36 @@ def _scan_python_ast_v4(
 
         # Recurse with updated context
         next_async = in_async_fn
+        next_fn_close = enclosing_fn_has_close
         if isinstance(node, ast.AsyncFunctionDef):
             next_async = node.name
+            next_fn_close = _has_close_call(node)
         elif isinstance(node, ast.FunctionDef):
             next_async = None
+            next_fn_close = _has_close_call(node)
+
         next_loop = in_loop or isinstance(node, (ast.For, ast.AsyncFor, ast.While))
+        next_loop_vars = loop_vars
+        if isinstance(node, (ast.For, ast.AsyncFor)):
+            next_loop_vars = loop_vars | _extract_target_names(node.target)
+
+        next_offload = in_thread_offload
+        if isinstance(node, ast.Call):
+            _, call_fn = _call_name_parts(node)
+            if call_fn in ("to_thread", "run_in_executor"):
+                next_offload = True
+
+        if isinstance(node, (ast.With, ast.AsyncWith)):
+            for item in node.items:
+                _visit(item, next_async, next_loop, next_loop_vars, True, next_offload, next_fn_close)
+            for stmt in node.body:
+                _visit(stmt, next_async, next_loop, next_loop_vars, False, next_offload, next_fn_close)
+            return
 
         for child in ast.iter_child_nodes(node):
-            _visit(child, next_async, next_loop)
+            _visit(child, next_async, next_loop, next_loop_vars, in_with_item, next_offload, next_fn_close)
 
-    _visit(tree, None, False)
+    _visit(tree, None, False, frozenset(), False, False, False)
 
 
 def _check_pyproject_and_lockfiles(project_dir: Path) -> dict[str, Any]:
@@ -1178,8 +1622,11 @@ def analyze_health_v4(
     missing_resp_model: list[dict[str, Any]] = []
     test_smells: list[dict[str, Any]] = []
     context_bombs: list[dict[str, Any]] = []
+    py_runtime_v2: list[dict[str, Any]] = []
+    fe_runtime_bugs: list[dict[str, Any]] = []
     prod_by_domain: Counter[str] = Counter()
     test_by_domain: Counter[str] = Counter()
+    test_file_rels: list[str] = []
     counters: Counter[str] = Counter()
 
     # Load DB schema table names (if available) to check unreferenced tables in the same walk
@@ -1224,11 +1671,10 @@ def analyze_health_v4(
             is_test = _is_test_rel(rel)
             is_cli = any(h in rel.lower() for h in _CLI_PATH_HINTS)
             if ext != ".sql":
-                dom = _domain_bucket(rel)
                 if is_test:
-                    test_by_domain[dom] += 1
+                    test_file_rels.append(rel)
                 else:
-                    prod_by_domain[dom] += 1
+                    prod_by_domain[_domain_bucket(rel)] += 1
 
             try:
                 src = fpath.read_text(encoding="utf-8", errors="replace")
@@ -1301,7 +1747,10 @@ def analyze_health_v4(
                     missing_resp_model=missing_resp_model,
                     test_smells=test_smells,
                     counters=counters,
+                    py_runtime_v2=py_runtime_v2,
                 )
+            elif not is_test and ext in (".ts", ".tsx", ".js", ".jsx", ".vue"):
+                fe_runtime_bugs.extend(_scan_js_vue_antipatterns(rel, src, ext))
 
     # Check #1: CodeScene Risk Matrix cross-join (Churn x McCabe x Low Coverage)
     comp_map: dict[str, dict[str, Any]] = {}
@@ -1364,7 +1813,12 @@ def analyze_health_v4(
             openapi_info = {"present": True, "path": cand_name, "age_days": age_d}
             break
 
-    # Check #7: Per-domain test-to-code ratio
+    # Check #7: Per-domain test-to-code ratio (ADR-080 P0.1: map centralized tests to real prod domains)
+    prod_domain_set = set(prod_by_domain.keys())
+    for trel in test_file_rels:
+        resolved_dom = _resolve_test_domain(trel, prod_domain_set)
+        test_by_domain[resolved_dom] += 1
+
     all_doms = sorted(set(prod_by_domain.keys()) | set(test_by_domain.keys()))
     by_domain: list[dict[str, Any]] = []
     for d in all_doms:
@@ -1383,14 +1837,28 @@ def analyze_health_v4(
 
     # OWASP severity counts
     sev_counts = Counter(f["severity"] for f in owasp_findings)
-    sev_order = {"CRITICAL": 0, "HIGH": 1, "MEDIUM": 2}
-    owasp_findings.sort(key=lambda f: (sev_order.get(f["severity"], 3), f["path"], f["line"]))
+    sev_order = {"CRITICAL": 0, "HIGH": 1, "MEDIUM": 2, "LOW": 3}
+    owasp_findings.sort(key=lambda f: (sev_order.get(f["severity"], 4), f["path"], f["line"]))
+
+    # ADR-080 P0.2: Unified Runtime Bugs v2 (Python AST + JS/TS/Vue)
+    all_runtime_v2 = py_runtime_v2 + fe_runtime_bugs
+    all_runtime_v2.sort(key=lambda f: (sev_order.get(str(f.get("severity", "MEDIUM")), 4), str(f.get("path", "")), int(f.get("line", 1))))
+    rt_sev = Counter(str(f.get("severity", "MEDIUM")) for f in all_runtime_v2)
+    rt_by_rule = dict(Counter(str(f.get("rule", "UNKNOWN")) for f in all_runtime_v2))
+    fe_by_rule = dict(Counter(str(f.get("rule", "UNKNOWN")) for f in fe_runtime_bugs))
+    fe_sev = Counter(str(f.get("severity", "MEDIUM")) for f in fe_runtime_bugs)
+
+    mutable_defaults = [f for f in py_runtime_v2 if f["rule"] == "MUTABLE_DEFAULT_ARG"]
+    unclosed_resources = [f for f in py_runtime_v2 if f["rule"] == "UNCLOSED_RESOURCE"]
+    swallowed_exceptions = [f for f in py_runtime_v2 if f["rule"] == "SWALLOWED_EXCEPTION"]
+    late_binding_closures = [f for f in py_runtime_v2 if f["rule"] == "LATE_BINDING_CLOSURE"]
 
     unreferenced_tables = sorted(t for t in schema_tables if t not in referenced_tables)
 
     severity_summary = [
         {"category": "OWASP", "critical": sev_counts["CRITICAL"], "high": sev_counts["HIGH"], "medium": sev_counts["MEDIUM"]},
-        {"category": "Reliability", "critical": len(async_blocking), "high": len(missing_timeout), "medium": len(silent_except)},
+        {"category": "Reliability", "critical": len(async_blocking), "high": len(missing_timeout) + len(swallowed_exceptions), "medium": len(silent_except) + len(mutable_defaults) + len(unclosed_resources) + len(late_binding_closures)},
+        {"category": "Frontend Runtime", "critical": fe_sev["CRITICAL"], "high": fe_sev["HIGH"], "medium": fe_sev["MEDIUM"]},
         {"category": "DB & SQL", "critical": 0, "high": len(n_plus_one), "medium": len(unbounded_selects) + len(unreferenced_tables)},
         {"category": "API Contract", "critical": 0, "high": len(unprotected_routes), "medium": len(missing_resp_model)},
         {"category": "Observability", "critical": 0, "high": 0 if has_health_probe else 1, "medium": counters["prod_print_count"] + counters["prod_console_log_count"]},
@@ -1409,13 +1877,40 @@ def analyze_health_v4(
             "findings": owasp_findings[:40],
         },
         "reliability_ast": {
-            "total_issues": len(silent_except) + len(missing_timeout) + len(async_blocking),
+            "total_issues": len(silent_except) + len(missing_timeout) + len(async_blocking) + len(mutable_defaults) + len(unclosed_resources) + len(swallowed_exceptions) + len(late_binding_closures),
             "silent_except_count": len(silent_except),
             "missing_timeout_count": len(missing_timeout),
             "async_blocking_count": len(async_blocking),
+            "mutable_default_count": len(mutable_defaults),
+            "unclosed_resource_count": len(unclosed_resources),
+            "swallowed_exception_count": len(swallowed_exceptions),
+            "late_binding_closure_count": len(late_binding_closures),
             "silent_except": silent_except[:25],
             "missing_timeout": missing_timeout[:25],
             "async_blocking": async_blocking[:25],
+            "mutable_defaults": mutable_defaults[:25],
+            "unclosed_resources": unclosed_resources[:25],
+            "swallowed_exceptions": swallowed_exceptions[:25],
+            "late_binding_closures": late_binding_closures[:25],
+        },
+        "frontend_runtime_bugs": {
+            "total_issues": len(fe_runtime_bugs),
+            "by_rule": fe_by_rule,
+            "by_severity": {"CRITICAL": fe_sev["CRITICAL"], "HIGH": fe_sev["HIGH"], "MEDIUM": fe_sev["MEDIUM"]},
+            "findings": fe_runtime_bugs[:60],
+        },
+        "runtime_bugs_v2": {
+            "total_issues": len(all_runtime_v2),
+            "python_count": len(py_runtime_v2),
+            "frontend_count": len(fe_runtime_bugs),
+            "by_rule": rt_by_rule,
+            "by_severity": {
+                "CRITICAL": rt_sev["CRITICAL"],
+                "HIGH": rt_sev["HIGH"],
+                "MEDIUM": rt_sev["MEDIUM"],
+                "LOW": rt_sev["LOW"],
+            },
+            "findings": all_runtime_v2[:120],
         },
         "observability": {
             "prod_print_count": counters["prod_print_count"],
@@ -1435,6 +1930,7 @@ def analyze_health_v4(
         },
         "api_governance": {
             "mutating_routes_scanned": counters["mutating_routes_scanned"],
+            "router_protected_count": counters["router_protected_routes"],
             "unprotected_count": len(unprotected_routes),
             "unprotected_mutating_routes": unprotected_routes[:25],
             "missing_response_model_count": len(missing_resp_model),

@@ -370,7 +370,9 @@ def generate_arch_health(data_dir: Path, project_dir: Path | None = None) -> dic
         report["health_v4"] = {
             "codescene_risk": {"top_risks": [], "temporal_coupling_enriched": [], "bus_factor_by_domain": []},
             "owasp_audit": {"findings_count": 0, "by_severity": {"CRITICAL": 0, "HIGH": 0, "MEDIUM": 0}, "findings": []},
-            "reliability_ast": {"total_issues": 0, "silent_except_count": 0, "missing_timeout_count": 0, "async_blocking_count": 0, "silent_except": [], "missing_timeout": [], "async_blocking": []},
+            "reliability_ast": {"total_issues": 0, "silent_except_count": 0, "missing_timeout_count": 0, "async_blocking_count": 0, "mutable_default_count": 0, "unclosed_resource_count": 0, "swallowed_exception_count": 0, "late_binding_closure_count": 0, "silent_except": [], "missing_timeout": [], "async_blocking": [], "mutable_defaults": [], "unclosed_resources": [], "swallowed_exceptions": [], "late_binding_closures": []},
+            "frontend_runtime_bugs": {"total_issues": 0, "by_rule": {}, "by_severity": {"CRITICAL": 0, "HIGH": 0, "MEDIUM": 0}, "findings": []},
+            "runtime_bugs_v2": {"total_issues": 0, "python_count": 0, "frontend_count": 0, "by_rule": {}, "by_severity": {"CRITICAL": 0, "HIGH": 0, "MEDIUM": 0, "LOW": 0}, "findings": []},
             "observability": {"prod_print_count": 0, "prod_console_log_count": 0, "has_health_probe": False, "has_ready_probe": False, "probe_files": [], "samples": []},
             "db_governance": {"n_plus_one_count": 0, "n_plus_one_loops": [], "unbounded_select_count": 0, "unbounded_selects": [], "unreferenced_tables_count": 0, "unreferenced_tables": []},
             "api_governance": {"mutating_routes_scanned": 0, "unprotected_count": 0, "unprotected_mutating_routes": [], "missing_response_model_count": 0, "missing_response_model": [], "openapi_spec": {"present": False, "path": None, "age_days": None}},
@@ -380,6 +382,11 @@ def generate_arch_health(data_dir: Path, project_dir: Path | None = None) -> dic
         }
 
     report["db_health"] = analyze_db_health(data_dir)
+    if project_dir is not None and Path(project_dir).exists():
+        from knowledge_portal.generators.cve_ingestor import generate_cve_report
+        report["cve_report"] = generate_cve_report(Path(project_dir).resolve(), data_dir)
+    else:
+        report["cve_report"] = {"available": False, "sources": [], "summary": {"total": 0, "critical": 0, "high": 0, "medium": 0, "low": 0, "sbom_correlated": 0}, "vulnerabilities": []}
     report["history"] = record_health_history(data_dir, report["summary"])
     report["fix_queue"] = build_actionable_fix_queue(report)
 

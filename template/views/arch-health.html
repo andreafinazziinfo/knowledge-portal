@@ -51,6 +51,19 @@
     .ah-export-bar { display: flex; gap: 6px; flex-wrap: wrap; align-items: center; }
     .ah-exp-btn { background: #171717; color: #e5e7eb; border: 1px solid #333; border-radius: 6px; padding: 5px 10px; font-size: 11px; font-weight: 600; cursor: pointer; }
     .ah-exp-btn:hover { background: #262626; color: #fff; border-color: #525252; }
+    .ah-filter-bar { display: flex; gap: 6px; flex-wrap: wrap; align-items: center; margin-bottom: 12px; }
+    .ah-chip { background: #171717; color: #a3a3a3; border: 1px solid #2e2e2e; border-radius: 999px; padding: 4px 11px; font-size: 11px; font-weight: 600; cursor: pointer; }
+    .ah-chip:hover { color: #ffffff; border-color: #525252; }
+    .ah-chip.active { background: #38bdf8; color: #0f0f0f; border-color: #38bdf8; }
+    .ah-table-wrap { overflow-x: auto; max-height: 520px; overflow-y: auto; border: 1px solid #242424; border-radius: 8px; }
+    .ah-table { width: 100%; border-collapse: collapse; font-size: 12px; }
+    .ah-table th { position: sticky; top: 0; background: #171717; color: #9ca3af; text-align: left; padding: 8px 10px; font-size: 10px; text-transform: uppercase; letter-spacing: 0.05em; border-bottom: 1px solid #2a2a2a; }
+    .ah-table td { padding: 8px 10px; border-bottom: 1px solid #202020; color: #d4d4d8; vertical-align: top; }
+    .ah-table tr:hover td { background: rgba(56, 189, 248, 0.06); }
+    .ah-ts-badge { display: inline-flex; align-items: center; gap: 4px; padding: 2px 7px; border-radius: 4px; font-size: 10px; font-weight: 700; margin-right: 6px; }
+    .ah-ts-ht { background: rgba(251, 191, 36, 0.18); color: #fbbf24; border: 1px solid rgba(251, 191, 36, 0.4); }
+    .ah-ts-cagg { background: rgba(56, 189, 248, 0.18); color: #38bdf8; border: 1px solid rgba(56, 189, 248, 0.4); }
+    .ah-remed { color: #9ca3af; font-size: 11px; margin-top: 3px; }
     @media print {
       body { background: #fff !important; color: #111 !important; }
       .ah-tabs, .ah-export-bar, .ah-search, #ah-tip { display: none !important; }
@@ -92,6 +105,7 @@
       <button class="ah-tab" data-panel="p-ai">6. AI Readiness &amp; Orphans</button>
       <button class="ah-tab" data-panel="p-diff">7. Architecture Diff &amp; Evolution</button>
       <button class="ah-tab" data-panel="p-comp">8. Compliance &amp; Evidence Pack</button>
+      <button class="ah-tab" data-panel="p-runtime">9. 🐛 Runtime Bugs &amp; CI/CVE</button>
     </div>
 
     <!-- TAB 1: Overview, Radar, Trend & Fix Queue -->
@@ -322,6 +336,48 @@
         </h2>
         <div class="ah-hint">Mappa deterministicamente OWASP, CycloneDX SBOM, IaC, AI Registry, CODEOWNERS e CI sui controlli di audit.</div>
         <div class="ah-list" id="list-comp" style="max-height:460px;"></div>
+      </section>
+    </div>
+
+    <!-- TAB 9: Runtime Bugs v2, CI/CD Hardening & CVE/SBOM (ADR-080 P0) -->
+    <div class="ah-panel" id="p-runtime">
+      <div class="ah-kpis" id="rt-kpis"></div>
+      <section class="ah-card">
+        <h2>
+          Runtime Bugs v2 · CI/CD Hardening · CVE &amp; SBOM Triage
+          <span class="ah-badge" id="cnt-rt-total">0 findings</span>
+        </h2>
+        <div class="ah-hint">Python AST (async blocking, mutable defaults, resource leaks, swallowed exceptions, late-binding closures), Vue/TS antipatterns, GitHub Actions/Compose hardening, e CVE locali correlate allo SBOM CycloneDX.</div>
+        <div class="ah-filter-bar" id="rt-cat-bar">
+          <button class="ah-chip active" data-cat="all">All Categories</button>
+          <button class="ah-chip" data-cat="python">Python AST</button>
+          <button class="ah-chip" data-cat="frontend">Vue/TS</button>
+          <button class="ah-chip" data-cat="cicd">CI/CD Hardening</button>
+          <button class="ah-chip" data-cat="cve">CVE/SBOM</button>
+          <span style="margin-left:8px;color:#525252;">|</span>
+          <button class="ah-chip active" data-sev="all">All Severities</button>
+          <button class="ah-chip" data-sev="CRITICAL">CRITICAL</button>
+          <button class="ah-chip" data-sev="HIGH">HIGH</button>
+          <button class="ah-chip" data-sev="MEDIUM">MEDIUM</button>
+          <button class="ah-chip" data-sev="LOW">LOW</button>
+        </div>
+        <input id="rt-search" class="ah-search" type="search" placeholder="Filter by rule, file path, package or remediation...">
+        <div class="ah-table-wrap">
+          <table class="ah-table">
+            <thead>
+              <tr>
+                <th>Severity</th>
+                <th>Category</th>
+                <th>Rule</th>
+                <th>Location (file:line)</th>
+                <th>Detail &amp; Remediation</th>
+              </tr>
+            </thead>
+            <tbody id="rt-table-body">
+              <tr><td colspan="5" class="ah-empty" style="text-align:center;">Loading ADR-080 diagnostics...</td></tr>
+            </tbody>
+          </table>
+        </div>
       </section>
     </div>
   </div>
@@ -628,12 +684,27 @@
     document.getElementById('cnt-sql').textContent = smells.length;
     document.getElementById('list-sql').innerHTML = smells.length ? smells.join('') : '<div class="ah-empty">No large files (>500KB) or SELECT * smells detected.</div>';
 
-    document.getElementById('cnt-db').textContent = `${dbh.total_tables || 0} tables`;
-    document.getElementById('list-db').innerHTML = dbh.available
-      ? ((dbh.tables_without_pk || []).length
-          ? dbh.tables_without_pk.map(t => `<div class="ah-row">Table missing explicit PK: <code>${t}</code></div>`).join('')
-          : '<div class="ah-empty">All indexed DB tables have primary keys.</div>')
-      : '<div class="ah-empty">No db-schema.json indexed.</div>';
+    const htCount = dbh.hypertables_count || 0;
+    const caggCount = dbh.caggs_count || 0;
+    document.getElementById('cnt-db').textContent = `${dbh.total_tables || 0} tables · ⚡${htCount} HT · 📊${caggCount} CAGG`;
+    if (dbh.available) {
+      const dbRows = [];
+      (dbh.hypertables || []).forEach(ht => {
+        const meta = [ht.time_column ? `time: ${ht.time_column}` : '', ht.chunk_interval ? `chunk: ${ht.chunk_interval}` : '', ht.compression_enabled ? 'compressed' : ''].filter(Boolean).join(' · ');
+        dbRows.push(`<div class="ah-row"><span class="ah-ts-badge ah-ts-ht">⚡ Hypertable</span><code>${ht.name}</code>${meta ? ` <span style="color:#9ca3af;font-size:11px;">(${meta})</span>` : ''}</div>`);
+      });
+      (dbh.caggs || []).forEach(cg => {
+        dbRows.push(`<div class="ah-row"><span class="ah-ts-badge ah-ts-cagg">📊 CAGG</span><code>${cg.name}</code>${cg.source_table ? ` <span style="color:#9ca3af;font-size:11px;">← ${cg.source_table}</span>` : ''}</div>`);
+      });
+      (dbh.tables_without_pk || []).forEach(t => {
+        dbRows.push(`<div class="ah-row"><span class="ah-prio ah-p2">NO PK</span>Table missing explicit PK: <code>${t}</code></div>`);
+      });
+      document.getElementById('list-db').innerHTML = dbRows.length
+        ? dbRows.join('')
+        : '<div class="ah-empty">All indexed DB tables have primary keys.</div>';
+    } else {
+      document.getElementById('list-db').innerHTML = '<div class="ah-empty">No db-schema.json indexed.</div>';
+    }
 
     // Tab 6: AI Readiness, Context Bombs & Orphans
     const hv4 = data.health_v4 || {};
@@ -890,6 +961,134 @@
       }).join('');
       const evBtn = document.getElementById('btn-exp-evidence');
       if (evBtn) evBtn.addEventListener('click', () => downloadBlob('compliance-evidence-pack.json', JSON.stringify(ce, null, 2), 'application/json'));
+    })();
+
+    // Tab 9: Runtime Bugs v2 (Python AST + Vue/TS), CI/CD Hardening & CVE/SBOM (ADR-080 P0)
+    (async function loadRuntimeBugsAndCiCve() {
+      function escHtml(v) {
+        return String(v ?? '').replace(/[&<>"']/g, m => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[m]));
+      }
+      let iac = null;
+      for (const u of ['/api/iac-topology', '../data/iac-topology.json', 'data/iac-topology.json']) {
+        try { const r = await fetch(u); if (r.ok) { const j = await r.json(); if (j && Array.isArray(j.misconfigs)) { iac = j; break; } } } catch (_) {}
+      }
+      let cve = data.cve_report || null;
+      if (!cve || !Array.isArray(cve.vulnerabilities)) {
+        for (const u of ['/api/cve-report', '../data/cve-report.json', 'data/cve-report.json']) {
+          try { const r = await fetch(u); if (r.ok) { const j = await r.json(); if (j && Array.isArray(j.vulnerabilities)) { cve = j; break; } } } catch (_) {}
+        }
+      }
+
+      const rt2 = hv4.runtime_bugs_v2 || {};
+      const rows = [];
+
+      (rt2.findings || []).forEach(f => {
+        const isPy = String(f.language || 'python').toLowerCase() === 'python';
+        rows.push({
+          cat: isPy ? 'python' : 'frontend',
+          catLabel: isPy ? 'Python AST' : 'Vue/TS',
+          severity: String(f.severity || 'MEDIUM').toUpperCase(),
+          rule: f.rule || 'RUNTIME_BUG',
+          path: f.path || '',
+          line: f.line || 1,
+          detail: f.detail || '',
+          remediation: f.remediation || '',
+        });
+      });
+
+      ((iac && iac.misconfigs) || []).forEach(m => {
+        rows.push({
+          cat: 'cicd',
+          catLabel: 'CI/CD Hardening',
+          severity: String(m.severity || 'MEDIUM').toUpperCase(),
+          rule: m.rule || 'IAC_MISCONFIG',
+          path: m.file || '',
+          line: m.line || 1,
+          detail: m.detail || '',
+          remediation: m.remediation || '',
+        });
+      });
+
+      ((cve && cve.vulnerabilities) || []).forEach(v => {
+        rows.push({
+          cat: 'cve',
+          catLabel: 'CVE/SBOM',
+          severity: String(v.severity || 'MEDIUM').toUpperCase(),
+          rule: v.id || 'CVE',
+          path: v.source_file || 'sbom.cdx.json',
+          line: 1,
+          detail: `[${v.package}@${v.installed_version || '*'}] ${v.summary || ''}${v.in_sbom ? ' (SBOM matched)' : ''}`,
+          remediation: v.fixed_version ? `Upgrade ${v.package} to >= ${v.fixed_version}` : `Review advisory ${v.advisory_id || v.id}`,
+        });
+      });
+
+      const sevOrder = { CRITICAL: 0, HIGH: 1, MEDIUM: 2, LOW: 3 };
+      rows.sort((a, b) => (sevOrder[a.severity] ?? 4) - (sevOrder[b.severity] ?? 4) || a.path.localeCompare(b.path));
+
+      const pyCnt = rows.filter(r => r.cat === 'python').length;
+      const feCnt = rows.filter(r => r.cat === 'frontend').length;
+      const ciCnt = rows.filter(r => r.cat === 'cicd').length;
+      const cveCnt = rows.filter(r => r.cat === 'cve').length;
+      const critCnt = rows.filter(r => r.severity === 'CRITICAL').length;
+
+      document.getElementById('cnt-rt-total').textContent = `${rows.length} findings`;
+      document.getElementById('rt-kpis').innerHTML = [
+        { val: rows.length, lbl: 'Total Findings' },
+        { val: critCnt, lbl: 'CRITICAL Issues', col: critCnt > 0 ? '#ef4444' : '#34d399' },
+        { val: pyCnt, lbl: 'Python AST Bugs', col: pyCnt > 0 ? '#f59e0b' : '#34d399' },
+        { val: feCnt, lbl: 'Vue / TS Antipatterns', col: feCnt > 0 ? '#38bdf8' : '#34d399' },
+        { val: ciCnt, lbl: 'CI/CD & IaC Hardening', col: ciCnt > 0 ? '#f59e0b' : '#34d399' },
+        { val: cveCnt, lbl: `CVE / SBOM (${(cve && cve.available) ? 'Active' : 'No local report'})`, col: cveCnt > 0 ? '#ef4444' : '#34d399' },
+      ].map(k => `<div class="ah-kpi"><div class="ah-kpi-val" style="${k.col ? `color:${k.col};` : ''}">${k.val}</div><div class="ah-kpi-lbl">${k.lbl}</div></div>`).join('');
+
+      let activeCat = 'all';
+      let activeSev = 'all';
+      const searchEl = document.getElementById('rt-search');
+      const tbody = document.getElementById('rt-table-body');
+
+      function renderTable() {
+        const q = (searchEl && searchEl.value ? searchEl.value : '').trim().toLowerCase();
+        const filtered = rows.filter(r => {
+          if (activeCat !== 'all' && r.cat !== activeCat) return false;
+          if (activeSev !== 'all' && r.severity !== activeSev) return false;
+          if (!q) return true;
+          return `${r.rule} ${r.path} ${r.detail} ${r.remediation} ${r.catLabel}`.toLowerCase().includes(q);
+        });
+        if (!filtered.length) {
+          tbody.innerHTML = '<tr><td colspan="5" class="ah-empty" style="text-align:center;padding:18px;">No findings match the selected filters.</td></tr>';
+          return;
+        }
+        tbody.innerHTML = filtered.slice(0, 200).map(r => {
+          const pClass = r.severity === 'CRITICAL' ? 'ah-p0' : (r.severity === 'HIGH' ? 'ah-p1' : 'ah-p2');
+          const safePath = escHtml(r.path).replace(/'/g, "\\'");
+          return `<tr>
+            <td><span class="ah-prio ${pClass}">${escHtml(r.severity)}</span></td>
+            <td><span class="ah-badge">${escHtml(r.catLabel)}</span></td>
+            <td><code>${escHtml(r.rule)}</code></td>
+            <td><code style="cursor:pointer;color:#38bdf8;" onclick="openInReader('${safePath}')">${escHtml(r.path)}:${r.line}</code></td>
+            <td><div>${escHtml(r.detail)}</div>${r.remediation ? `<div class="ah-remed">💡 ${escHtml(r.remediation)}</div>` : ''}</td>
+          </tr>`;
+        }).join('');
+      }
+
+      document.querySelectorAll('#rt-cat-bar .ah-chip[data-cat]').forEach(btn => {
+        btn.addEventListener('click', () => {
+          document.querySelectorAll('#rt-cat-bar .ah-chip[data-cat]').forEach(b => b.classList.remove('active'));
+          btn.classList.add('active');
+          activeCat = btn.dataset.cat;
+          renderTable();
+        });
+      });
+      document.querySelectorAll('#rt-cat-bar .ah-chip[data-sev]').forEach(btn => {
+        btn.addEventListener('click', () => {
+          document.querySelectorAll('#rt-cat-bar .ah-chip[data-sev]').forEach(b => b.classList.remove('active'));
+          btn.classList.add('active');
+          activeSev = btn.dataset.sev;
+          renderTable();
+        });
+      });
+      if (searchEl) searchEl.addEventListener('input', renderTable);
+      renderTable();
     })();
   })();
   </script>

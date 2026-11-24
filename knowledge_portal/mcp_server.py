@@ -545,6 +545,11 @@ class PortalMcpEngine:
             data = {**data, "controls": [c for c in (data.get("controls") or []) if c.get("framework") == fw]}
         return data
 
+    def cve_report(self) -> dict[str, Any]:
+        from knowledge_portal.generators.cve_ingestor import generate_cve_report
+        f = self.data_dir / "cve-report.json"
+        return json.loads(f.read_text(encoding="utf-8")) if f.exists() else generate_cve_report(self.project_dir, self.data_dir)
+
     def codemode_discover(self, topic: str = "") -> dict[str, Any]:
         return get_codemode_sdk_reference(topic=topic)
 
@@ -757,6 +762,14 @@ TOOLS_SPEC: list[dict[str, Any]] = [
         },
     },
     {
+        "name": "portal_cve_report",
+        "description": "Inspect local air-gapped CVE vulnerability reports (pip-audit, npm-audit, osv-scanner, trivy) correlated against CycloneDX SBOM.",
+        "inputSchema": {
+            "type": "object",
+            "properties": {},
+        },
+    },
+    {
         "name": "portal_discover",
         "description": "Code Mode SDK discovery: returns the compact typed read-only `portal.*` API reference for writing multi-step query pipelines.",
         "inputSchema": {
@@ -820,6 +833,7 @@ def handle_jsonrpc_request(engine: PortalMcpEngine, req: dict[str, Any], code_mo
                     {"uri": "portal://invariants", "name": "Architecture Invariants", "description": "Machine-readable architectural rules & P4 gates", "mimeType": "application/json"},
                     {"uri": "portal://ownership", "name": "Ownership & Conway Map", "description": "CODEOWNERS and contributor bus-factor map", "mimeType": "application/json"},
                     {"uri": "portal://compliance", "name": "Compliance & Audit Evidence Pack", "description": "SOC2, ISO 27001 & EU AI Act controls", "mimeType": "application/json"},
+                    {"uri": "portal://cve-report", "name": "CVE & SBOM Vulnerability Report", "description": "Local CVE reports correlated with CycloneDX 1.5 SBOM", "mimeType": "application/json"},
                 ]
             },
         }
@@ -846,6 +860,8 @@ def handle_jsonrpc_request(engine: PortalMcpEngine, req: dict[str, Any], code_mo
             return {"jsonrpc": "2.0", "id": req_id, "result": {"contents": [{"uri": uri, "mimeType": "application/json", "text": json.dumps(engine.ownership(), indent=2)}]}}
         if uri == "portal://compliance":
             return {"jsonrpc": "2.0", "id": req_id, "result": {"contents": [{"uri": uri, "mimeType": "application/json", "text": json.dumps(engine.compliance_posture(), indent=2)}]}}
+        if uri == "portal://cve-report":
+            return {"jsonrpc": "2.0", "id": req_id, "result": {"contents": [{"uri": uri, "mimeType": "application/json", "text": json.dumps(engine.cve_report(), indent=2)}]}}
         return {"jsonrpc": "2.0", "id": req_id, "error": {"code": -32602, "message": f"Unknown resource URI: {uri}"}}
 
     if method == "prompts/list":
@@ -899,6 +915,7 @@ def handle_jsonrpc_request(engine: PortalMcpEngine, req: dict[str, Any], code_mo
             "portal_iac_topology": lambda _a: engine.iac_topology(),
             "portal_ai_registry": lambda _a: engine.ai_registry(),
             "portal_compliance": lambda a: engine.compliance_posture(a.get("framework", "all")),
+            "portal_cve_report": lambda _a: engine.cve_report(),
             "portal_discover": lambda a: engine.codemode_discover(a.get("topic", "")),
             "portal_codemode": lambda a: engine.codemode_execute(a.get("code", "")),
         }

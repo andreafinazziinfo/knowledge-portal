@@ -106,9 +106,11 @@ def main():
         from knowledge_portal.generators.config_matrix import generate_config_matrix
         from knowledge_portal.generators.iac_topology import generate_iac_topology
         from knowledge_portal.generators.ai_registry import generate_ai_registry
+        from knowledge_portal.generators.cve_ingestor import generate_cve_report
         from knowledge_portal.generators.compliance_evidence import generate_compliance_evidence
         from knowledge_portal.generators.llms_txt import generate_llms_manifests
         generate_stack_inventory(target, out)
+        generate_cve_report(target, out)
         generate_api_catalog(target, out)
         generate_call_graph(target, out)
         generate_ownership_map(target, out)
@@ -205,7 +207,14 @@ def main():
         data_dir = Path(args.data_dir).resolve() if args.data_dir else (get_template_dir() / "data")
         health_file = data_dir / "arch-health.json"
         report_data = json.loads(health_file.read_text(encoding="utf-8")) if health_file.exists() else generate_arch_health(data_dir, project_dir=target)
-        out_text = render_markdown_report(report_data, project_name=target.name) if args.format == "md" else json.dumps(render_sarif_report(report_data), indent=2)
+        if args.format == "md":
+            out_text = render_markdown_report(report_data, project_name=target.name)
+        else:
+            iac_file = data_dir / "iac-topology.json"
+            cve_file = data_dir / "cve-report.json"
+            iac_data = json.loads(iac_file.read_text(encoding="utf-8")) if iac_file.exists() else None
+            cve_data = json.loads(cve_file.read_text(encoding="utf-8")) if cve_file.exists() else None
+            out_text = json.dumps(render_sarif_report(report_data, iac_topology=iac_data, cve_report=cve_data), indent=2)
         if args.output:
             Path(args.output).write_text(out_text, encoding="utf-8")
             print(f"✅ Report written to {args.output}")

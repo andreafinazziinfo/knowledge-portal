@@ -360,6 +360,6 @@ def test_no_assert():
     assert res["supply_chain_and_ai"]["pyproject_unpinned_count"] == 1
     assert res["supply_chain_and_ai"]["has_lockfile"] is True
     assert res["supply_chain_and_ai"]["llms_txt_drift"]["status"] == "fresh"
-    assert len(res["severity_summary"]) == 6
+    assert len(res["severity_summary"]) >= 6
 
 

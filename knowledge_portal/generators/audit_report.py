@@ -24,6 +24,10 @@ def render_markdown_report(report: dict[str, Any], project_name: str = "Reposito
     obs = hv4.get("observability") or {}
     tq = hv4.get("test_quality") or {}
     sc = hv4.get("supply_chain_and_ai") or {}
+    rt2 = hv4.get("runtime_bugs_v2") or {}
+    cve = report.get("cve_report") or {}
+    cve_s = cve.get("summary") or {}
+    dbh = report.get("db_health") or {}
     fq = report.get("fix_queue") or []
 
     ts = time.strftime("%Y-%m-%d %H:%M UTC", time.gmtime())
@@ -49,9 +53,11 @@ def render_markdown_report(report: dict[str, Any], project_name: str = "Reposito
         "| Category | Findings / Status |",
         "| :--- | :--- |",
         f"| **OWASP Quick-Audit** | `{ow.get('findings_count', 0)}` total (`CRITICAL: {(ow.get('by_severity') or {}).get('CRITICAL', 0)}`, `HIGH: {(ow.get('by_severity') or {}).get('HIGH', 0)}`) |",
-        f"| **Reliability AST** | `{rel.get('total_issues', 0)}` (`async: {rel.get('async_blocking_count', 0)}`, `timeout: {rel.get('missing_timeout_count', 0)}`, `silent except: {rel.get('silent_except_count', 0)}`) |",
-        f"| **API Governance** | `{api.get('unprotected_count', 0)}` unprotected / `{api.get('mutating_routes_scanned', 0)}` mutating routes (`no response_model: {api.get('missing_response_model_count', 0)}`) |",
-        f"| **DB Governance** | `{dbg.get('n_plus_one_count', 0)}` N+1 loops · `{dbg.get('unbounded_select_count', 0)}` unbounded SELECT · `{dbg.get('unreferenced_tables_count', 0)}` unused tables |",
+        f"| **Reliability AST** | `{rel.get('total_issues', 0)}` (`async: {rel.get('async_blocking_count', 0)}`, `timeout: {rel.get('missing_timeout_count', 0)}`, `silent except: {rel.get('silent_except_count', 0)}`, `mutable default: {rel.get('mutable_default_count', 0)}`, `unclosed: {rel.get('unclosed_resource_count', 0)}`) |",
+        f"| **Runtime Bugs v2 (Py + Vue/TS)** | `{rt2.get('total_issues', 0)}` (`Python: {rt2.get('python_count', 0)}`, `Vue/TS: {rt2.get('frontend_count', 0)}`) |",
+        f"| **CVE & SBOM** | `{cve_s.get('total', 0)}` CVEs (`CRITICAL: {cve_s.get('critical', 0)}`, `HIGH: {cve_s.get('high', 0)}`, `SBOM correlated: {cve_s.get('sbom_correlated', 0)}`) |",
+        f"| **API Governance** | `{api.get('unprotected_count', 0)}` unprotected / `{api.get('mutating_routes_scanned', 0)}` mutating routes (`router-protected: {api.get('router_protected_count', 0)}`, `no response_model: {api.get('missing_response_model_count', 0)}`) |",
+        f"| **DB Governance** | `{dbg.get('n_plus_one_count', 0)}` N+1 loops · `{dbg.get('unbounded_select_count', 0)}` unbounded SELECT · `{dbh.get('hypertables_count', 0)}` Hypertables · `{dbh.get('caggs_count', 0)}` CAGGs |",
         f"| **Observability** | `/health`: `{obs.get('has_health_probe', False)}` · `/ready`: `{obs.get('has_ready_probe', False)}` · prod `print()`: `{obs.get('prod_print_count', 0)}` · `console.log()`: `{obs.get('prod_console_log_count', 0)}` |",
         f"| **Test Quality** | `{tq.get('test_smells_count', 0)}` test smells across `{len(tq.get('by_domain') or [])}` profiled domains |",
         f"| **Supply Chain & AI** | `{sc.get('pyproject_unpinned_count', 0)}` unpinned pyproject deps · lockfiles: `{len(sc.get('lockfiles_present') or [])}` · Context Bombs (>800 LOC): `{sc.get('context_bombs_count', 0)}` |",
@@ -69,8 +75,12 @@ def render_markdown_report(report: dict[str, Any], project_name: str = "Reposito
     return "\n".join(lines)
 
 
-def render_sarif_report(report: dict[str, Any]) -> dict[str, Any]:
-    """Render a standards-compliant SARIF 2.1.0 JSON dict from arch-health.json."""
+def render_sarif_report(
+    report: dict[str, Any],
+    iac_topology: dict[str, Any] | None = None,
+    cve_report: dict[str, Any] | None = None,
+) -> dict[str, Any]:
+    """Render a standards-compliant SARIF 2.1.0 JSON dict from arch-health.json (+ optional IaC & CVE reports)."""
     hv4 = report.get("health_v4") or {}
     results: list[dict[str, Any]] = []
 
@@ -81,7 +91,7 @@ def render_sarif_report(report: dict[str, Any]) -> dict[str, Any]:
             "message": {"text": message},
             "locations": [{
                 "physicalLocation": {
-                    "artifactLocation": {"uri": path},
+                    "artifactLocation": {"uri": path or "repository"},
                     "region": {"startLine": max(1, int(line or 1))},
                 }
             }],
@@ -97,6 +107,30 @@ def render_sarif_report(report: dict[str, Any]) -> dict[str, Any]:
         _add("KP-SRE-ASYNC-BLOCKING", "error", f"Blocking {x.get('call')} inside async {x.get('func')}()", str(x.get("path", "")), int(x.get("line", 1)))
     for x in rel.get("missing_timeout") or []:
         _add("KP-SRE-MISSING-TIMEOUT", "warning", f"{x.get('call')}() called without timeout=", str(x.get("path", "")), int(x.get("line", 1)))
+
+    # ADR-080 P0.2: Runtime Bugs v2 (Python AST + Vue/TS) — skip ASYNC_BLOCKING_IO already emitted above
+    for f in (hv4.get("runtime_bugs_v2") or {}).get("findings") or []:
+        rule = str(f.get("rule", "BUG"))
+        if rule == "ASYNC_BLOCKING_IO":
+            continue
+        sev = str(f.get("severity", "MEDIUM")).upper()
+        lvl = "error" if sev in ("CRITICAL", "HIGH") else "warning"
+        _add(f"KP-RUNTIME-{rule}", lvl, str(f.get("detail", "")), str(f.get("path", "")), int(f.get("line", 1)))
+
+    # ADR-080 P0.3: IaC & CI/CD Hardening misconfigs
+    if isinstance(iac_topology, dict):
+        for m in iac_topology.get("misconfigs") or []:
+            sev = str(m.get("severity", "MEDIUM")).upper()
+            lvl = "error" if sev in ("CRITICAL", "HIGH") else ("warning" if sev == "MEDIUM" else "note")
+            _add(f"KP-IAC-{m.get('rule', 'MISCONFIG')}", lvl, str(m.get("detail", "")), str(m.get("file", "")), int(m.get("line", 1)))
+
+    # ADR-080 P0.3: CVE Vulnerabilities
+    eff_cve = cve_report if isinstance(cve_report, dict) else (report.get("cve_report") if isinstance(report.get("cve_report"), dict) else None)
+    if isinstance(eff_cve, dict):
+        for v in eff_cve.get("vulnerabilities") or []:
+            sev = str(v.get("severity", "MEDIUM")).upper()
+            lvl = "error" if sev in ("CRITICAL", "HIGH") else "warning"
+            _add(f"KP-CVE-{v.get('id', 'VULN')}", lvl, f"[{v.get('package')}@{v.get('installed_version')}] {v.get('summary', '')}", str(v.get("source_file", "sbom.cdx.json")), 1)
 
     for rt in (hv4.get("api_governance") or {}).get("unprotected_mutating_routes") or []:
         _add("KP-API-UNPROTECTED", "warning", f"Mutating route {rt.get('method')} {rt.get('route')} missing auth dependency", str(rt.get("path", "")), int(rt.get("line", 1)))
@@ -114,8 +148,8 @@ def render_sarif_report(report: dict[str, Any]) -> dict[str, Any]:
         "runs": [{
             "tool": {
                 "driver": {
-                    "name": "Knowledge Portal Health Engine 4.0",
-                    "version": "4.0.0",
+                    "name": "Knowledge Portal Health Engine 5.0",
+                    "version": "5.0.0",
                     "informationUri": "https://github.com/andreafinazziinfo/knowledge-portal",
                 }
             },

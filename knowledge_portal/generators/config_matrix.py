@@ -30,6 +30,19 @@ _COMPOSE_ENV_RE = re.compile(r"^\s*-?\s*([A-Z][A-Z0-9_]{2,})\s*[:=]")
 _FLAG_PREFIXES = ("FEATURE_", "ENABLE_", "FF_", "FLAG_", "USE_", "BETA_")
 _FLAG_SDK_RE = re.compile(r"""(?:is_enabled|variation|bool_variation|get_flag|feature_enabled)\s*\(\s*["']([a-zA-Z0-9_.-]{3,60})["']""")
 
+# ADR-080 P0.1: Runtime built-in env vars (Vite, Node, CI, POSIX/Python) excluded from UNDOCUMENTED drift
+_BUILTIN_ENV_ALLOWLIST = frozenset({
+    # Vite / Bundler built-ins
+    "DEV", "PROD", "MODE", "BASE_URL", "SSR",
+    # Node / Runtime / CI built-ins
+    "NODE_ENV", "TZ", "PORT", "DEBUG", "CI",
+    "GITHUB_ACTIONS", "GITHUB_SHA", "GITHUB_REF", "GITHUB_WORKSPACE", "GITHUB_REPOSITORY",
+    # POSIX / OS / Python runtime built-ins
+    "PATH", "HOME", "USER", "USERNAME", "PWD", "SHELL", "HOSTNAME", "TERM",
+    "LANG", "LC_ALL", "TMPDIR", "TEMP", "TMP",
+    "PYTHONPATH", "PYTHONUNBUFFERED", "VIRTUAL_ENV", "PYTEST_CURRENT_TEST",
+})
+
 
 def _is_ignored(rel: str) -> bool:
     parts = [p.lower() for p in rel.replace("\\", "/").split("/")]
@@ -65,15 +78,44 @@ def _extract_py_env_vars(src: str) -> tuple[list[tuple[str, int, str | None]], l
                 vname = node.slice.value.strip()
                 if re.match(r"^[A-Z][A-Z0-9_]{1,}$", vname):
                     found.append((vname, getattr(node, "lineno", 1), None))
-        # Pydantic BaseSettings class fields
+        # Pydantic BaseSettings class fields (with env_prefix & Field validation_alias support)
         elif isinstance(node, ast.ClassDef):
             bases = [ast.unparse(b) if hasattr(ast, "unparse") else "" for b in node.bases]
             if any("BaseSettings" in b for b in bases):
+                env_prefix = ""
+                for item in node.body:
+                    # model_config = SettingsConfigDict(env_prefix="...") or {"env_prefix": "..."}
+                    if isinstance(item, ast.Assign):
+                        for tgt in item.targets:
+                            if isinstance(tgt, ast.Name) and tgt.id == "model_config":
+                                if isinstance(item.value, ast.Call):
+                                    for kw in item.value.keywords:
+                                        if kw.arg == "env_prefix" and isinstance(kw.value, ast.Constant) and isinstance(kw.value.value, str):
+                                            env_prefix = kw.value.value.strip().upper()
+                                elif isinstance(item.value, ast.Dict):
+                                    for dk, dv in zip(item.value.keys, item.value.values):
+                                        if isinstance(dk, ast.Constant) and dk.value == "env_prefix" and isinstance(dv, ast.Constant) and isinstance(dv.value, str):
+                                            env_prefix = dv.value.strip().upper()
+                    # class Config: env_prefix = "..."
+                    elif isinstance(item, ast.ClassDef) and item.name == "Config":
+                        for c_item in item.body:
+                            if isinstance(c_item, ast.Assign) and isinstance(c_item.value, ast.Constant) and isinstance(c_item.value.value, str):
+                                for tgt in c_item.targets:
+                                    if isinstance(tgt, ast.Name) and tgt.id == "env_prefix":
+                                        env_prefix = c_item.value.value.strip().upper()
+
                 for item in node.body:
                     if isinstance(item, ast.AnnAssign) and isinstance(item.target, ast.Name):
                         nm = item.target.id
                         if not nm.startswith("_") and nm != "model_config":
-                            found.append((nm.upper(), getattr(item, "lineno", 1), "settings"))
+                            alias_name: str | None = None
+                            if isinstance(item.value, ast.Call):
+                                for kw in item.value.keywords:
+                                    if kw.arg in ("validation_alias", "alias") and isinstance(kw.value, ast.Constant) and isinstance(kw.value.value, str):
+                                        alias_name = kw.value.value.strip().upper()
+                                        break
+                            full_name = alias_name if alias_name else f"{env_prefix}{nm.upper()}"
+                            found.append((full_name, getattr(item, "lineno", 1), "settings"))
 
     for lineno, line in enumerate(src.splitlines(), 1):
         for m in _FLAG_SDK_RE.finditer(line):
@@ -159,6 +201,7 @@ def generate_config_matrix(project_dir: Path, data_dir: Path, max_files: int = 2
     variables: list[dict[str, Any]] = []
     undocumented = 0
     unused = 0
+    builtin_count = 0
     flag_count = 0
 
     for name in all_names:
@@ -168,7 +211,10 @@ def generate_config_matrix(project_dir: Path, data_dir: Path, max_files: int = 2
         is_flag = name.startswith(_FLAG_PREFIXES)
         if is_flag:
             flag_count += 1
-        if in_code and not in_example:
+        if name in _BUILTIN_ENV_ALLOWLIST and not in_example and not in_compose:
+            status = "BUILTIN"
+            builtin_count += 1
+        elif in_code and not in_example:
             status = "UNDOCUMENTED"
             undocumented += 1
         elif in_example and not in_code and not in_compose:
@@ -191,8 +237,8 @@ def generate_config_matrix(project_dir: Path, data_dir: Path, max_files: int = 2
         })
 
     # Sort drift issues first
-    order = {"UNDOCUMENTED": 0, "UNUSED": 1, "OK": 2}
-    variables.sort(key=lambda v: (order.get(v["status"], 3), -int(v["usage_count"]), v["name"]))
+    order = {"UNDOCUMENTED": 0, "UNUSED": 1, "OK": 2, "BUILTIN": 3}
+    variables.sort(key=lambda v: (order.get(v["status"], 4), -int(v["usage_count"]), v["name"]))
 
     payload: dict[str, Any] = {
         "generated_at": time.time(),
@@ -200,6 +246,7 @@ def generate_config_matrix(project_dir: Path, data_dir: Path, max_files: int = 2
             "total_variables": len(variables),
             "undocumented_count": undocumented,
             "unused_count": unused,
+            "builtin_count": builtin_count,
             "feature_flags_count": flag_count + len({f["flag"] for f in sdk_flags}),
             "files_scanned": scanned,
         },
