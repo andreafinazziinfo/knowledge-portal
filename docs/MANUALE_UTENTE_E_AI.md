@@ -92,15 +92,24 @@ python3 -m knowledge_portal.cli export . --output ./dist --name "My Project"
 - Riunisce in una singola barra veloce **18 visualizzazioni zero-CDN**: **Network** (*2D Graph, 3D Sphere, Particle Flow, Chord Matrix, Edge Bundling, Arc Diagram, Hive Plot*), **Arch** (*2D Canvas, 3D Z-Planes, CodeCity 3D, Sankey Flow*) e **Hierarchy** (*Tree, Treemap, Sunburst, Circle Pack, Icicle, Radial Tidy Tree, 3D Tree*).
 - Supporta la persistenza del focus (`?focus=<nodeId>`) tra modalità e il pulsante **`📷 Snapshot`** per esportare in 1 click la vista attiva in `.svg` o `.png`.
 
-### 🩺 Vista 7: Health & Audit Center 4.0 (16 Pilastri · 7 Tab · Export & CI Gate)
+### 🩺 Vista 7: Health & Audit Center 4.0+ (10 Tab · Deep Audit · Export & CI Gate — ADR-080)
 - **Tab 1 (Overview & Fix Queue)**: Radar 6 assi, storico nel tempo e Top 12 ROI Fix Queue (`P0/P1/P2`).
 - **Tab 2 (Architecture)**: Scatter Robert C. Martin (`I` vs `A`), Domain DSM Heatmap, Cicli Tarjan SCC e God-Files.
 - **Tab 3 (Complexity, Git & Ownership)**: Hotspot Bubble Map, Parallel Coordinates, **CodeScene Risk Matrix**, Bus Factor e **Ownership & Conway's Law Map** (`CODEOWNERS` + 180g Git).
 - **Tab 4 (Tests & Coverage)**: **Per-Domain Test-to-Code Ratio** (D3 bar chart), **Test Smells Audit** (`ASSERT_LESS_TEST`, `SKIPPED_TEST`, `SLEEP_IN_TEST`) e auto-ingestion `coverage.xml`/`lcov.info`.
-- **Tab 5 (Security, SRE, API & DB)**: **Severity Breakdown Stacked Bar** + **OWASP Quick-Audit** (Secrets/Entropy, SQLi AST, `verify=False`, `CORS *`, `v-html`), **Reliability AST** (async blocking, missing `timeout=`, silent `except`), **API Auth/Model Governance**, **DB N+1 & Unbounded SELECT**, **Observability Probes**, **Supply Chain (`pyproject.toml` + lockfile)**.
+- **Tab 5 (Security, SRE, API & DB)**: **Severity Breakdown Stacked Bar** + **OWASP Quick-Audit**, **Reliability AST**, **API Auth/Model Governance**, **DB N+1, Unbounded SELECT & TimescaleDB Hypertables/CAGGs**, **Observability Probes**, **Supply Chain (`pyproject.toml` + lockfile)**.
 - **Tab 6 (AI Readiness & Orphans)**: Docstring/Type-Hint %, **AI Context Bombs (`>800 LOC`)** e drift `llms.txt`.
 - **Tab 7 (Architecture Diff & Evolution)**: Diff tra snapshot + **selettore Git-Ref (`base..HEAD`)** con **Living Doc-Drift Detector**.
+- **Tab 8 (IaC, Config & Compliance)**: Topologia Docker/Compose/Terraform/CI, matrice `.env` drift e evidenze di conformità.
+- **Tab 9 (`🐛 Runtime Bugs & CI/CVE`)**: **Runtime Bugs v2** Python (`ASYNC_BLOCKING_IO`, `UNCLOSED_RESOURCE`, `LATE_BINDING_CLOSURE`, `SWALLOWED_EXCEPTION`) + Vue/TS (`VUE_VFOR_NO_KEY`, `JS_LEAKED_LISTENER_OR_TIMER`, `TS_FLOATING_PROMISE`), audit CI/CD & Compose e **CVE JSON Ingestion** (`pip-audit`, `npm-audit`, `osv-scanner`, `trivy`) correlata al CycloneDX 1.5 SBOM.
+- **Tab 10 (`🧬 Deep Audit: Dead Code, Migrations, FE & Telemetry`)**: **Symbol-Level Dead Code** (`Python`, `JS/TS`, `Vue`), **Migration Safety & SRE Resilience** (`SQL_INDEX_WITHOUT_CONCURRENTLY`, `SQL_LOCK_TIMEOUT_MISSING`, `SRE_FSTRING_LOGGING`), **Frontend Hygiene & Static a11y** (Pinia/Vuex God-Stores, `A11Y_*`), **Quality Telemetry** (JUnit, Coverage, Ruff, Mypy, TSC) e **AST Semantic Clones** (rilevamento funzioni strutturalmente duplicate via fingerprint AST normalizzato).
 - **Export & CI Gate**: Pulsanti `🖨️ Print / PDF`, `⬇ Markdown`, `⬇ SARIF 2.1` + CLI `knowledge-portal report --format md|sarif` e `knowledge-portal gate --min-score 75 --max-cycles 0 --max-critical 0`.
+
+### 🎛️ Vista 10: Control Hub OSS (4 Viste Air-Gapped — ADR-081)
+- **Mission Control (`views/mission-control.html`)**: Cruscotto operativo unificato con KPI architetturali/Git/governance, radar anomalie `P0/P1/P2` e jump rapidi ai sottosistemi.
+- **Git & PR DAG (`views/git-pr-dag.html`)**: Matrice completa dei Git worktree (`clean`, `dirty`, `stale`, `detached`, `locked`), igiene branch locali, workflow CI e grafi PR.
+- **ADR & Runbook Hub (`views/adr-runbook-hub.html`)**: Grafo delle Architecture Decision Records (`Accepted`/`Proposed`/`Superseded`) e catalogo runbook operativi cliccabile verso il Reader.
+- **AI Mission Launcher (`views/ai-mission-launcher.html`)**: Generatore interattivo di missioni AI con selezione scope, context-pack mirati e prompt pronti per agenti autonomi.
 
 ### ⚡ Vista 8: End-to-End Sequence Tracer & 💥 What-If Impact Simulator
 - **Sequence Tracer (`views/sequence-tracer.html`)**: visualizza le catene di chiamata reali estratte via AST (`Route → Handler → Service Callees → DB Tables`) con diagramma sequenziale D3 cliccabile verso il Reader.
@@ -141,10 +150,16 @@ Tutti i file descrittivi risiedono nella cartella `data/` del portale:
 | `data/call-graph.json` | **Symbol-Level Call Graph**: `caller → callee`, firme tipizzate, eccezioni, tabelle DB e catene `Route → DB`. | `summary`, `chains`, `symbols` |
 | `data/api-catalog.json` | **Live API & OpenAPI 3.1**: tutti gli endpoint HTTP/WS con auth, handler `file:line` e `response_model`. | `summary`, `tags`, `endpoints`, `openapi` |
 | `data/ownership.json` | **Ownership & Conway Map**: regole `CODEOWNERS`, Bus Factor e contributori 180g per dominio. | `codeowners_file`, `domains` |
-| `data/sbom.cdx.json` | **CycloneDX 1.5 SBOM**: componenti software, PURL e classificazione licenze. | `bomFormat`, `specVersion`, `components` |
+| `data/sbom.cdx.json` | **CycloneDX 1.5 SBOM**: componenti software, PURL, classificazione licenze e `vulnerabilities[]`. | `bomFormat`, `specVersion`, `components`, `vulnerabilities` |
+| `data/cve-report.json` | **CVE Ingestion (ADR-080)**: vulnerabilità da `pip-audit`, `npm-audit`, `osv-scanner`, `trivy` correlate all'SBOM. | `available`, `sources`, `summary`, `vulnerabilities` |
+| `data/dead-code.json` | **Symbol-Level Dead Code (ADR-080)**: funzioni Python non chiamate, export JS/TS inutilizzati, componenti Vue orfani. | `summary`, `python_dead_symbols`, `js_unused_exports`, `vue_unused_components` |
+| `data/quality-telemetry.json` | **Quality Telemetry (ADR-080)**: aggregatore locale Coverage, JUnit XML, Ruff, Mypy e TSC. | `summary`, `coverage`, `junit`, `ruff`, `typecheck` |
+| `data/mission-control.json` | **Mission Control (ADR-081)**: KPI esecutivi, stato sottosistemi e lista anomalie prioritizzate. | `kpis`, `subsystems`, `anomalies`, `quick_jumps` |
+| `data/git-dag.json` | **Git & PR DAG (ADR-081)**: inventario worktree, branch locali/stale/merged, PR e workflow CI. | `summary`, `worktrees`, `branches`, `prs`, `workflows` |
+| `data/adr-graph.json` | **ADR & Runbook Graph (ADR-081)**: grafo decisioni architetturali, stati e runbook operativi. | `summary`, `adrs`, `edges`, `runbooks` |
 
-### 🔌 Protocollo MCP v2, Code Mode & CLI AI-Native
-- **Server MCP Standard (`knowledge-portal mcp`)**: espone **18 tool** (inclusi `portal_mission_pack`, `portal_call_chain`, `portal_validate_change`, `portal_pr_context`, `portal_api_catalog`, `portal_arch_diff`, `portal_health_audit`, `portal_impact`), **7 risorse** (`portal://llms.txt`, `portal://health`, `portal://api-catalog`, `portal://arch-diff`, `portal://sbom`, `portal://invariants`, `portal://ownership`) e **prompt guidati** (`audit_pr_impact`, `onboard_module`).
+### 🔌 Protocollo MCP v2 (28 Tool · 14 Risorse), Code Mode & CLI AI-Native
+- **Server MCP Standard (`knowledge-portal mcp`)**: espone **28 tool** (26 tool standard tra cui `portal_mission_control`, `portal_git_dag`, `portal_adr_graph`, `portal_deep_audit`, `portal_dead_code`, `portal_cve_report`, `portal_config_matrix`, `portal_iac_topology`, `portal_ai_registry`, `portal_compliance`, `portal_mission_pack`, `portal_call_chain`, `portal_validate_change`, `portal_pr_context`, `portal_api_catalog`, `portal_arch_diff`, `portal_health_audit`, `portal_impact` + 2 tool Code Mode), **14 risorse `portal://`** (`portal://llms.txt`, `portal://health`, `portal://mission-control`, `portal://git-dag`, `portal://adr-graph`, `portal://dead-code`, `portal://cve-report`, `portal://quality-telemetry`, `portal://compliance`, `portal://api-catalog`, `portal://arch-diff`, `portal://sbom`, `portal://invariants`, `portal://ownership`) e **prompt guidati** (`audit_pr_impact`, `onboard_module`).
 - **Cloudflare-Style Code Mode (`knowledge-portal mcp --code-mode`)**: riduce lo schema MCP a 2 soli tool (`portal_discover` + `portal_codemode`) con interprete AST Python strettamente read-only per pipeline multi-step in un singolo round-trip.
 - **Ricerca Ibrida & PR Bot**: `GET /api/search?q=...&expand=1` espande i risultati FTS5 BM25 con i vicini 1-hop del grafo; `knowledge-portal pr-comment --base main` genera un commento PR con **Doc-Drift** e test impattati.
 

@@ -31,10 +31,11 @@
 - **🛡️ Production-Grade Hardening & CI E2E Gate**: Strict path-confinement (`safe_resolve_under`), `PORTAL_READ_ONLY` & `PORTAL_API_TOKEN` guards, HTTP security headers, hardened `read_only` non-root Docker Compose, `pytest-cov` coverage gate, and automated Playwright E2E checks.
 - **🔌 Native Zero-Dep MCP Server & CLI Query (`knowledge-portal mcp | status | query`)**: Connect any MCP client (`stdio` JSON-RPC 2.0) to query SQLite FTS5 BM25 search, 1-hop/2-hop graph neighbors, `process-flows.json`, `db-schema.json`, `stack-ecosystem.json`, live `/api/telemetry`, and safe workspace docs. Optional `pip install knowledge-portal[treesitter]` extra available for multi-language AST parsing.
 - **🕸️ Unified Graph Studio (18 Visualization Modes + SVG/PNG Snapshot)**: Switch seamlessly between 18 zero-CDN visualizers (2D/3D Graph, Particle Flow, Chord, Edge Bundling, Arc Diagram, Hive Plot, 2D/3D Canvas, CodeCity 3D, Sankey, Tree, Treemap, Sunburst, Circle Pack, Icicle, Radial Tidy Tree, 3D Tree) with `?focus=` persistence and 1-click `📷 Snapshot` export.
-- **🩺 Health & Audit Center 4.0 (16 Zero-Dep Pillars · 7 Tabs · SARIF & CI Gate)**: File-level Tarjan SCC cycles, Robert C. Martin metrics & DSM, McCabe/Cognitive/MI, CodeScene Risk Matrix, OWASP Quick-Audit (Secrets/Entropy, SQLi AST, TLS, CORS, XSS), Reliability AST (`async` blocking, missing `timeout=`, silent `except`), DB N+1 & schema health, API Auth/Model governance, Per-Domain Test Ratio & Smells, Ownership & Conway Map, Git-Ref Arch Diff & Doc-Drift, plus Print/PDF, Markdown, SARIF 2.1.0 export and `knowledge-portal gate`.
+- **🩺 Health & Audit Center 4.0+ (10 Diagnostic Tabs · Deep Audit · SARIF & CI Gate — ADR-080)**: File-level Tarjan SCC cycles, Robert C. Martin metrics & DSM, McCabe/Cognitive/MI, CodeScene Risk Matrix, OWASP Quick-Audit, Reliability AST, DB N+1 & **TimescaleDB Hypertables/CAGGs**, API Governance, Per-Domain Test Ratio & Smells, Ownership & Conway Map, Git-Ref Arch Diff & Doc-Drift, **Tab 9 `🐛 Runtime Bugs & CI/CVE`** (Python + Vue/TS Runtime Bugs v2, GitHub Actions CI/CD hardening, local CVE JSON ingestion for `pip-audit`/`npm-audit`/`osv-scanner`/`trivy` correlated with CycloneDX 1.5 SBOM), and **Tab 10 `🧬 Deep Audit: Dead Code, Migrations, FE & Telemetry`** (symbol-level Python/JS/TS/Vue dead code, SQL migration safety & SRE resilience, Pinia/Vue frontend hygiene & static a11y, Quality Telemetry ingestion for JUnit/Coverage/Ruff/Mypy/TSC, and **AST Semantic Clones**), plus Print/PDF, Markdown, SARIF 2.1.0 export and `knowledge-portal gate`.
+- **🎛️ Enterprise Control Hub OSS (ADR-081)**: Four air-gapped operational views — **Mission Control (`views/mission-control.html`)** unified KPI & anomaly board, **Git & PR DAG (`views/git-pr-dag.html`)** worktree/branch/stacked-PR topology, **ADR & Runbook Hub (`views/adr-runbook-hub.html`)** decision graph & lifecycle tracker, and **AI Mission Launcher (`views/ai-mission-launcher.html`)** one-click prompt & context-pack generator.
 - **⚡ End-to-End Sequence Tracer & 💥 What-If Impact Simulator**: Trace AST symbol-level `Route → Handler → Service → DB` call chains (`views/sequence-tracer.html`) and visually simulate `d=1 / d=2 / d=3` blast radius with suggested `pytest` commands (`views/impact-simulator.html`).
 - **🔌 Live Auto-Discovered API Catalog & CycloneDX 1.5 SBOM**: Polyglot AST/regex route extraction (FastAPI, Flask, Express, Go, OpenAPI 3.1) in `views/api-catalog.html`, plus license compliance & downloadable `sbom.cdx.json` in `views/stack-ecosystem.html`.
-- **🤖 Enterprise AI Context Engine (MCP v2 · Code Mode · Mission Pack · Invariants)**: 18 MCP tools + compact 2-tool Cloudflare-style AST-sandboxed `--code-mode`, MCP `resources/*` (`portal://llms.txt`, `portal://health`, `portal://invariants`, `portal://ownership`, `portal://sbom`), `prompts/*`, `portal_mission_pack`, hybrid FTS5 + 1-hop graph search, and `knowledge-portal pr-comment` Doc-Drift detector.
+- **🤖 Enterprise AI Context Engine (MCP v2 · 28 Tools · 14 Resources · Code Mode)**: **28 MCP tools** (26 standard tools including `portal_mission_control`, `portal_git_dag`, `portal_adr_graph`, `portal_deep_audit`, `portal_dead_code`, `portal_cve_report`, `portal_mission_pack`, `portal_call_chain`, `portal_validate_change`, `portal_pr_context` + 2 Cloudflare-style AST-sandboxed `--code-mode` tools), **14 MCP `resources/*`** (`portal://llms.txt`, `portal://health`, `portal://mission-control`, `portal://git-dag`, `portal://adr-graph`, `portal://dead-code`, `portal://cve-report`, `portal://quality-telemetry`, `portal://compliance`, `portal://api-catalog`, `portal://arch-diff`, `portal://invariants`, `portal://ownership`, `portal://sbom`), `prompts/*`, hybrid FTS5 + 1-hop graph search, and `knowledge-portal pr-comment` Doc-Drift detector.
 - **🧭 Guided Onboarding, Universal `Cmd+K`, Deep-Linking & Dark/Light Theme**: Fuzzy keyboard-navigable `Cmd+K` across views/docs/APIs, 3 interactive onboarding tracks, shareable `?tab=&file=&target=` URLs, and 1-click `🌙 / ☀️` presentation theme toggle.
 - **🛡️ Zero-Dependency Core Runtime**: The server, watcher, and Polyglot AST scanner rely strictly on the **Python 3.10+ Standard Library** (zero heavy framework dependencies).
 
@@ -373,3 +374,28 @@ This project is licensed under the **Apache License, Version 2.0**. See the [LIC
   # Compact 2-tool MCP (~1k token schema): portal_discover + read-only AST-sandboxed portal_codemode
   knowledge-portal mcp --dir . --code-mode
   ```
+
+---
+
+## 🚀 Health Engine v4+ Deep Audit & Enterprise Control Hub OSS (ADR-080 & ADR-081)
+
+### 🩺 ADR-080 — Health Engine v4+ (Tab 9 & Tab 10)
+- **Tab 9 — `🐛 Runtime Bugs & CI/CVE`**:
+  - **Runtime Bugs v2 (Python + Vue/TS)**: detects `ASYNC_BLOCKING_IO` inside `async def`, `UNCLOSED_RESOURCE`, `LATE_BINDING_CLOSURE`, `SWALLOWED_EXCEPTION`, `VUE_VFOR_NO_KEY`, `JS_LEAKED_LISTENER_OR_TIMER`, and `TS_FLOATING_PROMISE`.
+  - **TimescaleDB & SQL Deep Health**: auto-discovers Hypertables (`create_hypertable`), Continuous Aggregates (`WITH (timescaledb.continuous)`), compression policies, and PK-less tables.
+  - **CVE JSON Ingestion & SBOM Correlation**: ingests local `pip-audit`, `npm-audit`, `osv-scanner`, and `trivy` JSON reports (`data/cve-report.json`), enriching `sbom.cdx.json` `vulnerabilities[]`.
+  - **CI/CD & IaC Security**: detects self-hosted `issue_comment` risks, privileged Docker Compose services, root Dockerfiles, open Terraform CIDRs, and missing healthchecks.
+- **Tab 10 — `🧬 Deep Audit: Dead Code, Migrations, FE & Telemetry`**:
+  - **Symbol-Level Dead Code (`data/dead-code.json`)**: zero-caller Python functions/classes, unused JS/TS exports, and unreferenced Vue SFC components.
+  - **Migration Safety & SRE Resilience**: flags `SQL_INDEX_WITHOUT_CONCURRENTLY`, `SQL_LOCK_TIMEOUT_MISSING`, `SRE_FSTRING_LOGGING`, and HTTP/LLM clients missing retry policies.
+  - **Frontend Hygiene & Static a11y**: identifies Pinia/Vuex God-Stores, eager routes, error-boundary coverage, and accessibility issues (`A11Y_INPUT_MISSING_LABEL`, `A11Y_CLICKABLE_DIV_NO_ROLE`).
+  - **Quality Telemetry Ingestion (`data/quality-telemetry.json`)**: aggregates local Coverage (`coverage.xml`/`lcov.info`), JUnit XML, Ruff, Mypy, and TypeScript (`tsc`) reports.
+  - **AST Semantic Clones**: normalized Python AST fingerprinting detecting structural duplicate functions across files.
+
+### 🎛️ ADR-081 — Control Hub OSS & MCP v2 Expansion
+- **4 New Air-Gapped Control Hub Views**:
+  - `views/mission-control.html` (`data/mission-control.json`, `GET /api/mission-control`) — executive KPI grid, prioritized P0/P1/P2 anomaly radar, and subsystem health cards.
+  - `views/git-pr-dag.html` (`data/git-dag.json`, `GET /api/git-dag`) — interactive Git worktree matrix (clean/dirty/stale/detached/locked), branch hygiene, and PR/workflow topology.
+  - `views/adr-runbook-hub.html` (`data/adr-graph.json`, `GET /api/adr-graph`) — Architecture Decision Record lifecycle graph, supersession links, and operational runbooks catalog.
+  - `views/ai-mission-launcher.html` — interactive mission builder generating copy-ready AI context packs and scoped engineering prompts.
+- **MCP v2 Server (`knowledge-portal mcp`)**: expanded to **28 tools** (26 standard + 2 `--code-mode`) and **14 `portal://` resources**, enabling autonomous agents to inspect Mission Control, Git DAG, ADR Graph, Dead Code, Deep Audit, Quality Telemetry, and CVE reports in a single read-only call.

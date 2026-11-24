@@ -213,17 +213,17 @@ def _enrich_sbom(data_dir: Path, vulns: list[dict[str, Any]]) -> int:
     cdx_vulns: list[dict[str, Any]] = []
     for v in vulns:
         pkg_low = str(v.get("package", "")).lower()
-        ref = comp_map.get(pkg_low)
-        v["in_sbom"] = ref is not None
-        if ref is not None:
-            v["sbom_ref"] = ref
+        matched_ref = comp_map.get(pkg_low)
+        v["in_sbom"] = matched_ref is not None
+        if matched_ref is not None:
+            v["sbom_ref"] = matched_ref
             correlated += 1
         cdx_vulns.append({
             "id": v["id"],
             "source": {"name": v["source"]},
             "ratings": [{"severity": str(v["severity"]).lower()}],
             "description": v["summary"],
-            "affects": [{"ref": ref or v["package"]}],
+            "affects": [{"ref": matched_ref or v["package"]}],
         })
 
     if cdx_vulns:
