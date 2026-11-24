@@ -112,8 +112,13 @@ def main():
         from knowledge_portal.generators.git_dag import generate_git_dag
         from knowledge_portal.generators.adr_graph import generate_adr_graph
         from knowledge_portal.generators.mission_control import generate_mission_control
+        from knowledge_portal.generators.test_oracle import generate_test_oracle
+        from knowledge_portal.generators.module_cards import generate_module_cards
+        from knowledge_portal.generators.agent_instructions_audit import generate_agent_instructions_audit
+        from knowledge_portal.generators.sarif_ingestor import generate_sarif_findings
         generate_stack_inventory(target, out)
         generate_cve_report(target, out)
+        generate_sarif_findings(target, out)
         generate_api_catalog(target, out)
         generate_call_graph(target, out)
         generate_ownership_map(target, out)
@@ -124,6 +129,9 @@ def main():
         generate_compliance_evidence(target, out)
         generate_git_dag(target, out)
         generate_adr_graph(target, out)
+        generate_test_oracle(target, out)
+        generate_module_cards(target, out)
+        generate_agent_instructions_audit(target, out)
         generate_mission_control(target, out)
         generate_llms_manifests(target, out, template_dir)
 

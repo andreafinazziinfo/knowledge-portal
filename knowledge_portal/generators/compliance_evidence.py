@@ -45,6 +45,7 @@ def generate_compliance_evidence(project_dir: Path, data_dir: Path) -> dict[str,
     iac = _load_json(data_dir / "iac-topology.json")
     ai_reg = _load_json(data_dir / "ai-registry.json")
     cve = _load_json(data_dir / "cve-report.json")
+    sarif = _load_json(data_dir / "sarif-findings.json")
 
     hv4 = health.get("health_v4") or {}
     owasp = hv4.get("owasp_audit") or {}
@@ -57,6 +58,9 @@ def generate_compliance_evidence(project_dir: Path, data_dir: Path) -> dict[str,
     cve_crit = int(cve_sum.get("critical", 0))
     cve_high = int(cve_sum.get("high", 0))
     cve_total = int(cve_sum.get("total", 0))
+    sarif_sum = sarif.get("summary") or {}
+    sarif_crit = int(sarif_sum.get("critical", 0))
+    sarif_total = int(sarif_sum.get("total", 0))
 
     has_license = any((project_dir / f).is_file() for f in ("LICENSE", "LICENSE.md", "LICENSE.txt"))
     has_security_md = any((project_dir / f).is_file() for f in ("SECURITY.md", ".github/SECURITY.md"))
@@ -81,9 +85,9 @@ def generate_compliance_evidence(project_dir: Path, data_dir: Path) -> dict[str,
         _ctrl("SOC2", "CC6.1", "Logical Access & Auth on Mutating APIs",
               "PASS" if unauth_routes == 0 else ("WARN" if unauth_routes <= 2 else "FAIL"),
               f"{unauth_routes} unprotected mutating routes scanned (arch-health.json)"),
-        _ctrl("SOC2", "CC6.6", "Zero Critical OWASP / CVE Vulnerabilities",
-              "PASS" if (ow_crit == 0 and cve_crit == 0) else "FAIL",
-              f"{ow_crit} CRITICAL OWASP findings, {cve_crit} CRITICAL CVEs ({cve_total} total CVEs)"),
+        _ctrl("SOC2", "CC6.6", "Zero Critical OWASP / CVE / SARIF Vulnerabilities",
+              "PASS" if (ow_crit == 0 and cve_crit == 0 and sarif_crit == 0) else "FAIL",
+              f"{ow_crit} CRITICAL OWASP, {cve_crit} CRITICAL CVEs ({cve_total} total), {sarif_crit} CRITICAL SARIF ({sarif_total} total)"),
         _ctrl("SOC2", "CC7.1", "System Monitoring & Health Probes",
               "PASS" if has_probes else "WARN",
               f"/health probe present={has_probes}, Reliability AST issues={rel.get('total_issues', 0)}"),

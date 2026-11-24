@@ -355,6 +355,7 @@
           <button class="ah-chip" data-cat="frontend">Vue/TS</button>
           <button class="ah-chip" data-cat="cicd">CI/CD Hardening</button>
           <button class="ah-chip" data-cat="cve">CVE/SBOM</button>
+          <button class="ah-chip" data-cat="sarif">SARIF</button>
           <span style="margin-left:8px;color:#525252;">|</span>
           <button class="ah-chip active" data-sev="all">All Severities</button>
           <button class="ah-chip" data-sev="CRITICAL">CRITICAL</button>
@@ -1021,6 +1022,12 @@
           try { const r = await fetch(u); if (r.ok) { const j = await r.json(); if (j && Array.isArray(j.vulnerabilities)) { cve = j; break; } } } catch (_) {}
         }
       }
+      let sarif = data.sarif_findings || null;
+      if (!sarif || !Array.isArray(sarif.findings)) {
+        for (const u of ['/api/sarif-findings?detail=full', '../data/sarif-findings.json', 'data/sarif-findings.json']) {
+          try { const r = await fetch(u); if (r.ok) { const j = await r.json(); if (j && Array.isArray(j.findings)) { sarif = j; break; } } } catch (_) {}
+        }
+      }
 
       const rt2 = hv4.runtime_bugs_v2 || {};
       const rows = [];
@@ -1065,6 +1072,19 @@
         });
       });
 
+      ((sarif && sarif.findings) || []).forEach(sf => {
+        rows.push({
+          cat: 'sarif',
+          catLabel: `SARIF:${sf.tool || 'tool'}`,
+          severity: String(sf.severity || 'MEDIUM').toUpperCase(),
+          rule: sf.rule_id || 'SARIF',
+          path: sf.path || sf.source || '',
+          line: sf.line || 1,
+          detail: sf.message || '',
+          remediation: `Inspect ${sf.tool || 'SARIF'} rule ${sf.rule_id || ''} in ${sf.source || 'reports/*.sarif'}.`,
+        });
+      });
+
       const sevOrder = { CRITICAL: 0, HIGH: 1, MEDIUM: 2, LOW: 3 };
       rows.sort((a, b) => (sevOrder[a.severity] ?? 4) - (sevOrder[b.severity] ?? 4) || a.path.localeCompare(b.path));
 
@@ -1072,6 +1092,7 @@
       const feCnt = rows.filter(r => r.cat === 'frontend').length;
       const ciCnt = rows.filter(r => r.cat === 'cicd').length;
       const cveCnt = rows.filter(r => r.cat === 'cve').length;
+      const sarifCnt = rows.filter(r => r.cat === 'sarif').length;
       const critCnt = rows.filter(r => r.severity === 'CRITICAL').length;
 
       document.getElementById('cnt-rt-total').textContent = `${rows.length} findings`;
@@ -1082,6 +1103,7 @@
         { val: feCnt, lbl: 'Vue / TS Antipatterns', col: feCnt > 0 ? '#38bdf8' : '#34d399' },
         { val: ciCnt, lbl: 'CI/CD & IaC Hardening', col: ciCnt > 0 ? '#f59e0b' : '#34d399' },
         { val: cveCnt, lbl: `CVE / SBOM (${(cve && cve.available) ? 'Active' : 'No local report'})`, col: cveCnt > 0 ? '#ef4444' : '#34d399' },
+        { val: sarifCnt, lbl: `SARIF (${(sarif && sarif.available) ? 'Active' : 'No SARIF'})`, col: sarifCnt > 0 ? '#f59e0b' : '#34d399' },
       ].map(k => `<div class="ah-kpi"><div class="ah-kpi-val" style="${k.col ? `color:${k.col};` : ''}">${k.val}</div><div class="ah-kpi-lbl">${k.lbl}</div></div>`).join('');
 
       let activeCat = 'all';
@@ -1204,6 +1226,26 @@
         cat: 'telemetry', catLabel: 'Quality Telemetry', severity: 'MEDIUM',
         rule: x.code || 'TSC_ERROR', path: x.path || '', line: x.line || 1,
         detail: x.message || '', remediation: 'Resolve TypeScript / vue-tsc type error.',
+      }));
+      ((qt.eslint && qt.eslint.findings) || []).forEach(x => rows.push({
+        cat: 'telemetry', catLabel: 'ESLint', severity: x.severity === 'error' ? 'HIGH' : 'MEDIUM',
+        rule: `ESLINT_${x.rule || 'RULE'}`, path: x.path || '', line: x.line || 1,
+        detail: x.message || '', remediation: 'Fix ESLint diagnostic in frontend source.',
+      }));
+      ((qt.knip && qt.knip.sample_files) || []).forEach(f => rows.push({
+        cat: 'deadcode', catLabel: 'Knip', severity: 'LOW',
+        rule: 'KNIP_UNUSED_FILE', path: f, line: 1,
+        detail: 'Unused TS/Vue file reported by Knip.', remediation: 'Remove or export unused module.',
+      }));
+      ((qt.vulture && qt.vulture.findings) || []).forEach(x => rows.push({
+        cat: 'deadcode', catLabel: 'Vulture', severity: 'LOW',
+        rule: 'VULTURE_DEAD_CODE', path: x.path || '', line: x.line || 1,
+        detail: `${x.name || ''} (${x.confidence || 60}%): ${x.message || ''}`, remediation: 'Remove unused Python symbol or whitelist.',
+      }));
+      ((qt.deptry && qt.deptry.findings) || []).forEach(x => rows.push({
+        cat: 'telemetry', catLabel: 'Deptry', severity: 'MEDIUM',
+        rule: `DEPTRY_${x.code || 'DEP'}`, path: x.path || '', line: 1,
+        detail: `[${x.module || ''}] ${x.message || ''}`, remediation: 'Sync Python dependencies in pyproject.toml.',
       }));
       ((qt.coverage && qt.coverage.by_domain) || []).forEach(d => {
         if (Number(d.coverage_pct) < 50) {

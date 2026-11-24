@@ -439,9 +439,13 @@ def generate_arch_health(data_dir: Path, project_dir: Path | None = None) -> dic
     report["db_health"] = analyze_db_health(data_dir)
     if project_dir is not None and Path(project_dir).exists():
         from knowledge_portal.generators.cve_ingestor import generate_cve_report
-        report["cve_report"] = generate_cve_report(Path(project_dir).resolve(), data_dir)
+        from knowledge_portal.generators.sarif_ingestor import generate_sarif_findings
+        p_res = Path(project_dir).resolve()
+        report["cve_report"] = generate_cve_report(p_res, data_dir)
+        report["sarif_findings"] = generate_sarif_findings(p_res, data_dir)
     else:
         report["cve_report"] = {"available": False, "sources": [], "summary": {"total": 0, "critical": 0, "high": 0, "medium": 0, "low": 0, "sbom_correlated": 0}, "vulnerabilities": []}
+        report["sarif_findings"] = {"available": False, "summary": {"available": False, "sources_count": 0, "sources": [], "total": 0, "critical": 0, "high": 0, "medium": 0, "low": 0, "by_tool": {}, "by_severity": {}}, "findings": []}
     report["history"] = record_health_history(data_dir, report["summary"])
     report["fix_queue"] = build_actionable_fix_queue(report)
 

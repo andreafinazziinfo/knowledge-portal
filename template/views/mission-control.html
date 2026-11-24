@@ -69,6 +69,7 @@
       </div>
       <div class="actions">
         <button class="btn" id="btn-refresh" type="button">↻ Refresh</button>
+        <button class="btn" id="btn-handoff" type="button">📦 Copy Handoff Pack</button>
         <button class="btn" id="btn-export" type="button">⬇ Export JSON</button>
         <button class="btn primary" id="btn-ai-launch" type="button">🚀 Launch AI Mission</button>
       </div>
@@ -240,6 +241,25 @@
     });
 
     document.getElementById('btn-refresh').addEventListener('click', () => loadData(true));
+    document.getElementById('btn-handoff').addEventListener('click', async () => {
+      const b = document.getElementById('btn-handoff');
+      try {
+        const r = await fetch('/api/handoff-pack', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ task: 'Mission Control Handoff', max_tokens: 1500 }),
+        });
+        const j = await r.json();
+        if (navigator.clipboard && navigator.clipboard.writeText) {
+          navigator.clipboard.writeText(JSON.stringify(j, null, 2));
+        }
+        b.textContent = '✅ Handoff Copied!';
+        setTimeout(() => { b.textContent = '📦 Copy Handoff Pack'; }, 1500);
+      } catch (_) {
+        b.textContent = '⚠ Offline';
+        setTimeout(() => { b.textContent = '📦 Copy Handoff Pack'; }, 1500);
+      }
+    });
     document.getElementById('btn-ai-launch').addEventListener('click', () => jumpToView('ai-mission-launcher'));
     document.getElementById('btn-export').addEventListener('click', () => {
       if (!CURRENT_DATA) return;

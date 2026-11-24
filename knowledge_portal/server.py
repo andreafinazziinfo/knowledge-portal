@@ -200,6 +200,36 @@ class PortalRequestHandler(SimpleHTTPRequestHandler):
                 self.send_json({"ok": False, "error": str(exc)})
             return
 
+        if path in ("/api/slice-for-task", "/api/check-diff", "/api/handoff-pack"):
+            try:
+                length = min(65536, int(self.headers.get("Content-Length", "0") or 0))
+                raw = self.rfile.read(length).decode("utf-8", errors="replace") if length > 0 else "{}"
+                payload = json.loads(raw) if raw.strip() else {}
+                from knowledge_portal.mcp_server import PortalMcpEngine
+                eng = PortalMcpEngine(self.project_dir, self.template_dir / "data")
+                if path == "/api/slice-for-task":
+                    res = eng.slice_for_task(
+                        task=str(payload.get("task", "")),
+                        max_tokens=int(payload.get("max_tokens", 2000) or 2000),
+                        focus_paths=payload.get("focus_paths") or [],
+                    )
+                elif path == "/api/check-diff":
+                    res = eng.check_diff(
+                        files=payload.get("files") or [],
+                        base=str(payload.get("base", "HEAD") or "HEAD"),
+                        max_tokens=int(payload.get("max_tokens", 1500) or 1500),
+                    )
+                else:
+                    res = eng.handoff_pack(
+                        task=str(payload.get("task", "")),
+                        files=payload.get("files") or [],
+                        max_tokens=int(payload.get("max_tokens", 1500) or 1500),
+                    )
+                self.send_json(res)
+            except Exception as exc:
+                self.send_json({"ok": False, "error": str(exc)})
+            return
+
         self.send_error(404, "POST endpoint not found")
 
     def do_GET(self) -> None:
@@ -525,6 +555,34 @@ class PortalRequestHandler(SimpleHTTPRequestHandler):
             refresh = query.get("refresh", ["0"])[0] in ("1", "true", "yes")
             eng = PortalMcpEngine(self.project_dir, self.template_dir / "data")
             self.send_json(eng.mission_control(refresh=refresh))
+
+        elif path == "/api/module-cards":
+            from knowledge_portal.mcp_server import PortalMcpEngine
+            eng = PortalMcpEngine(self.project_dir, self.template_dir / "data")
+            self.send_json(eng.module_cards())
+
+        elif path == "/api/test-oracle":
+            from knowledge_portal.mcp_server import PortalMcpEngine
+            files_q = [x.strip() for x in query.get("files", [""])[0].split(",") if x.strip()]
+            syms_q = [x.strip() for x in query.get("symbols", [""])[0].split(",") if x.strip()]
+            max_t = int(query.get("max_tests", ["8"])[0] or 8)
+            inc_slow = query.get("include_slow", ["0"])[0] in ("1", "true", "yes")
+            eng = PortalMcpEngine(self.project_dir, self.template_dir / "data")
+            self.send_json(eng.test_oracle(files=files_q, symbols=syms_q, max_tests=max_t, include_slow=inc_slow))
+
+        elif path == "/api/agent-instructions-audit":
+            from knowledge_portal.mcp_server import PortalMcpEngine
+            detail = query.get("detail", ["full"])[0]
+            eng = PortalMcpEngine(self.project_dir, self.template_dir / "data")
+            self.send_json(eng.agent_instructions_audit(detail=detail))
+
+        elif path == "/api/sarif-findings":
+            from knowledge_portal.mcp_server import PortalMcpEngine
+            tool_q = query.get("tool", [""])[0]
+            sev_q = query.get("severity", [""])[0]
+            detail = query.get("detail", ["full"])[0]
+            eng = PortalMcpEngine(self.project_dir, self.template_dir / "data")
+            self.send_json(eng.sarif_findings(tool=tool_q, severity=sev_q, detail=detail))
 
         elif path == "/api/file":
             filepath = query.get("path", [""])[0]

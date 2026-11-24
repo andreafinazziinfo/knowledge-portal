@@ -20,6 +20,14 @@ from knowledge_portal.codemode_sandbox import (
     get_codemode_sdk_reference,
 )
 from knowledge_portal.generators.arch_health import compute_arch_health
+from knowledge_portal.mcp_budget import (
+    apply_detail_budget,
+    build_handoff_pack,
+    check_diff as _budget_check_diff,
+    query_test_oracle as _budget_query_test_oracle,
+    slice_for_task as _budget_slice_for_task,
+    validate_args,
+)
 from knowledge_portal.server import safe_resolve_under
 
 PROTOCOL_VERSION = "2024-11-05"
@@ -629,6 +637,101 @@ class PortalMcpEngine:
         except (CodeModeSecurityError, CodeModeLimitError) as exc:
             return {"error": str(exc), "ok": False}
 
+    # ── ADR-082 Wave 1 & Wave 1.5 AI-Native Token-Efficiency Methods ──────────
+
+    def module_cards(self) -> dict[str, Any]:
+        from knowledge_portal.generators.module_cards import generate_module_cards
+        f = self.data_dir / "module-cards.json"
+        if f.exists():
+            try:
+                return json.loads(f.read_text(encoding="utf-8"))
+            except (OSError, json.JSONDecodeError):
+                pass
+        return generate_module_cards(self.project_dir, self.data_dir)
+
+    def slice_for_task(self, task: str, max_tokens: int = 2000, focus_paths: list[str] | None = None) -> dict[str, Any]:
+        from knowledge_portal.generators.module_cards import generate_module_cards
+        from knowledge_portal.generators.test_oracle import generate_test_oracle
+        return _budget_slice_for_task(
+            self,
+            task=task,
+            max_tokens=max_tokens,
+            focus_paths=focus_paths,
+            module_cards_gen=generate_module_cards,
+            test_oracle_gen=generate_test_oracle,
+        )
+
+    def check_diff(self, files: list[str] | None = None, base: str = "HEAD", max_tokens: int = 1500) -> dict[str, Any]:
+        from knowledge_portal.generators.test_oracle import generate_test_oracle
+        return _budget_check_diff(
+            self,
+            files=files,
+            base=base,
+            max_tokens=max_tokens,
+            test_oracle_gen=generate_test_oracle,
+        )
+
+    def agent_instructions_audit(self, detail: str = "summary") -> dict[str, Any]:
+        from knowledge_portal.generators.agent_instructions_audit import generate_agent_instructions_audit
+        f = self.data_dir / "agent-instructions-audit.json"
+        if f.exists():
+            try:
+                data = json.loads(f.read_text(encoding="utf-8"))
+            except (OSError, json.JSONDecodeError):
+                data = generate_agent_instructions_audit(self.project_dir, self.data_dir)
+        else:
+            data = generate_agent_instructions_audit(self.project_dir, self.data_dir)
+        return apply_detail_budget("portal_agent_instructions_audit", data, detail=detail)
+
+    def handoff_pack(self, task: str = "", files: list[str] | None = None, max_tokens: int = 1500) -> dict[str, Any]:
+        from knowledge_portal.generators.test_oracle import generate_test_oracle
+        return build_handoff_pack(
+            self,
+            task=task,
+            files=files,
+            max_tokens=max_tokens,
+            test_oracle_gen=generate_test_oracle,
+        )
+
+    def test_oracle(
+        self,
+        files: list[str] | None = None,
+        symbols: list[str] | None = None,
+        max_tests: int = 8,
+        include_slow: bool = False,
+    ) -> dict[str, Any]:
+        from knowledge_portal.generators.test_oracle import generate_test_oracle
+        return _budget_query_test_oracle(
+            self,
+            files=files,
+            symbols=symbols,
+            max_tests=max_tests,
+            include_slow=include_slow,
+            test_oracle_gen=generate_test_oracle,
+        )
+
+    def sarif_findings(self, tool: str = "", severity: str = "", detail: str = "summary") -> dict[str, Any]:
+        from knowledge_portal.generators.sarif_ingestor import generate_sarif_findings
+        f = self.data_dir / "sarif-findings.json"
+        if f.exists():
+            try:
+                data = json.loads(f.read_text(encoding="utf-8"))
+            except (OSError, json.JSONDecodeError):
+                data = generate_sarif_findings(self.project_dir, self.data_dir)
+        else:
+            data = generate_sarif_findings(self.project_dir, self.data_dir)
+        t_q = (tool or "").strip().lower()
+        s_q = (severity or "").strip().upper()
+        if t_q or s_q:
+            filtered = [
+                item for item in (data.get("findings") or [])
+                if isinstance(item, dict)
+                and (not t_q or str(item.get("tool", "")).lower() == t_q)
+                and (not s_q or str(item.get("severity", "")).upper() == s_q)
+            ]
+            data = {**data, "findings": filtered, "filtered_count": len(filtered)}
+        return apply_detail_budget("portal_sarif_findings", data, detail=detail)
+
 
 TOOLS_SPEC: list[dict[str, Any]] = [
     {
@@ -907,7 +1010,108 @@ TOOLS_SPEC: list[dict[str, Any]] = [
             "required": ["code"],
         },
     },
+    {
+        "name": "portal_slice_for_task",
+        "description": "Token-budgeted task slicer (BM25-lite + deterministic PageRank + active ADRs + 1-hop + fast tests) guaranteeing <= max_tokens.",
+        "inputSchema": {
+            "type": "object",
+            "properties": {
+                "task": {"type": "string", "description": "Engineering task description or target feature"},
+                "max_tokens": {"type": "integer", "default": 2000},
+                "focus_paths": {"type": "array", "items": {"type": "string"}, "default": []},
+            },
+            "required": ["task"],
+        },
+    },
+    {
+        "name": "portal_check_diff",
+        "description": "Pre-commit/pre-PR diff guard with AI slop & cheat guard (phantom imports, sync I/O in async, removed asserts, noqa spam), Change Risk Score, blast radius, and fast tests.",
+        "inputSchema": {
+            "type": "object",
+            "properties": {
+                "files": {"type": "array", "items": {"type": "string"}, "default": []},
+                "base": {"type": "string", "default": "HEAD"},
+                "max_tokens": {"type": "integer", "default": 1500},
+            },
+        },
+    },
+    {
+        "name": "portal_agent_instructions_audit",
+        "description": "Audit CLAUDE.md, AGENTS.md, .claude/, .cursor/, and copilot-instructions.md for dead paths, duplications, contradictions, and token bloat.",
+        "inputSchema": {
+            "type": "object",
+            "properties": {
+                "detail": {"type": "string", "enum": ["summary", "compact", "full"], "default": "summary"},
+            },
+        },
+    },
+    {
+        "name": "portal_handoff_pack",
+        "description": "Generate a portable, verifiable cross-agent handoff snapshot (<= 1,500 tokens) with goal, touched files, invariants, and test command.",
+        "inputSchema": {
+            "type": "object",
+            "properties": {
+                "task": {"type": "string", "default": ""},
+                "files": {"type": "array", "items": {"type": "string"}, "default": []},
+                "max_tokens": {"type": "integer", "default": 1500},
+            },
+        },
+    },
+    {
+        "name": "portal_test_oracle",
+        "description": "AST reverse test-to-code oracle returning the 3-8 fastest pertinent tests, ready-to-run command, fixtures, and blind-spot flags (<= 500 tokens).",
+        "inputSchema": {
+            "type": "object",
+            "properties": {
+                "files": {"type": "array", "items": {"type": "string"}, "default": []},
+                "symbols": {"type": "array", "items": {"type": "string"}, "default": []},
+                "max_tests": {"type": "integer", "default": 8},
+                "include_slow": {"type": "boolean", "default": False},
+            },
+        },
+    },
+    {
+        "name": "portal_sarif_findings",
+        "description": "Query normalized Universal SARIF 2.1.0 findings (Semgrep, Gitleaks, CodeQL, Trivy, Ruff SARIF, Hadolint SARIF).",
+        "inputSchema": {
+            "type": "object",
+            "properties": {
+                "tool": {"type": "string", "default": ""},
+                "severity": {"type": "string", "default": ""},
+                "detail": {"type": "string", "enum": ["summary", "compact", "full"], "default": "summary"},
+            },
+        },
+    },
 ]
+
+_HEAVY_DETAIL_TOOLS = frozenset({
+    "portal_health_audit",
+    "portal_git_dag",
+    "portal_dead_code",
+    "portal_adr_graph",
+    "portal_config_matrix",
+    "portal_api_catalog",
+    "portal_db_schema",
+    "portal_stack",
+    "portal_iac_topology",
+    "portal_ai_registry",
+    "portal_call_chain",
+    "portal_deep_audit",
+    "portal_mission_control",
+    "portal_compliance",
+    "portal_cve_report",
+    "portal_arch_diff",
+})
+
+# Attach universal detail/pagination schema properties to all heavy tools
+for _spec in TOOLS_SPEC:
+    if _spec["name"] in _HEAVY_DETAIL_TOOLS:
+        _props = _spec["inputSchema"].setdefault("properties", {})
+        _props.setdefault("detail", {"type": "string", "enum": ["summary", "compact", "full"], "default": "summary"})
+        _props.setdefault("section", {"type": "string", "default": ""})
+        _props.setdefault("path_prefix", {"type": "string", "default": ""})
+        _props.setdefault("limit", {"type": "integer", "default": 25})
+        _props.setdefault("offset", {"type": "integer", "default": 0})
 
 CODE_MODE_TOOLS_SPEC: list[dict[str, Any]] = [
     t for t in TOOLS_SPEC if t["name"] in ("portal_discover", "portal_codemode")
@@ -956,6 +1160,10 @@ def handle_jsonrpc_request(engine: PortalMcpEngine, req: dict[str, Any], code_mo
                     {"uri": "portal://git-dag", "name": "Git & Stacked-PR DAG", "description": "Worktree hygiene matrix, stacked PR chains, and recommended merge order", "mimeType": "application/json"},
                     {"uri": "portal://adr-graph", "name": "ADR Decision Graph & Runbooks", "description": "Chronological ADR dependency graph and interactive runbook checklists", "mimeType": "application/json"},
                     {"uri": "portal://mission-control", "name": "Executive Mission Control", "description": "Bento Command Center KPIs, subsystem traffic lights, and prioritized anomalies", "mimeType": "application/json"},
+                    {"uri": "portal://module-cards", "name": "Compact Module Cards", "description": "<= 180 token/file module cards for AI slicing", "mimeType": "application/json"},
+                    {"uri": "portal://test-oracle", "name": "Test-to-Code Reverse Oracle", "description": "AST reverse test map and blind spots", "mimeType": "application/json"},
+                    {"uri": "portal://agent-instructions-audit", "name": "Agent Instructions Hygiene", "description": "CLAUDE.md / AGENTS.md dead paths and token bloat audit", "mimeType": "application/json"},
+                    {"uri": "portal://sarif-findings", "name": "Universal SARIF 2.1.0 Findings", "description": "Normalized Semgrep/Gitleaks/CodeQL/Trivy/Ruff/Hadolint findings", "mimeType": "application/json"},
                 ]
             },
         }
@@ -994,6 +1202,14 @@ def handle_jsonrpc_request(engine: PortalMcpEngine, req: dict[str, Any], code_mo
             return {"jsonrpc": "2.0", "id": req_id, "result": {"contents": [{"uri": uri, "mimeType": "application/json", "text": json.dumps(engine.adr_graph(), indent=2)}]}}
         if uri == "portal://mission-control":
             return {"jsonrpc": "2.0", "id": req_id, "result": {"contents": [{"uri": uri, "mimeType": "application/json", "text": json.dumps(engine.mission_control(), indent=2)}]}}
+        if uri == "portal://module-cards":
+            return {"jsonrpc": "2.0", "id": req_id, "result": {"contents": [{"uri": uri, "mimeType": "application/json", "text": json.dumps(engine.module_cards(), indent=2)}]}}
+        if uri == "portal://test-oracle":
+            return {"jsonrpc": "2.0", "id": req_id, "result": {"contents": [{"uri": uri, "mimeType": "application/json", "text": json.dumps(engine.test_oracle(), indent=2)}]}}
+        if uri == "portal://agent-instructions-audit":
+            return {"jsonrpc": "2.0", "id": req_id, "result": {"contents": [{"uri": uri, "mimeType": "application/json", "text": json.dumps(engine.agent_instructions_audit(detail="full"), indent=2)}]}}
+        if uri == "portal://sarif-findings":
+            return {"jsonrpc": "2.0", "id": req_id, "result": {"contents": [{"uri": uri, "mimeType": "application/json", "text": json.dumps(engine.sarif_findings(detail="full"), indent=2)}]}}
         return {"jsonrpc": "2.0", "id": req_id, "error": {"code": -32602, "message": f"Unknown resource URI: {uri}"}}
 
     if method == "prompts/list":
@@ -1025,7 +1241,47 @@ def handle_jsonrpc_request(engine: PortalMcpEngine, req: dict[str, Any], code_mo
 
     if method == "tools/call":
         name = params.get("name", "")
-        args = params.get("arguments") or {}
+        raw_args = params.get("arguments")
+        if raw_args is None:
+            raw_args = {}
+
+        arg_rules: dict[str, tuple[tuple[str, ...], tuple[str, ...], dict[str, str]]] = {
+            "portal_search": (("query",), ("query", "limit"), {"q": "query", "topic": "query", "task": "query"}),
+            "portal_process_flow": ((), ("query", "limit"), {"q": "query", "topic": "query"}),
+            "portal_db_schema": ((), ("table",), {"query": "table", "name": "table"}),
+            "portal_stack": ((), ("query",), {"q": "query", "package": "query"}),
+            "portal_telemetry": ((), ("url",), {}),
+            "portal_read_doc": (("path",), ("path",), {"file": "path", "rel_path": "path"}),
+            "portal_graph_neighbors": (("node_id",), ("node_id", "depth"), {"node": "node_id", "target": "node_id"}),
+            "portal_context_pack": (("topic",), ("topic", "max_tokens"), {"query": "topic", "task": "topic", "q": "topic"}),
+            "portal_impact": (("target",), ("target", "max_depth"), {"path": "target", "symbol": "target", "node_id": "target"}),
+            "portal_health_audit": ((), (), {}),
+            "portal_api_catalog": ((), ("query",), {"q": "query", "route": "query"}),
+            "portal_arch_diff": ((), (), {}),
+            "portal_call_chain": ((), ("symbol", "max_depth"), {"query": "symbol", "target": "symbol"}),
+            "portal_mission_pack": (("task",), ("task", "max_tokens"), {"query": "task", "topic": "task", "q": "task"}),
+            "portal_validate_change": (("paths",), ("paths",), {"files": "paths"}),
+            "portal_pr_context": ((), ("base",), {}),
+            "portal_config_matrix": ((), ("drift_only",), {}),
+            "portal_iac_topology": ((), (), {}),
+            "portal_ai_registry": ((), (), {}),
+            "portal_compliance": ((), ("framework",), {}),
+            "portal_cve_report": ((), (), {}),
+            "portal_dead_code": ((), (), {}),
+            "portal_deep_audit": ((), (), {}),
+            "portal_git_dag": ((), ("refresh",), {}),
+            "portal_adr_graph": ((), ("domain", "status"), {}),
+            "portal_mission_control": ((), ("refresh",), {}),
+            "portal_discover": ((), ("topic",), {"query": "topic"}),
+            "portal_codemode": (("code",), ("code",), {}),
+            "portal_slice_for_task": (("task",), ("task", "max_tokens", "focus_paths"), {"query": "task", "topic": "task", "q": "task"}),
+            "portal_check_diff": ((), ("files", "base", "max_tokens"), {"paths": "files"}),
+            "portal_agent_instructions_audit": ((), ("detail",), {}),
+            "portal_handoff_pack": ((), ("task", "files", "max_tokens"), {"query": "task", "topic": "task", "paths": "files"}),
+            "portal_test_oracle": ((), ("files", "symbols", "max_tests", "include_slow"), {"paths": "files"}),
+            "portal_sarif_findings": ((), ("tool", "severity", "detail"), {}),
+        }
+
         dispatch = {
             "portal_search": lambda a: engine.search(a.get("query", ""), a.get("limit", 15)),
             "portal_process_flow": lambda a: engine.process_flow(a.get("query", ""), a.get("limit", 10)),
@@ -1055,6 +1311,12 @@ def handle_jsonrpc_request(engine: PortalMcpEngine, req: dict[str, Any], code_mo
             "portal_mission_control": lambda a: engine.mission_control(refresh=bool(a.get("refresh", False))),
             "portal_discover": lambda a: engine.codemode_discover(a.get("topic", "")),
             "portal_codemode": lambda a: engine.codemode_execute(a.get("code", "")),
+            "portal_slice_for_task": lambda a: engine.slice_for_task(a.get("task", ""), int(a.get("max_tokens", 2000) or 2000), a.get("focus_paths") or []),
+            "portal_check_diff": lambda a: engine.check_diff(a.get("files") or [], a.get("base", "HEAD"), int(a.get("max_tokens", 1500) or 1500)),
+            "portal_agent_instructions_audit": lambda a: engine.agent_instructions_audit(detail=a.get("detail", "summary")),
+            "portal_handoff_pack": lambda a: engine.handoff_pack(a.get("task", ""), a.get("files") or [], int(a.get("max_tokens", 1500) or 1500)),
+            "portal_test_oracle": lambda a: engine.test_oracle(a.get("files") or [], a.get("symbols") or [], int(a.get("max_tests", 8) or 8), bool(a.get("include_slow", False))),
+            "portal_sarif_findings": lambda a: engine.sarif_findings(a.get("tool", ""), a.get("severity", ""), a.get("detail", "summary")),
         }
         fn = dispatch.get(name)
         if fn is None:
@@ -1063,8 +1325,31 @@ def handle_jsonrpc_request(engine: PortalMcpEngine, req: dict[str, Any], code_mo
                 "id": req_id,
                 "error": {"code": -32601, "message": f"Unknown tool: {name}"},
             }
+        req_keys, allow_keys, alias_map = arg_rules.get(name, ((), (), {}))
+        args, val_err = validate_args(name, raw_args, required=req_keys, allowed=allow_keys, aliases=alias_map)
+        if val_err is not None:
+            return {
+                "jsonrpc": "2.0",
+                "id": req_id,
+                "result": {
+                    "content": [{"type": "text", "text": json.dumps(val_err, indent=2, ensure_ascii=False)}],
+                    "isError": True,
+                },
+            }
         payload = fn(args)
-        is_err = isinstance(payload, dict) and "error" in payload
+        if name in _HEAVY_DETAIL_TOOLS and isinstance(payload, dict) and "error" not in payload:
+            payload = apply_detail_budget(
+                name,
+                payload,
+                detail=str(args.get("detail", "summary")),
+                section=str(args.get("section", "")),
+                path_prefix=str(args.get("path_prefix", "")),
+                limit=int(args.get("limit", 25) or 25),
+                offset=int(args.get("offset", 0) or 0),
+            )
+        if isinstance(payload, dict) and "_normalized_args" in args and "_normalized_args" not in payload:
+            payload = {**payload, "_normalized_args": args["_normalized_args"]}
+        is_err = isinstance(payload, dict) and ("error" in payload or payload.get("ok") is False)
         return {
             "jsonrpc": "2.0",
             "id": req_id,

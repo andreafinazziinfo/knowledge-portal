@@ -443,17 +443,184 @@ def _parse_tsc_reports(project_dir: Path) -> dict[str, Any]:
     }
 
 
+def _parse_eslint(project_dir: Path) -> dict[str, Any]:
+    """Parse optional ESLint JSON reports (eslint-report.json / eslint.json)."""
+    cands = _find_candidate_files(project_dir, ("eslint-report.json", "eslint.json"))
+    sources: list[str] = []
+    errors = 0
+    warnings = 0
+    by_rule: Counter[str] = Counter()
+    findings: list[dict[str, Any]] = []
+
+    for cand in cands:
+        try:
+            raw = json.loads(cand.read_text(encoding="utf-8", errors="replace"))
+        except Exception:
+            continue
+        if not isinstance(raw, list):
+            continue
+        sources.append(str(cand.relative_to(project_dir)).replace("\\", "/"))
+        for entry in raw:
+            if not isinstance(entry, dict):
+                continue
+            fp = str(entry.get("filePath") or "").replace("\\", "/")
+            pstr = str(project_dir).replace("\\", "/")
+            if pstr in fp:
+                fp = fp.split(pstr, 1)[-1].lstrip("/")
+            errors += int(entry.get("errorCount", 0) or 0)
+            warnings += int(entry.get("warningCount", 0) or 0)
+            for msg in entry.get("messages") or []:
+                if not isinstance(msg, dict):
+                    continue
+                rule = str(msg.get("ruleId") or "eslint")
+                sev = "error" if int(msg.get("severity", 1) or 1) >= 2 else "warning"
+                by_rule[rule] += 1
+                if len(findings) < 50:
+                    findings.append({
+                        "path": fp,
+                        "line": int(msg.get("line", 1) or 1),
+                        "severity": sev,
+                        "rule": rule,
+                        "message": str(msg.get("message") or "")[:180],
+                    })
+
+    if not sources:
+        return {"available": False, "sources": [], "total": 0, "errors": 0, "warnings": 0, "by_rule": {}, "findings": []}
+    return {
+        "available": True,
+        "sources": sources,
+        "total": errors + warnings,
+        "errors": errors,
+        "warnings": warnings,
+        "by_rule": dict(by_rule.most_common(15)),
+        "findings": findings,
+    }
+
+
+def _parse_knip(project_dir: Path) -> dict[str, Any]:
+    """Parse optional Knip JSON reports (knip-report.json / knip.json) for unused TS/Vue files/exports/deps."""
+    cands = _find_candidate_files(project_dir, ("knip-report.json", "knip.json"))
+    sources: list[str] = []
+    unused_files: list[str] = []
+    unused_exports = 0
+    unused_deps = 0
+
+    for cand in cands:
+        try:
+            raw = json.loads(cand.read_text(encoding="utf-8", errors="replace"))
+        except Exception:
+            continue
+        if not isinstance(raw, dict):
+            continue
+        # Skip knip config files that lack report keys
+        if "files" not in raw and "issues" not in raw:
+            continue
+        sources.append(str(cand.relative_to(project_dir)).replace("\\", "/"))
+        for f in raw.get("files") or []:
+            if isinstance(f, str):
+                unused_files.append(f)
+        for issue in raw.get("issues") or []:
+            if not isinstance(issue, dict):
+                continue
+            unused_exports += len(issue.get("exports") or []) + len(issue.get("types") or [])
+            unused_deps += len(issue.get("dependencies") or []) + len(issue.get("devDependencies") or [])
+
+    if not sources:
+        return {"available": False, "sources": [], "total": 0, "unused_files": 0, "unused_exports": 0, "unused_deps": 0, "sample_files": []}
+    return {
+        "available": True,
+        "sources": sources,
+        "total": len(unused_files) + unused_exports + unused_deps,
+        "unused_files": len(unused_files),
+        "unused_exports": unused_exports,
+        "unused_deps": unused_deps,
+        "sample_files": unused_files[:20],
+    }
+
+
+def _parse_vulture(project_dir: Path) -> dict[str, Any]:
+    """Parse optional Vulture JSON reports (vulture-report.json / vulture.json)."""
+    cands = _find_candidate_files(project_dir, ("vulture-report.json", "vulture.json"))
+    sources: list[str] = []
+    findings: list[dict[str, Any]] = []
+    total = 0
+
+    for cand in cands:
+        try:
+            raw = json.loads(cand.read_text(encoding="utf-8", errors="replace"))
+        except Exception:
+            continue
+        if not isinstance(raw, list):
+            continue
+        sources.append(str(cand.relative_to(project_dir)).replace("\\", "/"))
+        for item in raw:
+            if not isinstance(item, dict):
+                continue
+            total += 1
+            if len(findings) < 50:
+                findings.append({
+                    "path": str(item.get("filename") or item.get("file") or "").replace("\\", "/"),
+                    "line": int(item.get("first_lineno") or item.get("line") or 1),
+                    "name": str(item.get("name") or ""),
+                    "confidence": int(item.get("confidence", 60) or 60),
+                    "message": str(item.get("message") or "")[:180],
+                })
+
+    if not sources:
+        return {"available": False, "sources": [], "total": 0, "findings": []}
+    return {"available": True, "sources": sources, "total": total, "findings": findings}
+
+
+def _parse_deptry(project_dir: Path) -> dict[str, Any]:
+    """Parse optional Deptry JSON reports (deptry-report.json / deptry.json)."""
+    cands = _find_candidate_files(project_dir, ("deptry-report.json", "deptry.json"))
+    sources: list[str] = []
+    by_code: Counter[str] = Counter()
+    findings: list[dict[str, Any]] = []
+    total = 0
+
+    for cand in cands:
+        try:
+            raw = json.loads(cand.read_text(encoding="utf-8", errors="replace"))
+        except Exception:
+            continue
+        if not isinstance(raw, list):
+            continue
+        sources.append(str(cand.relative_to(project_dir)).replace("\\", "/"))
+        for item in raw:
+            if not isinstance(item, dict):
+                continue
+            err = item.get("error") or {}
+            code = str(err.get("code") if isinstance(err, dict) else item.get("code") or "DEP")
+            msg = str(err.get("message") if isinstance(err, dict) else item.get("message") or "")[:180]
+            mod = str(item.get("module") or "")
+            loc = item.get("location") or {}
+            fp = str(loc.get("file") if isinstance(loc, dict) else item.get("file") or "").replace("\\", "/")
+            by_code[code] += 1
+            total += 1
+            if len(findings) < 50:
+                findings.append({"code": code, "module": mod, "path": fp, "message": msg})
+
+    if not sources:
+        return {"available": False, "sources": [], "total": 0, "by_code": {}, "findings": []}
+    return {"available": True, "sources": sources, "total": total, "by_code": dict(by_code), "findings": findings}
+
+
 def analyze_quality_telemetry(
     project_dir: Path,
     data_dir: Path | None = None,
 ) -> dict[str, Any]:
-    """Ingest local air-gapped coverage, JUnit, Ruff, Mypy, and Vue-TSC/TSC telemetry artifacts."""
+    """Ingest local air-gapped coverage, JUnit, Ruff, Mypy, Vue-TSC/TSC, ESLint, Knip, Vulture, and Deptry artifacts."""
     project_dir = Path(project_dir).resolve()
     cov = _parse_coverage_by_domain(project_dir)
     junit = _parse_junit_reports(project_dir)
     ruff = _parse_ruff_reports(project_dir)
     mypy = _parse_mypy_reports(project_dir)
     tsc = _parse_tsc_reports(project_dir)
+    eslint = _parse_eslint(project_dir)
+    knip = _parse_knip(project_dir)
+    vulture = _parse_vulture(project_dir)
+    deptry = _parse_deptry(project_dir)
 
     sources_found = (
         cov["sources"]
@@ -461,6 +628,10 @@ def analyze_quality_telemetry(
         + ruff["sources"]
         + mypy["sources"]
         + tsc["sources"]
+        + eslint["sources"]
+        + knip["sources"]
+        + vulture["sources"]
+        + deptry["sources"]
     )
     payload: dict[str, Any] = {
         "generated_at": time.time(),
@@ -469,6 +640,10 @@ def analyze_quality_telemetry(
         "coverage": cov,
         "junit": junit,
         "ruff": ruff,
+        "eslint": eslint,
+        "knip": knip,
+        "vulture": vulture,
+        "deptry": deptry,
         "typecheck": {
             "mypy": mypy,
             "tsc": tsc,
@@ -483,6 +658,10 @@ def analyze_quality_telemetry(
             "ruff_issues": ruff["total"],
             "mypy_errors": mypy["total"],
             "tsc_errors": tsc["total"],
+            "eslint_issues": eslint["total"],
+            "knip_issues": knip["total"],
+            "vulture_issues": vulture["total"],
+            "deptry_issues": deptry["total"],
         },
     }
 

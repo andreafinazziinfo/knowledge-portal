@@ -43,6 +43,7 @@
       </div>
       <div class="row" style="margin:0;">
         <span class="badge" id="tok-badge">~0 tokens</span>
+        <button class="btn" id="btn-copy-handoff" type="button">📦 Copy AI Handoff Pack (≤ 1.5k tok)</button>
         <button class="btn primary" id="btn-copy-out" type="button">📋 Copy Context Pack</button>
         <button class="btn" id="btn-dl-md" type="button">⬇ Export .md</button>
       </div>
@@ -65,17 +66,33 @@
       <!-- Column 2: Mission Builder & CodeMode Sandbox -->
       <div>
         <section class="card">
-          <h2>Interactive Mission Pack Builder</h2>
+          <h2>Interactive Mission Pack &amp; Task Slicer</h2>
           <input id="mission-task" class="inp" type="search" placeholder="Task or target module (e.g. server auth, git_dag, api_catalog) ...">
           <div class="row">
-            <label style="font-size:11.5px;color:var(--text-muted,#8b8b8b);">Budget: <strong id="tok-lbl">4000</strong> tokens</label>
-            <input id="mission-budget" type="range" min="1000" max="12000" step="500" value="4000" style="flex:1;">
+            <label style="font-size:11.5px;color:var(--text-muted,#8b8b8b);">Budget: <strong id="tok-lbl">2000</strong> tokens</label>
+            <input id="mission-budget" type="range" min="600" max="8000" step="200" value="2000" style="flex:1;">
           </div>
           <div class="row">
-            <button class="btn primary" id="btn-run-mission" type="button">⚡ Generate Mission Pack</button>
+            <button class="btn primary" id="btn-run-slice" type="button">🔪 Slice for Task</button>
+            <button class="btn" id="btn-run-mission" type="button">⚡ Mission Pack</button>
             <button class="btn" id="btn-run-impact" type="button">💥 Blast Radius</button>
             <button class="btn" id="btn-run-pr" type="button">🌿 PR Context</button>
           </div>
+        </section>
+
+        <section class="card">
+          <h2>🔍 Diff &amp; AI Slop Guard</h2>
+          <input id="diff-files" class="inp" type="search" placeholder="Optional comma-separated files (leave empty for git diff HEAD)...">
+          <div class="row">
+            <button class="btn primary" id="btn-run-diff" type="button">🛡️ Check Diff &amp; Slop Guard</button>
+            <button class="btn" id="btn-run-oracle" type="button">🧪 Test Oracle</button>
+          </div>
+          <div id="diff-summary" style="font-size:11.5px;color:var(--text-muted,#8b8b8b);">Ready to inspect diff, phantom imports, sync I/O in async &amp; Change Risk Score.</div>
+        </section>
+
+        <section class="card">
+          <h2><span>🤖 Agent Instructions Hygiene</span><span class="badge" id="hygiene-badge">—</span></h2>
+          <div id="hygiene-box" style="font-size:11.5px;color:var(--text-muted,#8b8b8b);">Loading CLAUDE.md / AGENTS.md hygiene audit...</div>
         </section>
 
         <section class="card">
@@ -132,6 +149,12 @@ All outputs are formatted for direct copy-paste into any AI coding agent.</pre>
 
     const MCP_CATALOG = [
       { name: 'portal_mission_control', prompt: 'Call portal_mission_control() and summarize top P0/P1 anomalies and subsystem health.' },
+      { name: 'portal_slice_for_task', prompt: 'Call portal_slice_for_task(task="<your-task>", max_tokens=2000) to get compact module cards + fast tests.' },
+      { name: 'portal_check_diff', prompt: 'Call portal_check_diff() to run AI Slop & Cheat Guard, Change Risk Score, and exact fast tests.' },
+      { name: 'portal_test_oracle', prompt: 'Call portal_test_oracle(files=["path/to/file.py"]) to get the 3-8 fastest tests + pytest/vitest command.' },
+      { name: 'portal_agent_instructions_audit', prompt: 'Call portal_agent_instructions_audit() to audit CLAUDE.md / AGENTS.md dead paths and token bloat.' },
+      { name: 'portal_handoff_pack', prompt: 'Call portal_handoff_pack(task="<your-task>", max_tokens=1500) to generate a portable cross-agent handoff.' },
+      { name: 'portal_sarif_findings', prompt: 'Call portal_sarif_findings() to inspect Semgrep, Gitleaks, CodeQL, Trivy, Ruff & Hadolint SARIF findings.' },
       { name: 'portal_git_dag', prompt: 'Call portal_git_dag() and list recommended PR merge order and stale/dirty worktrees.' },
       { name: 'portal_adr_graph', prompt: 'Call portal_adr_graph() and summarize accepted vs proposed ADRs and available runbooks.' },
       { name: 'portal_mission_pack', prompt: 'Call portal_mission_pack(task="<your-task>", max_tokens=4000) before editing any files.' },
@@ -275,6 +298,90 @@ All outputs are formatted for direct copy-paste into any AI coding agent.</pre>
       document.getElementById('tok-lbl').textContent = e.target.value;
     });
     document.getElementById('btn-run-mission').addEventListener('click', () => runMissionPack());
+    document.getElementById('btn-run-slice').addEventListener('click', async () => {
+      const q = (document.getElementById('mission-task').value || 'architecture').trim();
+      const budget = Number(document.getElementById('mission-budget').value || 2000);
+      setOutput('LOADING', `Slicing task "${q}" (<= ${budget} tokens)...`);
+      try {
+        const r = await fetch('/api/slice-for-task', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ task: q, max_tokens: budget }),
+        });
+        const j = await r.json();
+        setOutput(`SLICE (${j.budget_used_tokens || 0}/${budget} tok)`, JSON.stringify(j, null, 2));
+        pushHistory(`Slice: ${q}`);
+      } catch (e) { setOutput('ERROR', e.message); }
+    });
+
+    document.getElementById('btn-run-diff').addEventListener('click', async () => {
+      const raw = (document.getElementById('diff-files').value || '').trim();
+      const files = raw ? raw.split(',').map(s => s.trim()).filter(Boolean) : [];
+      setOutput('LOADING', 'Running Diff & AI Slop Guard...');
+      try {
+        const r = await fetch('/api/check-diff', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ files, base: 'HEAD', max_tokens: 1500 }),
+        });
+        const j = await r.json();
+        const alerts = (j.slop_and_cheat_alerts || []).length;
+        document.getElementById('diff-summary').innerHTML = `Status: <strong>${esc(j.status || 'PASS')}</strong> · Change Risk: <strong>${esc(j.change_risk_score ?? 0)}/100</strong> · Blast d1: <strong>${esc(j.blast_radius_d1 ?? 0)}</strong> · Slop Alerts: <strong>${alerts}</strong>`;
+        setOutput(`DIFF GUARD (${j.status || 'PASS'})`, JSON.stringify(j, null, 2));
+        pushHistory(`Diff Guard (${j.status || 'PASS'})`);
+      } catch (e) { setOutput('ERROR', e.message); }
+    });
+
+    document.getElementById('btn-run-oracle').addEventListener('click', async () => {
+      const raw = (document.getElementById('diff-files').value || document.getElementById('mission-task').value || '').trim();
+      setOutput('LOADING', 'Querying Test Oracle...');
+      try {
+        const r = await fetch(`/api/test-oracle?files=${encodeURIComponent(raw)}`);
+        const j = await r.json();
+        setOutput(`TEST ORACLE (${j.matched_count || 0})`, JSON.stringify(j, null, 2));
+        pushHistory(`Test Oracle: ${raw || 'all'}`);
+      } catch (e) { setOutput('ERROR', e.message); }
+    });
+
+    document.getElementById('btn-copy-handoff').addEventListener('click', async () => {
+      const q = (document.getElementById('mission-task').value || '').trim();
+      const raw = (document.getElementById('diff-files').value || '').trim();
+      const files = raw ? raw.split(',').map(s => s.trim()).filter(Boolean) : [];
+      const b = document.getElementById('btn-copy-handoff');
+      try {
+        const r = await fetch('/api/handoff-pack', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ task: q, files, max_tokens: 1500 }),
+        });
+        const j = await r.json();
+        const txt = JSON.stringify(j, null, 2);
+        setOutput(`HANDOFF (${j.estimated_tokens || 0} tok)`, txt);
+        if (navigator.clipboard && navigator.clipboard.writeText) navigator.clipboard.writeText(txt);
+        b.textContent = '✅ Handoff Copied!';
+        setTimeout(() => { b.textContent = '📦 Copy AI Handoff Pack (≤ 1.5k tok)'; }, 1500);
+        pushHistory('AI Handoff Pack');
+      } catch (e) { setOutput('ERROR', e.message); }
+    });
+
+    (async function loadAgentHygiene() {
+      const box = document.getElementById('hygiene-box');
+      const badge = document.getElementById('hygiene-badge');
+      let data = window.AGENT_INSTRUCTIONS_AUDIT || null;
+      if (!data) {
+        for (const u of ['/api/agent-instructions-audit?detail=full', '../data/agent-instructions-audit.json']) {
+          try { const r = await fetch(u); if (r.ok) { data = await r.json(); break; } } catch (_) {}
+        }
+      }
+      if (!data || !data.summary) { box.textContent = 'No agent instruction files detected.'; return; }
+      const s = data.summary;
+      badge.textContent = `${s.hygiene_score ?? 100}/100 · ~${s.total_tokens ?? 0} tok`;
+      const filesHtml = (data.files || []).slice(0, 5).map(f =>
+        `<div style="padding:3px 0;border-bottom:1px solid var(--border,rgba(255,255,255,0.06));"><code>${esc(f.path)}</code> · ${esc(f.estimated_tokens)} tok · <strong>${esc(f.bloat_level)}</strong> · ${esc(f.dead_paths_count)} dead paths</div>`
+      ).join('');
+      box.innerHTML = (filesHtml || 'No instruction files found.') +
+        `<div style="margin-top:6px;">Dead paths: <strong>${esc(s.dead_paths_count)}</strong> · Duplications: <strong>${esc(s.duplications_count)}</strong> · Contradictions: <strong>${esc(s.contradictions_count)}</strong></div>`;
+    })();
     document.getElementById('btn-run-impact').addEventListener('click', runImpact);
     document.getElementById('btn-run-pr').addEventListener('click', () => runPrContext('main'));
     document.getElementById('btn-run-cm').addEventListener('click', () => runCodeMode());

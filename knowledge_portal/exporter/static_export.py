@@ -25,6 +25,10 @@ from knowledge_portal.generators.llms_txt import generate_llms_manifests
 from knowledge_portal.generators.git_dag import generate_git_dag
 from knowledge_portal.generators.adr_graph import generate_adr_graph
 from knowledge_portal.generators.mission_control import generate_mission_control
+from knowledge_portal.generators.test_oracle import generate_test_oracle
+from knowledge_portal.generators.module_cards import generate_module_cards
+from knowledge_portal.generators.agent_instructions_audit import generate_agent_instructions_audit
+from knowledge_portal.generators.sarif_ingestor import generate_sarif_findings
 
 def export_static_portal(source_dir: Path, output_dir: Path, project_name: Optional[str] = None) -> Dict[str, Any]:
     source_dir = source_dir.resolve()
@@ -65,9 +69,13 @@ def export_static_portal(source_dir: Path, output_dir: Path, project_name: Optio
     generate_ai_registry(source_dir, data_dir)
     generate_stack_inventory(source_dir, data_dir)
     generate_cve_report(source_dir, data_dir)
+    generate_sarif_findings(source_dir, data_dir)
     generate_compliance_evidence(source_dir, data_dir)
     generate_git_dag(source_dir, data_dir)
     generate_adr_graph(source_dir, data_dir)
+    generate_test_oracle(source_dir, data_dir)
+    generate_module_cards(source_dir, data_dir)
+    generate_agent_instructions_audit(source_dir, data_dir)
     generate_mission_control(source_dir, data_dir)
     generate_llms_manifests(source_dir, data_dir, output_dir, project_name=project_name)
 
