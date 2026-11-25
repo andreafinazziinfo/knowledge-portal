@@ -306,4 +306,129 @@
       }, 350);
     });
   }
+
+  // ADR-083 Sprint 1: Shared PortalUI Freshness SLA & Lazy JSON Data Loader
+  var _headMetaPromise = null;
+  var _headMetaTs = 0;
+
+  function _apiBase() {
+    return (window.location.protocol === 'file:') ? '' : '';
+  }
+
+  function getHeadMeta() {
+    if (window.location.protocol === 'file:') return Promise.resolve(null);
+    var now = Date.now();
+    if (_headMetaPromise && (now - _headMetaTs) < 10000) return _headMetaPromise;
+    _headMetaTs = now;
+    _headMetaPromise = fetch(_apiBase() + '/api/live-status', { cache: 'no-store' })
+      .then(function (r) { return r.ok ? r.json() : null; })
+      .then(function (d) {
+        if (d && d.git_head_sha) return d;
+        return fetch(_apiBase() + '/api/meta/head', { cache: 'no-store' })
+          .then(function (r2) { return r2.ok ? r2.json() : null; })
+          .catch(function () { return null; });
+      })
+      .catch(function () { return null; });
+    return _headMetaPromise;
+  }
+
+  function _renderFreshnessBadge(info) {
+    var mount = function () {
+      var target = document.querySelector('.header-right, header .hr, .top-bar .right, header, .header, .top-bar');
+      if (!target) return;
+      var badge = document.getElementById('fp-freshness-badge');
+      if (!badge) {
+        badge = document.createElement('span');
+        badge.id = 'fp-freshness-badge';
+        badge.className = 'badge';
+        badge.style.cssText = 'display:inline-flex;align-items:center;gap:5px;padding:3px 8px;border-radius:999px;font-size:11px;font-weight:600;font-family:monospace;letter-spacing:0.02em;margin-left:6px;white-space:nowrap;';
+        target.appendChild(badge);
+      }
+      if (info.status === 'stale') {
+        badge.style.background = 'rgba(239,68,68,0.16)';
+        badge.style.color = '#fca5a5';
+        badge.style.border = '1px solid rgba(239,68,68,0.45)';
+        var detail = (info.artifact_sha && info.head_sha && info.artifact_sha !== info.head_sha)
+          ? (info.artifact_sha + ' ≠ ' + info.head_sha)
+          : (info.age_hours !== null ? Math.round(info.age_hours) + 'h old' : 'outdated');
+        badge.textContent = '⚠️ STALE · ' + detail;
+        badge.title = 'Artifact generated at ' + (info.generated_at || 'unknown') + ' (artifact SHA: ' + (info.artifact_sha || '?') + ', HEAD: ' + (info.head_sha || '?') + ')';
+      } else if (info.status === 'fresh') {
+        badge.style.background = 'rgba(16,185,129,0.14)';
+        badge.style.color = '#6ee7b7';
+        badge.style.border = '1px solid rgba(16,185,129,0.38)';
+        badge.textContent = '✅ FRESH' + (info.artifact_sha && info.artifact_sha !== 'unknown' ? ' · ' + info.artifact_sha : '');
+        badge.title = 'Fresh artifact generated at ' + (info.generated_at || 'unknown');
+      }
+    };
+    if (document.readyState === 'loading') {
+      window.addEventListener('DOMContentLoaded', mount, { once: true });
+    } else {
+      mount();
+    }
+  }
+
+  function checkFreshness(data, opts) {
+    opts = opts || {};
+    var maxAgeHours = typeof opts.maxAgeHours === 'number' ? opts.maxAgeHours : 24;
+    var meta = (data && typeof data === 'object' && data._meta && typeof data._meta === 'object') ? data._meta : null;
+    if (!meta) {
+      return Promise.resolve({ status: 'unknown', artifact_sha: null, head_sha: null, generated_at: null, age_hours: null });
+    }
+    var artifactSha = meta.git_head_sha || null;
+    var generatedAt = meta.generated_at || null;
+    var ageHours = null;
+    if (generatedAt) {
+      var ts = Date.parse(generatedAt);
+      if (!isNaN(ts)) ageHours = (Date.now() - ts) / 3600000;
+    }
+    return getHeadMeta().then(function (head) {
+      var headSha = (head && head.git_head_sha) ? head.git_head_sha : null;
+      var shaMismatch = !!(artifactSha && headSha && artifactSha !== 'unknown' && headSha !== 'unknown' && artifactSha !== headSha);
+      var tooOld = (ageHours !== null && ageHours > maxAgeHours);
+      var status = (shaMismatch || tooOld) ? 'stale' : 'fresh';
+      var result = {
+        status: status,
+        artifact_sha: artifactSha,
+        head_sha: headSha,
+        generated_at: generatedAt,
+        age_hours: ageHours
+      };
+      if (opts.renderBadge !== false) _renderFreshnessBadge(result);
+      return result;
+    });
+  }
+
+  function loadData(name, fallbackGlobal) {
+    var isFile = window.location.protocol === 'file:';
+    var url = '../data/' + name + '.json';
+    if (isFile && fallbackGlobal && window[fallbackGlobal]) {
+      var localData = window[fallbackGlobal];
+      checkFreshness(localData);
+      return Promise.resolve(localData);
+    }
+    return fetch(url, { cache: 'no-store' })
+      .then(function (r) {
+        if (!r.ok) throw new Error('HTTP ' + r.status);
+        return r.json();
+      })
+      .then(function (d) {
+        checkFreshness(d);
+        return d;
+      })
+      .catch(function () {
+        if (fallbackGlobal && window[fallbackGlobal]) {
+          var fb = window[fallbackGlobal];
+          checkFreshness(fb);
+          return fb;
+        }
+        return null;
+      });
+  }
+
+  window.PortalUI = Object.assign(window.PortalUI || {}, {
+    getHeadMeta: getHeadMeta,
+    checkFreshness: checkFreshness,
+    loadData: loadData
+  });
 })();

@@ -8,31 +8,8 @@ import shutil
 from pathlib import Path
 from typing import Any, Dict, Optional
 from knowledge_portal.server import get_template_dir
-from knowledge_portal.scanner.polyglot import scan_polyglot_codebase
 from knowledge_portal.indexer.search_index import generate_search_index
 from knowledge_portal.generators.floorplan import generate_floorplan_from_yaml
-from knowledge_portal.generators.arch_health import generate_arch_health
-from knowledge_portal.generators.api_catalog import generate_api_catalog
-from knowledge_portal.generators.call_graph import generate_call_graph
-from knowledge_portal.generators.ownership import generate_ownership_map
-from knowledge_portal.generators.config_matrix import generate_config_matrix
-from knowledge_portal.generators.iac_topology import generate_iac_topology
-from knowledge_portal.generators.ai_registry import generate_ai_registry
-from knowledge_portal.generators.compliance_evidence import generate_compliance_evidence
-from knowledge_portal.generators.cve_ingestor import generate_cve_report
-from knowledge_portal.generators.stack_inventory import generate_stack_inventory
-from knowledge_portal.generators.llms_txt import generate_llms_manifests
-from knowledge_portal.generators.git_dag import generate_git_dag
-from knowledge_portal.generators.adr_graph import generate_adr_graph
-from knowledge_portal.generators.mission_control import generate_mission_control
-from knowledge_portal.generators.test_oracle import generate_test_oracle
-from knowledge_portal.generators.module_cards import generate_module_cards
-from knowledge_portal.generators.agent_instructions_audit import generate_agent_instructions_audit
-from knowledge_portal.generators.sarif_ingestor import generate_sarif_findings
-from knowledge_portal.generators.vertical_slices import generate_vertical_slices
-from knowledge_portal.generators.async_topology import generate_async_topology
-from knowledge_portal.generators.data_contracts import generate_data_contracts
-from knowledge_portal.generators.runtime_modes import generate_runtime_modes
 
 def export_static_portal(source_dir: Path, output_dir: Path, project_name: Optional[str] = None) -> Dict[str, Any]:
     source_dir = source_dir.resolve()
@@ -58,40 +35,33 @@ def export_static_portal(source_dir: Path, output_dir: Path, project_name: Optio
         else:
             shutil.copy2(item, dest)
 
-    # 2. Run Polyglot Scanner into output_dir/data
+    # 2. Run 3-Wave Parallel Rebuild with emit_js=True for offline file:// compatibility
     data_dir = output_dir / "data"
     print(f"🔍 Scanning polyglot codebase: {source_dir}")
-    stats = scan_polyglot_codebase(source_dir, data_dir)
+    from knowledge_portal.orchestrator import run_portal_rebuild
 
-    # 2b. Generate Architectural Health, API Catalog, Call Graph, Ownership, Stack/SBOM & llms.txt manifests
-    generate_arch_health(data_dir, project_dir=source_dir)
-    generate_api_catalog(source_dir, data_dir)
-    generate_call_graph(source_dir, data_dir)
-    generate_vertical_slices(source_dir, data_dir)
-    generate_async_topology(source_dir, data_dir)
-    generate_data_contracts(source_dir, data_dir)
-    generate_runtime_modes(source_dir, data_dir)
-    generate_ownership_map(source_dir, data_dir)
-    generate_config_matrix(source_dir, data_dir)
-    generate_iac_topology(source_dir, data_dir)
-    generate_ai_registry(source_dir, data_dir)
-    generate_stack_inventory(source_dir, data_dir)
-    generate_cve_report(source_dir, data_dir)
-    generate_sarif_findings(source_dir, data_dir)
-    generate_compliance_evidence(source_dir, data_dir)
-    generate_git_dag(source_dir, data_dir)
-    generate_adr_graph(source_dir, data_dir)
-    generate_test_oracle(source_dir, data_dir)
-    generate_module_cards(source_dir, data_dir)
-    generate_agent_instructions_audit(source_dir, data_dir)
-    generate_mission_control(source_dir, data_dir)
-    generate_llms_manifests(source_dir, data_dir, output_dir, project_name=project_name)
+    stats = run_portal_rebuild(
+        source_dir,
+        data_dir,
+        template_dir=output_dir,
+        use_cache=False,
+        parallel=True,
+        emit_js=True,
+        project_name=project_name,
+    )
+    # Remove temporary cache/sqlite from static bundle
+    (output_dir / ".portal-cache.json").unlink(missing_ok=True)
+    (data_dir / "omni-search.fts.sqlite").unlink(missing_ok=True)
 
-    # 3. Generate Search Index into output_dir/views/data/omni-search-index.json
+    # 3. Mirror Search Index into output_dir/views/data/omni-search-index.json for file:// fallback
     omni_dir = output_dir / "views" / "data"
     omni_dir.mkdir(parents=True, exist_ok=True)
     omni_file = omni_dir / "omni-search-index.json"
-    indexed_count = generate_search_index(source_dir, omni_file)
+    if (data_dir / "omni-search-index.json").is_file():
+        shutil.copy2(data_dir / "omni-search-index.json", omni_file)
+        indexed_count = int(stats.get("indexed_docs") or 0)
+    else:
+        indexed_count = generate_search_index(source_dir, omni_file)
 
     # 4. Compile architecture.yaml if present in project root
     for candidate in [source_dir / "architecture.yaml", source_dir / "architecture.yml", source_dir / "architecture.json"]:

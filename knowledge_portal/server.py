@@ -135,28 +135,25 @@ class PortalRequestHandler(SimpleHTTPRequestHandler):
 
     def _run_background_rebuild(self) -> None:
         try:
-            from knowledge_portal.generators.adr_graph import generate_adr_graph
-            from knowledge_portal.generators.api_catalog import generate_api_catalog
-            from knowledge_portal.generators.arch_health import generate_arch_health
-            from knowledge_portal.generators.git_dag import generate_git_dag
-            from knowledge_portal.generators.llms_txt import generate_llms_manifests
-            from knowledge_portal.generators.mission_control import generate_mission_control
-            from knowledge_portal.generators.stack_inventory import generate_stack_inventory
-            from knowledge_portal.scanner.polyglot import scan_polyglot_codebase
+            from knowledge_portal.orchestrator import run_portal_rebuild
 
             data_dir = self.template_dir / "data"
-            PortalRequestHandler._rebuild_state.update({"rebuilding": True, "phase": "scan", "processed": 1, "percent": 25, "message": "Scanning codebase..."})
-            scan_polyglot_codebase(self.project_dir, data_dir)
-            PortalRequestHandler._rebuild_state.update({"phase": "api_sbom", "processed": 2, "percent": 50, "message": "Generating API catalog & SBOM..."})
-            generate_api_catalog(self.project_dir, data_dir)
-            generate_stack_inventory(self.project_dir, data_dir)
-            PortalRequestHandler._rebuild_state.update({"phase": "health", "processed": 3, "percent": 75, "message": "Running Health Engine 4.0..."})
-            generate_arch_health(data_dir, project_dir=self.project_dir)
-            generate_git_dag(self.project_dir, data_dir)
-            generate_adr_graph(self.project_dir, data_dir)
-            generate_mission_control(self.project_dir, data_dir)
-            generate_llms_manifests(self.project_dir, data_dir, self.template_dir)
-            PortalRequestHandler._rebuild_state.update({"rebuilding": False, "phase": "done", "processed": 4, "percent": 100, "message": "Rebuild complete"})
+            PortalRequestHandler._rebuild_state.update({
+                "rebuilding": True, "phase": "scan", "processed": 1, "percent": 25,
+                "message": "Running 3-Wave parallel portal rebuild...",
+            })
+            summary = run_portal_rebuild(
+                self.project_dir,
+                data_dir,
+                template_dir=self.template_dir,
+                use_cache=True,
+                parallel=True,
+                emit_js=False,
+            )
+            PortalRequestHandler._rebuild_state.update({
+                "rebuilding": False, "phase": "done", "processed": 4, "percent": 100,
+                "message": f"Rebuild complete ({summary.get('elapsed_sec', 0)}s)",
+            })
         except Exception as exc:
             PortalRequestHandler._rebuild_state.update({"rebuilding": False, "phase": "error", "message": str(exc)})
         finally:
@@ -391,12 +388,48 @@ class PortalRequestHandler(SimpleHTTPRequestHandler):
         elif path == "/api/rebuild/status":
             self.send_json(PortalRequestHandler._rebuild_state)
 
+        elif path in ("/api/live-status", "/api/meta/head"):
+            from datetime import datetime, timezone
+            from knowledge_portal.core.freshness import get_git_branch, get_git_head_sha
+
+            git_sha = get_git_head_sha(self.project_dir, use_cache=True, ttl_sec=10.0)
+            git_branch = get_git_branch(self.project_dir, use_cache=True, ttl_sec=10.0)
+            server_time = datetime.now(timezone.utc).isoformat()
+            if path == "/api/meta/head":
+                self.send_json({
+                    "git_head_sha": git_sha,
+                    "git_branch": git_branch,
+                    "server_time": server_time,
+                })
+                return
+            data_dir = self.template_dir / "data"
+            domains: dict[str, float] = {}
+            if data_dir.is_dir():
+                for jf in sorted(data_dir.glob("*.json")):
+                    try:
+                        domains[jf.stem] = round(jf.stat().st_mtime, 3)
+                    except OSError:
+                        pass
+            last_sync = max(domains.values()) if domains else 0.0
+            self.send_json({
+                "active": False,
+                "git_head_sha": git_sha,
+                "git_branch": git_branch,
+                "server_time": server_time,
+                "last_sync": last_sync,
+                "domains": domains,
+            })
+
         elif path == "/api/search":
             from knowledge_portal.indexer.fts_engine import FtsSearchEngine
             q = query.get("q", [""])[0]
             expand = query.get("expand", ["0"])[0] in ("1", "true", "yes")
+            try:
+                lim = max(1, min(int(query.get("limit", ["30"])[0] or 30), 50))
+            except ValueError:
+                lim = 30
             engine = FtsSearchEngine(self.template_dir / "data")
-            self.send_json(engine.search(q, limit=30, expand_graph=expand))
+            self.send_json(engine.search(q, limit=lim, expand_graph=expand))
 
         elif path == "/api/context-pack":
             from knowledge_portal.mcp_server import PortalMcpEngine

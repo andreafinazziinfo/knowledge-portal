@@ -28,6 +28,10 @@ env/
 .DS_Store
 Thumbs.db
 
+# Portal incremental rebuild cache (ADR-083)
+.portal-cache.json
+*.fts.sqlite
+
 !template/vendor/perspective/
 !template/vendor/perspective/**
 !template/vendor/perspective/**/dist/

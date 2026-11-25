@@ -3181,11 +3181,15 @@
     let omniDynamicItems = [];
     let omniDynamicLoaded = false;
     let omniActiveIdx = 0;
+    let omniServerResults = [];
+    let omniSearchTimer = null;
+    let omniSearchSeq = 0;
+    const isHttpPortal = window.location.protocol === 'http:' || window.location.protocol === 'https:';
 
     async function ensureOmniDynamicData() {
       if (omniDynamicLoaded) return;
       omniDynamicLoaded = true;
-      // 1. Live API endpoints
+      // 1. Live API endpoints (lightweight JSON)
       for (const url of [`${API_BASE}/api/endpoints`, 'data/api-catalog.json']) {
         try {
           const r = await fetch(url);
@@ -3206,13 +3210,15 @@
           }
         } catch (_) {}
       }
-      // 2. Docs & files from omni-search-index.json
-      for (const url of ['views/data/omni-search-index.json', 'data/omni-search-index.json']) {
-        try {
-          const r = await fetch(url);
-          if (r.ok) {
-            const arr = await r.json();
-            if (Array.isArray(arr)) {
+      // 2. ADR-083 Sprint 1: In HTTP mode use server-side FTS5 /api/search (zero 11MB client download!).
+      // Only fetch omni-search-index.json locally when running in offline file:// mode.
+      if (!isHttpPortal) {
+        for (const url of ['views/data/omni-search-index.json', 'data/omni-search-index.json']) {
+          try {
+            const r = await fetch(url);
+            if (r.ok) {
+              const raw = await r.json();
+              const arr = Array.isArray(raw) ? raw : (raw.entities || raw.items || []);
               arr.slice(0, 250).forEach(doc => {
                 const p = doc.path || doc.file || '';
                 if (!p) return;
@@ -3226,10 +3232,10 @@
                   tags: `doc file ${p} ${(doc.tags || []).join ? (doc.tags || []).join(' ') : ''}`,
                 });
               });
+              break;
             }
-            break;
-          }
-        } catch (_) {}
+          } catch (_) {}
+        }
       }
     }
 
@@ -3239,14 +3245,16 @@
       const input = document.getElementById('omniInput');
       input.value = '';
       omniActiveIdx = 0;
+      omniServerResults = [];
       input.focus();
-      ensureOmniDynamicData().then(() => filterOmniResults());
-      filterOmniResults();
+      ensureOmniDynamicData().then(() => renderOmniResults());
+      renderOmniResults();
     }
 
     function closeOmniSearch() {
       const modal = document.getElementById('omniModal');
       modal.style.display = 'none';
+      if (omniSearchTimer) { clearTimeout(omniSearchTimer); omniSearchTimer = null; }
     }
 
     function highlightOmniActive() {
@@ -3260,18 +3268,59 @@
     }
 
     function filterOmniResults() {
+      const query = document.getElementById('omniInput').value.trim();
+      if (!isHttpPortal || query.length < 2) {
+        omniServerResults = [];
+        renderOmniResults();
+        return;
+      }
+      renderOmniResults();
+      if (omniSearchTimer) clearTimeout(omniSearchTimer);
+      const seq = ++omniSearchSeq;
+      omniSearchTimer = setTimeout(async () => {
+        try {
+          const r = await fetch(`${API_BASE}/api/search?q=${encodeURIComponent(query)}&limit=30`, { cache: 'no-store' });
+          if (!r.ok || seq !== omniSearchSeq) return;
+          const rows = await r.json();
+          if (!Array.isArray(rows)) return;
+          omniServerResults = rows.map(row => ({
+            kind: row.category === 'documentation' ? 'doc' : 'fts',
+            id: row.tab || 'reader',
+            filePath: row.path || '',
+            title: row.name || row.title || (row.path ? row.path.split('/').pop() : 'Result'),
+            desc: row.subtitle || row.path || '',
+            icon: row.badge || '🔎',
+            tags: `${row.category || ''} ${row.path || ''}`,
+          }));
+          renderOmniResults();
+        } catch (_) {}
+      }, 150);
+    }
+
+    function renderOmniResults() {
       const query = document.getElementById('omniInput').value.toLowerCase().trim();
       const container = document.getElementById('omniResults');
       container.innerHTML = '';
       omniActiveIdx = 0;
 
       const combined = OMNI_ITEMS.concat(omniDynamicItems);
-      const filtered = combined.filter(item => {
+      const localFiltered = combined.filter(item => {
         if (!query) return !item.kind; // Default shows curated views first
         return (item.title || '').toLowerCase().includes(query) ||
                (item.desc || '').toLowerCase().includes(query) ||
                (item.tags || '').toLowerCase().includes(query);
-      }).slice(0, 35);
+      });
+      const seenKeys = new Set(localFiltered.map(x => `${x.id}:${x.filePath || x.title}`));
+      const merged = localFiltered.slice(0, 20);
+      for (const sr of omniServerResults) {
+        const k = `${sr.id}:${sr.filePath || sr.title}`;
+        if (!seenKeys.has(k)) {
+          seenKeys.add(k);
+          merged.push(sr);
+        }
+        if (merged.length >= 35) break;
+      }
+      const filtered = merged.slice(0, 35);
 
       if (filtered.length === 0) {
         container.innerHTML = '<div style="padding:16px 20px; color:#8b949e; text-align:center;">No matching views, files, or API endpoints</div>';
@@ -3285,10 +3334,7 @@
         div.onmouseover = () => { omniActiveIdx = index; highlightOmniActive(); };
         div.onclick = () => {
           closeOmniSearch();
-          if (item.kind === 'doc' && item.filePath && typeof loadFile === 'function') {
-            switchTab('reader');
-            loadFile(item.filePath);
-          } else if (item.kind === 'api' && item.filePath && typeof loadFile === 'function') {
+          if ((item.kind === 'doc' || item.kind === 'fts' || item.kind === 'api') && item.filePath && typeof loadFile === 'function') {
             switchTab('reader');
             loadFile(item.filePath);
           } else {

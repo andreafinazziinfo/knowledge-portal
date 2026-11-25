@@ -18,6 +18,10 @@ def main():
     scan_p.add_argument("path", nargs="?", default=".", help="Root directory of the codebase to scan (default: current directory)")
     scan_p.add_argument("--output", "-o", default=None, help="Output directory for generated graph data (default: ./template/data)")
     scan_p.add_argument("--classic", action="store_true", help="Use classic Python-only AST scanner instead of polyglot")
+    scan_p.add_argument("--no-cache", action="store_true", help="Disable incremental .portal-cache.json file-hash cache")
+    scan_p.add_argument("--sequential", action="store_true", help="Run all generator waves sequentially (debug mode)")
+    scan_p.add_argument("--workers", "-w", type=int, default=None, help="Max parallel workers for Wave B (default: min(4, cpu_count))")
+    scan_p.add_argument("--static-js", action="store_true", help="Emit duplicate window.*_DATA .js wrappers for offline file:// mode")
 
     # Command: export
     export_p = subparsers.add_parser("export", help="Export static zero-server bundle ready for GitHub Pages or offline use")
@@ -85,70 +89,30 @@ def main():
     args = parser.parse_args()
 
     if args.command == "scan":
+        from knowledge_portal.orchestrator import run_portal_rebuild
         from knowledge_portal.server import get_template_dir
         target = Path(args.path).resolve()
         template_dir = get_template_dir()
         out = Path(args.output).resolve() if args.output else (template_dir / "data")
 
         print(f"🔍 Scanning codebase: {target}")
-        if args.classic:
-            from knowledge_portal.scanner.python_ast import scan_codebase
-            stats = scan_codebase(target, out)
-        else:
-            from knowledge_portal.scanner.polyglot import scan_polyglot_codebase
-            stats = scan_polyglot_codebase(target, out)
-
-        from knowledge_portal.generators.stack_inventory import generate_stack_inventory
-        from knowledge_portal.generators.arch_health import generate_arch_health
-        from knowledge_portal.generators.api_catalog import generate_api_catalog
-        from knowledge_portal.generators.call_graph import generate_call_graph
-        from knowledge_portal.generators.ownership import generate_ownership_map
-        from knowledge_portal.generators.config_matrix import generate_config_matrix
-        from knowledge_portal.generators.iac_topology import generate_iac_topology
-        from knowledge_portal.generators.ai_registry import generate_ai_registry
-        from knowledge_portal.generators.cve_ingestor import generate_cve_report
-        from knowledge_portal.generators.compliance_evidence import generate_compliance_evidence
-        from knowledge_portal.generators.llms_txt import generate_llms_manifests
-        from knowledge_portal.generators.git_dag import generate_git_dag
-        from knowledge_portal.generators.adr_graph import generate_adr_graph
-        from knowledge_portal.generators.mission_control import generate_mission_control
-        from knowledge_portal.generators.test_oracle import generate_test_oracle
-        from knowledge_portal.generators.module_cards import generate_module_cards
-        from knowledge_portal.generators.agent_instructions_audit import generate_agent_instructions_audit
-        from knowledge_portal.generators.sarif_ingestor import generate_sarif_findings
-        from knowledge_portal.generators.vertical_slices import generate_vertical_slices
-        from knowledge_portal.generators.async_topology import generate_async_topology
-        from knowledge_portal.generators.data_contracts import generate_data_contracts
-        from knowledge_portal.generators.runtime_modes import generate_runtime_modes
-        generate_stack_inventory(target, out)
-        generate_cve_report(target, out)
-        generate_sarif_findings(target, out)
-        generate_api_catalog(target, out)
-        generate_call_graph(target, out)
-        generate_vertical_slices(target, out)
-        generate_async_topology(target, out)
-        generate_data_contracts(target, out)
-        generate_runtime_modes(target, out)
-        generate_ownership_map(target, out)
-        generate_config_matrix(target, out)
-        generate_iac_topology(target, out)
-        generate_ai_registry(target, out)
-        generate_arch_health(out, project_dir=target)
-        generate_compliance_evidence(target, out)
-        generate_git_dag(target, out)
-        generate_adr_graph(target, out)
-        generate_test_oracle(target, out)
-        generate_module_cards(target, out)
-        generate_agent_instructions_audit(target, out)
-        generate_mission_control(target, out)
-        generate_llms_manifests(target, out, template_dir)
-
-        from knowledge_portal.indexer.search_index import generate_search_index
-        omni_file = template_dir / "views" / "data" / "omni-search-index.json"
-        indexed_count = generate_search_index(target, omni_file)
+        summary = run_portal_rebuild(
+            target,
+            out,
+            template_dir=template_dir,
+            classic=args.classic,
+            use_cache=not args.no_cache,
+            parallel=not args.sequential,
+            max_workers=args.workers,
+            emit_js=args.static_js,
+        )
 
         print("✅ Scan complete!")
-        print(f"   Architecture Nodes: {stats['total_nodes']} | Edges: {stats['total_edges']} | Indexed Docs: {indexed_count}")
+        print(
+            f"   Architecture Nodes: {summary['total_nodes']} | Edges: {summary['total_edges']} | "
+            f"Indexed Docs: {summary['indexed_docs']} | Elapsed: {summary['elapsed_sec']}s "
+            f"(hits={summary['cache_hits']}, misses={summary['cache_misses']})"
+        )
         print(f"   Data written to: {out}")
 
     elif args.command == "export":
