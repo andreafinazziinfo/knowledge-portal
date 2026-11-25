@@ -8,7 +8,6 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
   <title>Knowledge Base — Wiki Dashboard</title>
-<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <style>
     :root {
       --bg-main: #0f0f0f;
@@ -962,9 +961,7 @@
   </style>
 
     <script src="assets/marked.min.js"></script>
-<script>if (typeof marked === "undefined") { document.write('<script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"><\/script>'); }</script>
-  <script defer src="vendor/mermaid.min.js"></script>
-<script>if (typeof mermaid === "undefined") { document.write('<script src="https://cdn.jsdelivr.net/npm/mermaid@10.9.1/dist/mermaid.min.js"><\/script>'); }</script>
+  <script src="vendor/mermaid.min.js"></script>
   <link rel="stylesheet" href="views/portal-theme.css?v=fp3">
   <script defer src="views/portal-ui.js?v=fp3"></script>
 <style id="kp-light-theme">
@@ -1019,8 +1016,7 @@
     </div>
 
     <div class="search-container">
-      <div style="position:relative; width:100%;"><i class="fa-solid fa-magnifying-glass" style="position:absolute; left:10px; top:50%;
- color:var(--text-muted); font-size:12px;"></i><input type="text" id="search-input" class="search-input" style="padding-left:30px; width:100%;" placeholder="Search symbols, files, APIs, docs… (Ctrl+K)" oninput="performSearch(this.value)"></div>
+      <div style="position:relative; width:100%;"><svg aria-hidden="true" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" style="position:absolute; left:10px; top:50%; transform:translateY(-50%); color:var(--text-muted); pointer-events:none;"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg><input type="text" id="search-input" class="search-input" style="padding-left:30px; width:100%;" placeholder="Search symbols, files, APIs, docs… (Ctrl+K)" oninput="performSearch(this.value)"></div>
       <div class="search-hint">Universal Search across AST symbols, docs, API endpoints &amp; Studio views</div>
     </div>
 
@@ -1036,7 +1032,7 @@
   <div id="main-content">
     <div class="tabs-nav">
       <button id="mobile-menu-btn" onclick="toggleMobileSidebar()" title="Toggle Menu">
-        <i class="fa-solid fa-bars"></i>
+        <svg aria-hidden="true" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="18" x2="21" y2="18"/></svg>
         <span>Menu</span>
       </button>
       <select id="mobile-view-picker" onchange="if(this.value){switchTab(this.value); this.value='';}" title="Quick View Picker">

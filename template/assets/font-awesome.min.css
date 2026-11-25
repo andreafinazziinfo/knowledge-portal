@@ -1,9 +1,14 @@
-/* FontAwesome 6 Core Minimal Offline CSS */
-@import url("https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css");
-
-.fa, .fas, .fa-solid { font-family: "Font Awesome 6 Free", "FontAwesome", sans-serif; font-weight: 900; }
-.far, .fa-regular { font-family: "Font Awesome 6 Free", "FontAwesome", sans-serif; font-weight: 400; }
-.fab, .fa-brands { font-family: "Font Awesome 6 Brands", "FontAwesome", sans-serif; font-weight: 400; }
+/* Local 0-CDN Icon & Badge Styles (ADR-083 True Air-Gap) */
+.fa, .fas, .fa-solid, .far, .fa-regular, .fab, .fa-brands {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-style: normal;
+  font-family: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  line-height: 1;
+}
+.fa-magnifying-glass::before { content: "\1F50D"; font-size: 0.9em; }
+.fa-bars::before { content: "\2630"; font-size: 1.05em; }
 
 /* SVG / Unicode Emoji Fallback Icon styling */
 .icon-badge { display: inline-flex; align-items: center; justify-content: center; width: 1.2em; height: 1.2em; margin-right: 6px; vertical-align: middle; }
