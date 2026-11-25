@@ -147,6 +147,18 @@ def generate_mission_control(
     ai_prompts = int(ai_sum.get("prompts_cataloged", 0) or 0)
     ai_ready = True  # OSS MCP + CodeMode + Mission Pack always available
 
+    # CodeScene & Fitness Gate (ADR-083 Sprint 3)
+    git_crime = health.get("git_crime_scene") or {}
+    hotspots_list = git_crime.get("hotspots") or []
+    hidden_tc_list = git_crime.get("hidden_temporal_coupling") or []
+    max_codescene_risk = float(git_crime.get("max_codescene_risk", 0.0) or 0.0)
+    top_cs_hotspots = git_crime.get("top_codescene_hotspots") or hotspots_list[:5]
+    fitness_gate = health.get("fitness_gate") or {}
+    fg_available = bool(fitness_gate.get("available"))
+    fg_violations = int(fitness_gate.get("violations_count", 0) or 0)
+    fg_errors = int(fitness_gate.get("errors_count", 0) or 0)
+    fg_passed = bool(fitness_gate.get("passed", True))
+
     # Graph scale
     total_nodes = len(graph.get("nodes") or []) if isinstance(graph.get("nodes"), list) else 0
     total_edges = len(graph.get("edges") or graph.get("links") or []) if isinstance(graph.get("edges") or graph.get("links"), list) else 0
@@ -158,6 +170,11 @@ def generate_mission_control(
         "orphan_count": orphan_count,
         "runtime_bugs_count": runtime_bugs_count,
         "critical_findings": critical_findings,
+        "codescene_hotspots_count": len(hotspots_list),
+        "max_codescene_risk": max_codescene_risk,
+        "hidden_temporal_coupling_count": len(hidden_tc_list),
+        "fitness_gate_passed": fg_passed,
+        "fitness_gate_violations": fg_violations,
         "cve_total": cve_total,
         "cve_critical_high": cve_critical + cve_high,
         "dead_code_count": dead_code_count,
@@ -299,6 +316,25 @@ def generate_mission_control(
             "action_label": "Open ADR Hub",
         })
 
+    if fg_available and not fg_passed:
+        anomalies.append({
+            "severity": "P0",
+            "category": "Fitness Gate",
+            "title": f".arch-rules.json Fitness Gate failed ({fg_errors} ERROR violation(s))",
+            "detail": "Resolve forbidden architectural boundary imports before merging.",
+            "view": "arch-health",
+            "action_label": "Inspect Fitness Gate",
+        })
+    if len(hidden_tc_list) >= 5:
+        anomalies.append({
+            "severity": "P2",
+            "category": "CodeScene",
+            "title": f"{len(hidden_tc_list)} Hidden Temporal Coupling pairs (no direct import)",
+            "detail": "Files co-changing >=3x in 90d without a direct import edge indicate implicit coupling.",
+            "view": "arch-health",
+            "action_label": "Inspect CodeScene",
+        })
+
     if hub_summary and isinstance(hub_summary.get("anomalies"), list):
         for item in hub_summary["anomalies"]:
             if isinstance(item, dict):
@@ -330,6 +366,21 @@ def generate_mission_control(
         "generated_at": generated_at,
         "project_name": project_dir.name,
         "kpis": kpis,
+        "codescene_summary": {
+            "available": bool(git_crime.get("available")),
+            "hotspots_count": len(hotspots_list),
+            "max_codescene_risk": max_codescene_risk,
+            "top_hotspots": top_cs_hotspots[:5],
+            "hidden_temporal_coupling_count": len(hidden_tc_list),
+            "top_hidden_coupling": hidden_tc_list[:5],
+        },
+        "fitness_gate": {
+            "available": fg_available,
+            "rules_count": int(fitness_gate.get("rules_count", 0) or 0),
+            "violations_count": fg_violations,
+            "errors_count": fg_errors,
+            "passed": fg_passed,
+        },
         "subsystems": subsystems,
         "anomalies": anomalies,
         "quick_jumps": quick_jumps,

@@ -6,10 +6,12 @@ Zero external dependencies (Python stdlib only).
 from __future__ import annotations
 
 import json
+import os
 import re
 import subprocess
 import time
 import uuid
+import xml.etree.ElementTree as ET
 from pathlib import Path
 from typing import Any
 
@@ -342,13 +344,178 @@ def _scan_repositories(root: Path) -> list[dict[str, Any]]:
     return repos
 
 
+_ANDROID_NS = "{http://schemas.android.com/apk/res/android}"
+_MOBILE_IGNORE_DIRS = frozenset({
+    ".git", "node_modules", ".venv", "venv", "build", ".gradle", "dist", "__pycache__", "frozen",
+})
+
+
+def _parse_gradle_metadata(gradle_path: Path, root: Path) -> dict[str, Any]:
+    """Extract high-signal Android metadata from build.gradle / build.gradle.kts."""
+    meta: dict[str, Any] = {
+        "gradle_path": str(gradle_path.relative_to(root)).replace("\\", "/"),
+        "namespace": None,
+        "applicationId": None,
+        "versionName": None,
+        "versionCode": None,
+        "minifyEnabled": None,
+        "dependencies_count": 0,
+    }
+    try:
+        text = gradle_path.read_text(encoding="utf-8", errors="ignore")
+    except OSError:
+        return meta
+
+    m_ns = re.search(r"""namespace\s*=?\s*["']([^"']+)["']""", text)
+    if m_ns:
+        meta["namespace"] = m_ns.group(1)
+    m_app = re.search(r"""applicationId\s*=?\s*["']([^"']+)["']""", text)
+    if m_app:
+        meta["applicationId"] = m_app.group(1)
+    m_vn = re.search(r"""versionName\s*=?\s*["']([^"']+)["']""", text)
+    if m_vn:
+        meta["versionName"] = m_vn.group(1)
+    m_vc = re.search(r"""versionCode\s*=?\s*(\d+)""", text)
+    if m_vc:
+        meta["versionCode"] = int(m_vc.group(1))
+    m_min = re.search(r"""minifyEnabled\s*=?\s*(true|false)""", text, re.IGNORECASE)
+    if m_min:
+        meta["minifyEnabled"] = m_min.group(1).lower() == "true"
+    deps = re.findall(r"""(?m)^\s*(?:implementation|api|testImplementation|androidTestImplementation)\b""", text)
+    meta["dependencies_count"] = len(deps)
+    return meta
+
+
+def _scan_mobile_manifests(root: Path) -> list[dict[str, Any]]:
+    """Extract high-signal AndroidManifest.xml and build.gradle metadata without parsing Java/PNG."""
+    manifests: list[dict[str, Any]] = []
+    manifest_files: list[Path] = []
+    gradle_files: list[Path] = []
+
+    for dirpath, dirnames, filenames in os.walk(root):
+        dirnames[:] = [d for d in dirnames if d not in _MOBILE_IGNORE_DIRS]
+        for fname in filenames:
+            if fname == "AndroidManifest.xml":
+                manifest_files.append(Path(dirpath) / fname)
+            elif fname in ("build.gradle", "build.gradle.kts"):
+                gradle_files.append(Path(dirpath) / fname)
+
+    if not manifest_files and not gradle_files:
+        return []
+
+    def _find_nearest_gradle(mpath: Path) -> Path | None:
+        # Prefer build.gradle in an ancestor directory of AndroidManifest.xml (e.g. app/build.gradle)
+        cur = mpath.parent
+        for _ in range(5):
+            for name in ("build.gradle", "build.gradle.kts"):
+                cand = cur / name
+                if cand.is_file():
+                    return cand
+            if cur == root or cur.parent == cur:
+                break
+            cur = cur.parent
+        return gradle_files[0] if gradle_files else None
+
+    used_gradles: set[Path] = set()
+    for mpath in sorted(manifest_files):
+        rel = str(mpath.relative_to(root)).replace("\\", "/")
+        package_name: str | None = None
+        uses_cleartext: bool | None = None
+        allow_backup: bool | None = None
+        permissions: list[str] = []
+        exported_components: list[str] = []
+        findings: list[dict[str, str]] = []
+
+        try:
+            tree = ET.parse(mpath)  # nosec B314
+            mroot = tree.getroot()
+            package_name = mroot.attrib.get("package") or None
+            for perm in mroot.findall("uses-permission"):
+                pname = perm.attrib.get(f"{_ANDROID_NS}name") or perm.attrib.get("name")
+                if pname:
+                    permissions.append(pname)
+            app_el = mroot.find("application")
+            if app_el is not None:
+                ct = app_el.attrib.get(f"{_ANDROID_NS}usesCleartextTraffic")
+                if ct is not None:
+                    uses_cleartext = ct.lower() == "true"
+                ab = app_el.attrib.get(f"{_ANDROID_NS}allowBackup")
+                if ab is not None:
+                    allow_backup = ab.lower() == "true"
+                for tag in ("activity", "service", "receiver", "provider"):
+                    for comp in app_el.findall(tag):
+                        if (comp.attrib.get(f"{_ANDROID_NS}exported") or "").lower() == "true":
+                            cname = comp.attrib.get(f"{_ANDROID_NS}name") or tag
+                            exported_components.append(f"{tag}:{cname}")
+        except ET.ParseError:
+            pass
+
+        gpath = _find_nearest_gradle(mpath)
+        gmeta: dict[str, Any] = {}
+        if gpath is not None:
+            used_gradles.add(gpath)
+            gmeta = _parse_gradle_metadata(gpath, root)
+
+        resolved_pkg = package_name or gmeta.get("applicationId") or gmeta.get("namespace")
+        if uses_cleartext is True:
+            findings.append({
+                "severity": "MEDIUM",
+                "rule": "ANDROID_CLEARTEXT_TRAFFIC",
+                "file": rel,
+                "detail": "AndroidManifest.xml sets android:usesCleartextTraffic=\"true\" (allows unencrypted HTTP).",
+            })
+
+        uniq_perms = sorted(set(permissions))
+        manifests.append({
+            "platform": "android",
+            "manifest_path": rel,
+            "gradle_path": gmeta.get("gradle_path"),
+            "package": resolved_pkg,
+            "versionName": gmeta.get("versionName"),
+            "versionCode": gmeta.get("versionCode"),
+            "usesCleartextTraffic": uses_cleartext,
+            "allowBackup": allow_backup,
+            "minifyEnabled": gmeta.get("minifyEnabled"),
+            "permissions_count": len(uniq_perms),
+            "permissions": uniq_perms[:40],
+            "exported_components": exported_components[:20],
+            "dependencies_count": int(gmeta.get("dependencies_count") or 0),
+            "security_findings": findings,
+        })
+
+    # If only build.gradle exists without AndroidManifest.xml
+    if not manifests:
+        for gpath in sorted(gradle_files):
+            gmeta = _parse_gradle_metadata(gpath, root)
+            if gmeta.get("applicationId") or gmeta.get("namespace") or gmeta.get("versionName"):
+                manifests.append({
+                    "platform": "android",
+                    "manifest_path": None,
+                    "gradle_path": gmeta.get("gradle_path"),
+                    "package": gmeta.get("applicationId") or gmeta.get("namespace"),
+                    "versionName": gmeta.get("versionName"),
+                    "versionCode": gmeta.get("versionCode"),
+                    "usesCleartextTraffic": None,
+                    "allowBackup": None,
+                    "minifyEnabled": gmeta.get("minifyEnabled"),
+                    "permissions_count": 0,
+                    "permissions": [],
+                    "exported_components": [],
+                    "dependencies_count": int(gmeta.get("dependencies_count") or 0),
+                    "security_findings": [],
+                })
+
+    return manifests
+
+
 def generate_stack_inventory(target_dir: Path, output_dir: Path) -> dict[str, Any]:
-    """Scan target_dir for dependencies, licenses, CycloneDX SBOM, containers, dev tools, and repositories."""
+    """Scan target_dir for dependencies, licenses, CycloneDX SBOM, containers, dev tools, mobile manifests, and repositories."""
     py_deps = _scan_python_deps(target_dir)
     node_deps = _scan_node_deps(target_dir)
     docker_svcs = _scan_docker_services(target_dir)
     tools = _scan_tools_and_ci(target_dir)
     repos = _scan_repositories(target_dir)
+    mobile_manifests = _scan_mobile_manifests(target_dir)
 
     proj_license = _detect_project_license(target_dir)
     for d in py_deps:
@@ -375,6 +542,7 @@ def generate_stack_inventory(target_dir: Path, output_dir: Path) -> dict[str, An
             "docker_services": len(docker_svcs),
             "tools_and_ci": len(tools),
             "repositories": len(repos),
+            "mobile_manifests_count": len(mobile_manifests),
             "licenses_detected": known_lic_cnt,
             "copyleft_count": copyleft_cnt,
         },
@@ -387,6 +555,8 @@ def generate_stack_inventory(target_dir: Path, output_dir: Path) -> dict[str, An
             "copyleft_count": copyleft_cnt,
             "sbom_file": "data/sbom.cdx.json",
         },
+        "mobile_manifest": mobile_manifests[0] if mobile_manifests else None,
+        "mobile_manifests": mobile_manifests,
         "dependencies": all_deps,
         "docker_services": docker_svcs,
         "tools": tools,

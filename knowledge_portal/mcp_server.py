@@ -1157,11 +1157,11 @@ TOOLS_SPEC: list[dict[str, Any]] = [
     },
     {
         "name": "portal_contract",
-        "description": "Query Pydantic<->TypeScript schemas, schema drift, HTTPException/custom error taxonomy, DB table readers/writers matrix, or operational runtime modes (<= 800 token summary default).",
+        "description": "Query Pydantic<->TypeScript schemas, schema drift, HTTPException/custom error taxonomy, DB table readers/writers matrix, Protobuf (.proto) wire contracts, or operational runtime modes (<= 800 token summary default).",
         "inputSchema": {
             "type": "object",
             "properties": {
-                "kind": {"type": "string", "enum": ["schemas", "drift", "errors", "db_rw", "runtime_modes"], "default": "schemas"},
+                "kind": {"type": "string", "enum": ["schemas", "drift", "errors", "db_rw", "runtime_modes", "proto"], "default": "schemas"},
                 "query": {"type": "string", "default": ""},
                 "detail": {"type": "string", "enum": ["summary", "compact", "full"], "default": "summary"},
             },

@@ -216,11 +216,95 @@ def analyze_code_complexity_and_ai_readiness(project_dir: Path, max_files: int =
     }
 
 
-def analyze_git_crime_scene(project_dir: Path, days: int = 90) -> dict[str, Any]:
-    """Read-only git log analysis: Churn Hotspots, Temporal Coupling, and Bus Factor."""
+def _is_src_test_pair(path_a: str, path_b: str) -> bool:
+    """Return True if (path_a, path_b) is an obvious production<->test file pair."""
+    na = path_a.replace("\\", "/").lower()
+    nb = path_b.replace("\\", "/").lower()
+    test_tokens = ("/tests/", "/test/", "test_", ".test.", ".spec.", "_test.")
+    a_is_test = any(t in na for t in test_tokens)
+    b_is_test = any(t in nb for t in test_tokens)
+    if a_is_test == b_is_test:
+        return False
+    src_p, tst_p = (nb, na) if a_is_test else (na, nb)
+    src_stem = Path(src_p).stem
+    tst_stem = Path(tst_p).stem
+    if not src_stem:
+        return False
+    if tst_stem in (f"test_{src_stem}", f"{src_stem}_test", f"{src_stem}.test", f"{src_stem}.spec"):
+        return True
+    return len(src_stem) >= 3 and src_stem in tst_stem
+
+
+def _build_direct_import_pairs(graph_data: dict[str, Any] | None) -> set[tuple[str, str]]:
+    """Build undirected set of normalized file-path pairs directly connected in graph.json."""
+    if not isinstance(graph_data, dict):
+        return set()
+    id_to_path: dict[str, str] = {}
+    for n in graph_data.get("nodes") or []:
+        if isinstance(n, dict) and n.get("id") is not None:
+            nid = str(n["id"])
+            raw = str(n.get("path") or n.get("label") or nid).replace("\\", "/").lstrip("./").lower()
+            id_to_path[nid] = raw
+    pairs: set[tuple[str, str]] = set()
+    for e in graph_data.get("edges") or graph_data.get("links") or []:
+        if not isinstance(e, dict):
+            continue
+        s_raw = str(e.get("source", ""))
+        t_raw = str(e.get("target", ""))
+        sp = id_to_path.get(s_raw, s_raw.replace("\\", "/").lstrip("./").lower())
+        tp = id_to_path.get(t_raw, t_raw.replace("\\", "/").lstrip("./").lower())
+        if sp and tp and sp != tp:
+            a, b = (sp, tp) if sp < tp else (tp, sp)
+            pairs.add((a, b))
+    return pairs
+
+
+def _fast_file_max_mccabe(project_dir: Path, rel_path: str) -> int:
+    """Compute max function McCabe complexity for a Python file (fallback 1)."""
+    if not rel_path.endswith(".py"):
+        return 1
+    fpath = project_dir / rel_path
+    if not fpath.is_file():
+        return 1
+    try:
+        tree = ast.parse(fpath.read_text(encoding="utf-8", errors="ignore"))
+    except (OSError, SyntaxError, ValueError):
+        return 1
+    max_cc = 1
+    for node in ast.walk(tree):
+        if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef)):
+            cc = 1
+            for sub in ast.walk(node):
+                if isinstance(sub, (ast.If, ast.For, ast.AsyncFor, ast.While, ast.ExceptHandler, ast.IfExp, ast.comprehension)):
+                    cc += 1
+                elif isinstance(sub, ast.BoolOp):
+                    cc += max(0, len(sub.values) - 1)
+            if cc > max_cc:
+                max_cc = cc
+    return max_cc
+
+
+def analyze_git_crime_scene(
+    project_dir: Path,
+    days: int = 90,
+    *,
+    complexity: dict[str, Any] | None = None,
+    graph_data: dict[str, Any] | None = None,
+) -> dict[str, Any]:
+    """Read-only git log analysis: Churn Hotspots, CodeScene Risk (churn x max_mccabe), Hidden Temporal Coupling, and Bus Factor."""
     project_dir = Path(project_dir).resolve()
+    empty_res: dict[str, Any] = {
+        "available": False,
+        "hotspots": [],
+        "temporal_coupling": [],
+        "hidden_temporal_coupling": [],
+        "hidden_temporal_coupling_count": 0,
+        "max_codescene_risk": 0.0,
+        "top_codescene_hotspots": [],
+        "bus_factor_risks": [],
+    }
     if not (project_dir / ".git").exists():
-        return {"available": False, "hotspots": [], "temporal_coupling": [], "bus_factor_risks": []}
+        return empty_res
 
     try:
         proc = subprocess.run(  # nosec B603 B607
@@ -231,9 +315,9 @@ def analyze_git_crime_scene(project_dir: Path, days: int = 90) -> dict[str, Any]
             check=False,
         )
         if proc.returncode != 0:
-            return {"available": False, "hotspots": [], "temporal_coupling": [], "bus_factor_risks": []}
+            return empty_res
     except Exception:
-        return {"available": False, "hotspots": [], "temporal_coupling": [], "bus_factor_risks": []}
+        return empty_res
 
     file_commits: Counter[str] = Counter()
     file_churn: Counter[str] = Counter()
@@ -270,16 +354,32 @@ def analyze_git_crime_scene(project_dir: Path, days: int = 90) -> dict[str, Any]
         cur_files.append(fpath)
     _flush_commit()
 
-    hotspots: list[dict[str, Any]] = [
-        {
+    # Build path -> max_mccabe lookup from complexity report
+    mccabe_by_path: dict[str, int] = {}
+    for cf in (complexity or {}).get("top_complex_files") or []:
+        if isinstance(cf, dict) and cf.get("path"):
+            cpath = str(cf["path"]).replace("\\", "/").lstrip("./")
+            worst = cf.get("worst_fn") or {}
+            mc_val = int(worst.get("mccabe") or cf.get("mccabe") or 1)
+            mccabe_by_path[cpath] = max(1, mc_val)
+
+    hotspots: list[dict[str, Any]] = []
+    for p, c in file_commits.most_common(25):
+        p_norm = p.replace("\\", "/").lstrip("./")
+        churn_90d = int(file_churn[p])
+        max_mc = mccabe_by_path.get(p_norm)
+        if max_mc is None:
+            max_mc = _fast_file_max_mccabe(project_dir, p_norm)
+        cs_risk = round(float(churn_90d * max_mc), 1)
+        hotspots.append({
             "path": p,
             "commits": c,
-            "lines_churned": file_churn[p],
+            "lines_churned": churn_90d,
             "authors": len(file_authors[p]),
-            "hotspot_score": round(c * math.log1p(file_churn[p]), 1),
-        }
-        for p, c in file_commits.most_common(25)
-    ]
+            "max_mccabe": max_mc,
+            "codescene_risk": cs_risk,
+            "hotspot_score": round(c * math.log1p(churn_90d), 1),
+        })
     hotspots.sort(key=lambda h: -float(h["hotspot_score"]))
 
     temporal_coupling = [
@@ -288,17 +388,49 @@ def analyze_git_crime_scene(project_dir: Path, days: int = 90) -> dict[str, Any]
         if cnt >= 3
     ]
 
+    direct_edges = _build_direct_import_pairs(graph_data)
+    hidden_temporal_coupling: list[dict[str, Any]] = []
+    for (a, b), cnt in pair_counts.most_common(40):
+        if cnt < 3:
+            continue
+        an = a.replace("\\", "/").lstrip("./").lower()
+        bn = b.replace("\\", "/").lstrip("./").lower()
+        pair_key = (an, bn) if an < bn else (bn, an)
+        if pair_key in direct_edges:
+            continue
+        if _is_src_test_pair(an, bn):
+            continue
+        denom = max(1, min(file_commits.get(a, cnt), file_commits.get(b, cnt)))
+        strength = round(min(1.0, cnt / denom), 2)
+        hidden_temporal_coupling.append({
+            "file_a": a,
+            "file_b": b,
+            "co_changes": cnt,
+            "coupling_strength": strength,
+            "coupling_ratio_pct": round(strength * 100.0, 1),
+            "has_direct_import": False,
+        })
+        if len(hidden_temporal_coupling) >= 20:
+            break
+
     bus_risks = [
         {"path": h["path"], "commits": h["commits"], "authors": h["authors"]}
         for h in hotspots
         if int(h["authors"]) == 1 and int(h["commits"]) >= 4
     ][:15]
 
+    top_cs_hotspots = sorted(hotspots, key=lambda h: -float(h["codescene_risk"]))[:10]
+    max_cs_risk = float(top_cs_hotspots[0]["codescene_risk"]) if top_cs_hotspots else 0.0
+
     return {
         "available": True,
         "window_days": days,
         "hotspots": hotspots[:20],
         "temporal_coupling": temporal_coupling,
+        "hidden_temporal_coupling": hidden_temporal_coupling,
+        "hidden_temporal_coupling_count": len(hidden_temporal_coupling),
+        "max_codescene_risk": max_cs_risk,
+        "top_codescene_hotspots": top_cs_hotspots,
         "bus_factor_risks": bus_risks,
     }
 
@@ -2038,10 +2170,16 @@ def analyze_health_v4(
         {"category": "Test Smells", "critical": 0, "high": sum(1 for s in test_smells if s["rule"] == "ASSERT_LESS_TEST"), "medium": sum(1 for s in test_smells if s["rule"] != "ASSERT_LESS_TEST")},
     ]
 
+    hidden_tc = list((git_crime_scene or {}).get("hidden_temporal_coupling") or [])
+    max_cs_risk = float((git_crime_scene or {}).get("max_codescene_risk") or (top_risks[0]["risk_score"] if top_risks else 0.0))
+
     return {
         "codescene_risk": {
             "top_risks": top_risks[:25],
             "temporal_coupling_enriched": coupling_enriched[:15],
+            "hidden_temporal_coupling": hidden_tc[:15],
+            "hidden_temporal_coupling_count": len(hidden_tc),
+            "max_codescene_risk": max_cs_risk,
             "bus_factor_by_domain": sorted(bus_by_dom.values(), key=lambda b: -int(b["single_author_hotspots"]))[:12],
         },
         "owasp_audit": {

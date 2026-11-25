@@ -687,6 +687,20 @@ def _build_summary_view(tool_name: str, data: dict[str, Any]) -> dict[str, Any]:
                 }
                 for t in (data.get("db_rw_matrix") or [])[:10] if isinstance(t, dict)
             ]
+        elif kind == "proto":
+            base_out["proto_contracts"] = [
+                {
+                    "file": p.get("file"),
+                    "syntax": p.get("syntax"),
+                    "package": p.get("package"),
+                    "messages_count": p.get("messages_count", 0),
+                    "enums_count": p.get("enums_count", 0),
+                    "rpcs_count": p.get("rpcs_count", 0),
+                    "messages": p.get("messages") or p.get("sample_messages") or [],
+                    "enums": p.get("enums") or p.get("sample_enums") or [],
+                }
+                for p in (data.get("proto_contracts") or [])[:8] if isinstance(p, dict)
+            ]
         elif kind == "runtime_modes":
             base_out["modes"] = [
                 {
@@ -1501,7 +1515,7 @@ def query_contract(
 ) -> dict[str, Any]:
     """Query Pydantic<->TS schemas, drift, error taxonomy, DB R/W matrix, or runtime modes."""
     k = (kind or "schemas").strip().lower()
-    valid_kinds = ("schemas", "drift", "errors", "db_rw", "runtime_modes")
+    valid_kinds = ("schemas", "drift", "errors", "db_rw", "runtime_modes", "proto")
     if k not in valid_kinds:
         return {
             "ok": False,
@@ -1566,6 +1580,39 @@ def query_contract(
             }
         elif k == "db_rw":
             scoped["db_rw_matrix"] = [r for r in (data.get("db_rw_matrix") or []) if _matches(r)]
+        elif k == "proto":
+            protos = data.get("proto_contracts") or []
+            filtered_protos: list[dict[str, Any]] = []
+            for p in protos:
+                if not isinstance(p, dict):
+                    continue
+                if not q:
+                    filtered_protos.append({
+                        "file": p.get("file"),
+                        "syntax": p.get("syntax"),
+                        "package": p.get("package"),
+                        "messages_count": p.get("messages_count", 0),
+                        "enums_count": p.get("enums_count", 0),
+                        "rpcs_count": p.get("rpcs_count", 0),
+                        "sample_messages": [m.get("name") for m in (p.get("messages") or [])[:8]],
+                        "sample_enums": [e.get("name") for e in (p.get("enums") or [])[:6]],
+                    })
+                elif _matches(p):
+                    matched_msgs = [m for m in (p.get("messages") or []) if _matches(m)][:12]
+                    matched_enums = [e for e in (p.get("enums") or []) if _matches(e)][:8]
+                    matched_rpcs = [r for r in (p.get("rpcs") or []) if _matches(r)][:8]
+                    filtered_protos.append({
+                        "file": p.get("file"),
+                        "syntax": p.get("syntax"),
+                        "package": p.get("package"),
+                        "messages_count": p.get("messages_count", 0),
+                        "enums_count": p.get("enums_count", 0),
+                        "rpcs_count": p.get("rpcs_count", 0),
+                        "messages": matched_msgs,
+                        "enums": matched_enums,
+                        "rpcs": matched_rpcs,
+                    })
+            scoped["proto_contracts"] = filtered_protos
 
     res = apply_detail_budget("portal_contract", scoped, detail=detail)
     if (detail or "summary").strip().lower() == "summary":

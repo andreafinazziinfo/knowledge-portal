@@ -74,7 +74,17 @@ def generate_compliance_evidence(project_dir: Path, data_dir: Path) -> dict[str,
     cycles = int(h_sum.get("cycle_count", 0))
     has_probes = bool(obs.get("has_health_probe"))
     has_lockfile = bool(sc.get("has_lockfile"))
-    iac_misconfigs = int((iac.get("summary") or {}).get("misconfigs_count", 0))
+    iac_sum = iac.get("summary") or {}
+    iac_misconfigs = int(iac_sum.get("misconfigs_count", 0))
+    nginx_configs = int(iac_sum.get("nginx_configs", 0))
+    nginx_sec_headers = list(iac.get("nginx_security_headers") or [])
+    if not nginx_sec_headers:
+        nginx_sec_headers = sorted({
+            hdr
+            for nx in (iac.get("nginx_proxies") or [])
+            if isinstance(nx, dict)
+            for hdr in (nx.get("security_headers") or {}).keys()
+        })
     ai_guardrails = int((ai_reg.get("summary") or {}).get("guardrail_findings_count", 0))
     ai_models = int((ai_reg.get("summary") or {}).get("unique_models_count", 0))
     has_llms = (project_dir / "llms.txt").is_file() or (data_dir.parent / "llms.txt").is_file()
@@ -101,9 +111,9 @@ def generate_compliance_evidence(project_dir: Path, data_dir: Path) -> dict[str,
         _ctrl("ISO27001", "A.8.8", "Software Supply Chain, SBOM & CVE Management",
               "FAIL" if cve_crit > 0 else ("WARN" if (not cve_available or cve_high > 0 or not (has_sbom and has_lockfile)) else "PASS"),
               f"CycloneDX SBOM={has_sbom} ({len(sbom.get('components') or [])} components), lockfile={has_lockfile}, cve_available={cve_available}, CVEs={cve_total} (CRITICAL={cve_crit}, HIGH={cve_high})"),
-        _ctrl("ISO27001", "A.8.9", "Infrastructure & Container Hardening",
+        _ctrl("ISO27001", "A.8.9", "Infrastructure, Nginx & Container Hardening",
               "PASS" if iac_misconfigs == 0 else ("WARN" if iac_misconfigs <= 3 else "FAIL"),
-              f"{iac_misconfigs} IaC/Docker/GHA misconfigurations (iac-topology.json)"),
+              f"{iac_misconfigs} IaC/Docker/GHA/Nginx misconfigs; nginx_configs={nginx_configs}, security_headers={len(nginx_sec_headers)} ({', '.join(nginx_sec_headers[:6]) or 'none'})"),
         _ctrl("ISO27001", "A.8.25", "Secure Development Policy & Licensing",
               "PASS" if (has_security_md and has_license) else "WARN",
               f"SECURITY.md={has_security_md}, LICENSE={has_license}"),
@@ -136,6 +146,8 @@ def generate_compliance_evidence(project_dir: Path, data_dir: Path) -> dict[str,
             "pass_count": sum(1 for c in controls if c["status"] == "PASS"),
             "warn_count": sum(1 for c in controls if c["status"] == "WARN"),
             "fail_count": sum(1 for c in controls if c["status"] == "FAIL"),
+            "nginx_configs": nginx_configs,
+            "nginx_security_headers": nginx_sec_headers,
         },
         "frameworks": by_fw,
         "controls": controls,

@@ -10,6 +10,7 @@ Domain-level DSM (Dependency Structure Matrix) + 6-axis Health Radar.
 from __future__ import annotations
 
 import json
+import re
 import time
 from collections import defaultdict
 from pathlib import Path
@@ -326,7 +327,179 @@ def compute_arch_health(graph_data: dict[str, Any]) -> dict[str, Any]:
     }
 
 
-def generate_arch_health(data_dir: Path, project_dir: Path | None = None) -> dict[str, Any]:
+def _match_arch_pattern(path_str: str, pattern: str) -> bool:
+    """Match a relative path against either a glob (supporting `**`) or regex pattern."""
+    norm = path_str.replace("\\", "/").lstrip("./")
+    pat = (pattern or "").strip()
+    if not pat:
+        return False
+    # Regex mode when anchored or using regex operators
+    if pat.startswith("^") or pat.endswith("$") or any(tok in pat for tok in (".*", "(", "|", "\\")):
+        try:
+            return bool(re.search(pat, norm))
+        except re.error:
+            return False
+    # Glob mode: convert `**`, `*`, `?` to regex
+    g = pat.replace("\\", "/").lstrip("./")
+    out: list[str] = []
+    i = 0
+    n = len(g)
+    while i < n:
+        if g[i : i + 3] == "**/":
+            out.append("(?:.*/)?")
+            i += 3
+        elif g[i : i + 2] == "**":
+            out.append(".*")
+            i += 2
+        elif g[i] == "*":
+            out.append("[^/]*")
+            i += 1
+        elif g[i] == "?":
+            out.append("[^/]")
+            i += 1
+        else:
+            out.append(re.escape(g[i]))
+            i += 1
+    regex = "^" + "".join(out) + "$"
+    return bool(re.search(regex, norm))
+
+
+def evaluate_arch_rules(
+    graph_data: dict[str, Any],
+    project_dir: Path | None = None,
+    rules_file: Path | None = None,
+) -> dict[str, Any]:
+    """Evaluate declarative `.arch-rules.json` boundaries against graph.json edges."""
+    rpath: Path | None = None
+    if rules_file is not None and Path(rules_file).is_file():
+        rpath = Path(rules_file).resolve()
+    elif project_dir is not None:
+        cand = Path(project_dir).resolve() / ".arch-rules.json"
+        if cand.is_file():
+            rpath = cand
+
+    if rpath is None:
+        return {
+            "available": False,
+            "rules_file": None,
+            "rules_count": 0,
+            "violations_count": 0,
+            "errors_count": 0,
+            "warnings_count": 0,
+            "violations": [],
+            "passed": True,
+        }
+
+    try:
+        raw_cfg = json.loads(rpath.read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError) as exc:
+        return {
+            "available": True,
+            "rules_file": str(rpath.name),
+            "rules_count": 0,
+            "violations_count": 1,
+            "errors_count": 1,
+            "warnings_count": 0,
+            "violations": [{
+                "rule_id": "invalid-arch-rules-json",
+                "severity": "ERROR",
+                "source": str(rpath.name),
+                "target": "",
+                "message": f"Failed to parse .arch-rules.json: {exc}",
+            }],
+            "passed": False,
+        }
+
+    rules = [r for r in (raw_cfg.get("rules") or []) if isinstance(r, dict)]
+    raw_nodes = graph_data.get("nodes") or []
+    raw_edges = graph_data.get("edges") or graph_data.get("links") or []
+
+    # Map node IDs to normalized relative paths
+    id_to_path: dict[str, str] = {}
+    all_paths: set[str] = set()
+    for n in raw_nodes:
+        if not isinstance(n, dict) or n.get("id") is None:
+            continue
+        nid = str(n["id"])
+        p = str(n.get("path") or n.get("label") or nid).replace("\\", "/").lstrip("./")
+        id_to_path[nid] = p
+        all_paths.add(p)
+
+    # Deduplicated directed file-level edges
+    dir_edges: set[tuple[str, str]] = set()
+    fan_out: dict[str, set[str]] = defaultdict(set)
+    for e in raw_edges:
+        if not isinstance(e, dict):
+            continue
+        s_raw = str(e.get("source", ""))
+        t_raw = str(e.get("target", ""))
+        sp = id_to_path.get(s_raw, s_raw.replace("\\", "/").lstrip("./"))
+        tp = id_to_path.get(t_raw, t_raw.replace("\\", "/").lstrip("./"))
+        if not sp or not tp or sp == tp:
+            continue
+        dir_edges.add((sp, tp))
+        fan_out[sp].add(tp)
+
+    violations: list[dict[str, str]] = []
+    for idx, rule in enumerate(rules):
+        rule_id = str(rule.get("id") or f"rule-{idx + 1}")
+        severity = str(rule.get("severity") or "ERROR").strip().upper()
+        if severity not in ("ERROR", "WARN"):
+            severity = "ERROR"
+        msg = str(rule.get("message") or f"Architecture rule `{rule_id}` violated")
+
+        # Mode A: Forbidden edge rule (`from` -> `forbid` / `to_forbidden`)
+        from_pat = str(rule.get("from") or "")
+        forbid_pat = str(rule.get("forbid") or rule.get("to_forbidden") or "")
+        allow_from = [str(p) for p in (rule.get("allow_from") or []) if p]
+        if from_pat and forbid_pat:
+            for sp, tp in sorted(dir_edges):
+                if not _match_arch_pattern(sp, from_pat):
+                    continue
+                if any(_match_arch_pattern(sp, ap) for ap in allow_from):
+                    continue
+                if _match_arch_pattern(tp, forbid_pat):
+                    violations.append({
+                        "rule_id": rule_id,
+                        "severity": severity,
+                        "source": sp,
+                        "target": tp,
+                        "message": msg,
+                    })
+
+        # Mode B: Fan-out ceiling rule (`match` + `max_fan_out`)
+        match_pat = str(rule.get("match") or "")
+        max_fo = rule.get("max_fan_out")
+        if match_pat and isinstance(max_fo, int):
+            for sp in sorted(all_paths):
+                if not _match_arch_pattern(sp, match_pat):
+                    continue
+                fo = len(fan_out.get(sp, set()))
+                if fo > max_fo:
+                    violations.append({
+                        "rule_id": rule_id,
+                        "severity": severity,
+                        "source": sp,
+                        "target": f"fan_out={fo} (max {max_fo})",
+                        "message": msg,
+                    })
+
+    errors_cnt = sum(1 for v in violations if v["severity"] == "ERROR")
+    warns_cnt = sum(1 for v in violations if v["severity"] == "WARN")
+    rel_file = str(rpath.relative_to(Path(project_dir).resolve())).replace("\\", "/") if (project_dir and rpath.is_relative_to(Path(project_dir).resolve())) else rpath.name
+    return {
+        "available": True,
+        "rules_file": rel_file,
+        "rules_count": len(rules),
+        "violations_count": len(violations),
+        "errors_count": errors_cnt,
+        "warnings_count": warns_cnt,
+        "violations": violations[:100],
+        "passed": errors_cnt == 0,
+    }
+
+
+def generate_arch_health(data_dir: Path, project_dir: Path | None = None, rules_file: Path | None = None) -> dict[str, Any]:
     """Read graph.json from data_dir, run 8-pillar audit analyzers, and write arch-health.json."""
     from knowledge_portal.generators.audit_analyzers import (
         analyze_code_complexity_and_ai_readiness,
@@ -349,10 +522,13 @@ def generate_arch_health(data_dir: Path, project_dir: Path | None = None) -> dic
             graph_data = {}
 
     report = compute_arch_health(graph_data)
+    report["fitness_gate"] = evaluate_arch_rules(graph_data, project_dir=project_dir, rules_file=rules_file)
     if project_dir is not None and Path(project_dir).exists():
         pdir = Path(project_dir).resolve()
         report["complexity"] = analyze_code_complexity_and_ai_readiness(pdir)
-        report["git_crime_scene"] = analyze_git_crime_scene(pdir, days=90)
+        report["git_crime_scene"] = analyze_git_crime_scene(
+            pdir, days=90, complexity=report["complexity"], graph_data=graph_data
+        )
         report["coverage"] = analyze_coverage_reports(pdir)
         report["extended_checks"] = analyze_extended_health_checks(pdir)
         from knowledge_portal.generators.call_graph import generate_call_graph

@@ -73,10 +73,11 @@ def main():
     report_p.add_argument("--dir", "-d", default=".", help="Project root directory")
 
     # Command: gate
-    gate_p = subparsers.add_parser("gate", help="CI Quality Gate — exits 0 on pass, 1 on threshold violation")
+    gate_p = subparsers.add_parser("gate", help="CI Quality Gate — exits 0 on pass, 1 on threshold or .arch-rules.json violation")
     gate_p.add_argument("--min-score", type=int, default=0, help="Minimum required Health Score (0-100)")
     gate_p.add_argument("--max-cycles", type=int, default=None, help="Maximum allowed dependency cycles")
     gate_p.add_argument("--max-critical", type=int, default=None, help="Maximum allowed CRITICAL security/SRE findings")
+    gate_p.add_argument("--rules", default=None, help="Optional path to .arch-rules.json declarative fitness gate")
     gate_p.add_argument("--data-dir", default=None, help="Portal data directory (default: template/data)")
     gate_p.add_argument("--dir", "-d", default=".", help="Project root directory")
 
@@ -209,13 +210,21 @@ def main():
 
     elif args.command == "gate":
         import json
-        from knowledge_portal.generators.arch_health import generate_arch_health
+        from knowledge_portal.generators.arch_health import evaluate_arch_rules, generate_arch_health
         from knowledge_portal.generators.audit_report import evaluate_quality_gate
         from knowledge_portal.server import get_template_dir
         target = Path(args.dir).resolve()
         data_dir = Path(args.data_dir).resolve() if args.data_dir else (get_template_dir() / "data")
+        rules_path = Path(args.rules).resolve() if getattr(args, "rules", None) else None
         health_file = data_dir / "arch-health.json"
-        report_data = json.loads(health_file.read_text(encoding="utf-8")) if health_file.exists() else generate_arch_health(data_dir, project_dir=target)
+        if health_file.exists():
+            report_data = json.loads(health_file.read_text(encoding="utf-8"))
+            if rules_path is not None or ("fitness_gate" not in report_data and (target / ".arch-rules.json").is_file()):
+                graph_file = data_dir / "graph.json"
+                graph_data = json.loads(graph_file.read_text(encoding="utf-8")) if graph_file.exists() else {}
+                report_data["fitness_gate"] = evaluate_arch_rules(graph_data, project_dir=target, rules_file=rules_path)
+        else:
+            report_data = generate_arch_health(data_dir, project_dir=target, rules_file=rules_path)
         passed, reasons = evaluate_quality_gate(
             report_data,
             min_score=args.min_score,

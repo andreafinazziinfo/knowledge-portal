@@ -207,8 +207,9 @@ def evaluate_quality_gate(
     min_score: int = 0,
     max_cycles: int | None = None,
     max_critical: int | None = None,
+    enforce_fitness_gate: bool = True,
 ) -> tuple[bool, list[str]]:
-    """Evaluate CI quality gate thresholds against arch-health.json."""
+    """Evaluate CI quality gate thresholds and `.arch-rules.json` fitness gate against arch-health.json."""
     s = report.get("summary") or {}
     hv4 = report.get("health_v4") or {}
     score = int(s.get("health_score", 0))
@@ -224,5 +225,22 @@ def evaluate_quality_gate(
         failures.append(f"Dependency cycles {cycles} > allowed max_cycles {max_cycles}")
     if max_critical is not None and total_crit > max_critical:
         failures.append(f"Critical security/SRE findings {total_crit} > allowed max_critical {max_critical}")
+
+    if enforce_fitness_gate:
+        fg = report.get("fitness_gate") or {}
+        if isinstance(fg, dict) and fg.get("available"):
+            err_violations = [
+                v for v in (fg.get("violations") or [])
+                if isinstance(v, dict) and str(v.get("severity", "ERROR")).upper() == "ERROR"
+            ]
+            err_cnt = int(fg.get("errors_count", len(err_violations)))
+            if err_cnt > 0 or fg.get("passed") is False:
+                sample = ""
+                if err_violations:
+                    v0 = err_violations[0]
+                    sample = f" (e.g. {v0.get('rule_id')}: {v0.get('source')} -> {v0.get('target')})"
+                failures.append(
+                    f"Architecture fitness gate failed: {err_cnt} ERROR violation(s) in .arch-rules.json{sample}"
+                )
 
     return len(failures) == 0, failures

@@ -37,7 +37,205 @@ _GHA_SELF_HOSTED_RE = re.compile(r"runs-on\s*:.*self-hosted", re.IGNORECASE)
 _TF_RES_RE = re.compile(r'resource\s+"([^"]+)"\s+"([^"]+)"')
 _NGINX_PROXY_RE = re.compile(r"proxy_pass\s+([^;\s]+);")
 _NGINX_LISTEN_RE = re.compile(r"listen\s+([0-9:.*\[\]]+)")
+_NGINX_SERVER_NAME_RE = re.compile(r"(?m)^\s*server_name\s+([^;]+);")
+_NGINX_UPSTREAM_RE = re.compile(r"(?m)^\s*upstream\s+([A-Za-z0-9_.-]+)\s*\{")
+_NGINX_LOCATION_RE = re.compile(r"(?m)^\s*location\s+([^{;\n]+?)\s*\{")
+_NGINX_INCLUDE_RE = re.compile(r"(?m)^\s*include\s+([^;\s]+);")
+_NGINX_REWRITE_RE = re.compile(r"(?m)^\s*rewrite\s+([^;]+);")
+_NGINX_TRY_FILES_RE = re.compile(r"(?m)^\s*try_files\s+([^;]+);")
+_NGINX_ADD_HEADER_RE = re.compile(r"(?m)^\s*add_header\s+([A-Za-z0-9_-]+)\s+([^;]+);")
+_NGINX_SECURITY_HEADERS = frozenset({
+    "content-security-policy",
+    "strict-transport-security",
+    "x-frame-options",
+    "x-content-type-options",
+    "referrer-policy",
+    "cross-origin-opener-policy",
+    "cross-origin-resource-policy",
+    "cross-origin-embedder-policy",
+    "permissions-policy",
+})
+_SH_ENV_RE = re.compile(r"\$\{?([A-Z][A-Z0-9_]{2,})\}?")
+_SH_BUILTIN_ENVS = frozenset({
+    "PATH", "HOME", "PWD", "USER", "SHELL", "IFS", "LINENO", "FUNCNAME",
+    "BASH_SOURCE", "SHLVL", "OLDPWD", "UID", "EUID", "PIPESTATUS", "RANDOM",
+    "SECONDS", "REPLY", "OPTIND", "OPTARG", "TERM", "LANG", "LC_ALL", "HOSTNAME",
+})
+_SH_INFRA_CMDS: tuple[tuple[str, re.Pattern[str]], ...] = (
+    ("docker-compose", re.compile(r"\bdocker[\s-]+compose\b")),
+    ("docker", re.compile(r"\bdocker\b")),
+    ("pgbackrest", re.compile(r"\bpgbackrest\b")),
+    ("psql", re.compile(r"\bpsql\b")),
+    ("pg_dump", re.compile(r"\bpg_dump\b")),
+    ("systemctl", re.compile(r"\bsystemctl\b")),
+    ("rclone", re.compile(r"\brclone\b")),
+    ("rsync", re.compile(r"\brsync\b")),
+    ("curl", re.compile(r"\bcurl\b")),
+    ("kubectl", re.compile(r"\bkubectl\b")),
+    ("helm", re.compile(r"\bhelm\b")),
+    ("terraform", re.compile(r"\bterraform\b")),
+    ("nginx", re.compile(r"\bnginx\b")),
+    ("redis-cli", re.compile(r"\bredis-cli\b")),
+    ("crontab", re.compile(r"\bcrontab\b")),
+    ("ssh", re.compile(r"\bssh\b")),
+)
 _COMPOSE_ONESHOT_HINTS = ("init", "migrate", "migration", "seed", "backup", "cli", "tool", "certbot")
+
+
+def _extract_brace_block(text: str, open_idx: int) -> str:
+    """Extract balanced `{ ... }` body starting at `open_idx`."""
+    depth = 0
+    for idx in range(open_idx, len(text)):
+        ch = text[idx]
+        if ch == "{":
+            depth += 1
+        elif ch == "}":
+            depth -= 1
+            if depth == 0:
+                return text[open_idx + 1 : idx]
+    return text[open_idx + 1 :]
+
+
+def _parse_nginx_conf(rel: str, text: str) -> tuple[dict[str, Any], list[dict[str, Any]]]:
+    """Parse an Nginx .conf file for listen, upstream, locations, proxy_pass, and security headers."""
+    # Strip full-line comments to avoid false positives from commented examples
+    uncommented_lines = [ln for ln in text.splitlines() if not ln.lstrip().startswith("#")]
+    clean = "\n".join(uncommented_lines)
+
+    listens = sorted(set(_NGINX_LISTEN_RE.findall(clean)))
+    proxies = sorted(set(_NGINX_PROXY_RE.findall(clean)))
+    server_names = sorted({
+        tok for m in _NGINX_SERVER_NAME_RE.findall(clean) for tok in m.split() if tok
+    })
+    upstreams = sorted(set(_NGINX_UPSTREAM_RE.findall(clean)))
+    includes = sorted(set(_NGINX_INCLUDE_RE.findall(clean)))
+    has_gzip = bool(re.search(r"(?m)^\s*gzip\s+on\s*;", clean))
+
+    security_headers: dict[str, str] = {}
+    nginx_misconfigs: list[dict[str, Any]] = []
+    for hdr_name, hdr_val in _NGINX_ADD_HEADER_RE.findall(clean):
+        if hdr_name.lower() in _NGINX_SECURITY_HEADERS:
+            val_clean = hdr_val.strip()
+            security_headers[hdr_name] = val_clean[:200]
+            if hdr_name.lower() == "content-security-policy" and "'unsafe-eval'" in val_clean.lower():
+                nginx_misconfigs.append({
+                    "severity": "MEDIUM",
+                    "rule": "NGINX_CSP_UNSAFE_EVAL",
+                    "file": rel,
+                    "line": 1,
+                    "detail": "Nginx Content-Security-Policy allows `'unsafe-eval'`.",
+                    "remediation": "Remove `'unsafe-eval'` from CSP or scope strictly to isolated worker routes.",
+                })
+
+    locations: list[dict[str, Any]] = []
+    server_includes_sec = any("security" in inc.lower() for inc in includes)
+    for m in _NGINX_LOCATION_RE.finditer(clean):
+        loc_path = m.group(1).strip()
+        brace_idx = clean.find("{", m.start())
+        body = _extract_brace_block(clean, brace_idx) if brace_idx != -1 else ""
+        loc_proxies = sorted(set(_NGINX_PROXY_RE.findall(body)))
+        loc_rewrites = [r.strip() for r in _NGINX_REWRITE_RE.findall(body)]
+        loc_try = [t.strip() for t in _NGINX_TRY_FILES_RE.findall(body)]
+        loc_includes = sorted(set(_NGINX_INCLUDE_RE.findall(body)))
+        loc_headers = [h[0] for h in _NGINX_ADD_HEADER_RE.findall(body)]
+        locations.append({
+            "path": loc_path,
+            "proxy_pass": loc_proxies[:4],
+            "rewrite": loc_rewrites[:3],
+            "try_files": loc_try[:2],
+            "includes": loc_includes[:4],
+            "has_add_header": bool(loc_headers),
+        })
+        if (
+            server_includes_sec
+            and loc_headers
+            and not any("security" in inc.lower() for inc in loc_includes)
+            and not any(h.lower() in _NGINX_SECURITY_HEADERS for h in loc_headers)
+        ):
+            nginx_misconfigs.append({
+                "severity": "MEDIUM",
+                "rule": "NGINX_HEADER_INHERITANCE_LOSS",
+                "file": rel,
+                "line": 1,
+                "detail": f"Location `{loc_path}` defines `add_header` without re-including security headers.",
+                "remediation": "Include the shared security-headers.conf inside any location block that sets `add_header`.",
+            })
+
+    entry: dict[str, Any] = {
+        "file": rel,
+        "listen": listens[:8],
+        "server_name": server_names[:6],
+        "upstreams": upstreams[:10],
+        "proxy_pass": proxies[:12],
+        "locations": locations[:30],
+        "includes": includes[:12],
+        "gzip": has_gzip,
+        "security_headers": security_headers,
+    }
+    return entry, nginx_misconfigs
+
+
+def _classify_shell_role(rel: str, text_low: str) -> str:
+    """Classify a shell script into an operational entrypoint role."""
+    rlow = rel.lower()
+    if any(k in rlow for k in ("dr_test", "dr-drill", "restore", "recovery")):
+        return "dr_drill"
+    if any(k in rlow for k in ("backup", "pgbackrest", "dump", "rclone", "snapshot")):
+        return "backup"
+    if any(k in rlow for k in ("deploy", "release", "rollout", "install", "bootstrap", "setup", "provision", "entrypoint", "start")):
+        return "deploy"
+    if any(k in rlow for k in ("notify", "alert", "telegram", "slack", "webhook")):
+        return "notify"
+    if any(k in rlow for k in ("ci", "lint", "test", "check", "verify", "audit", "gate", "smoke")):
+        return "ci"
+    if any(k in rlow for k in ("health", "monitor", "probe", "watchdog", "status")):
+        return "healthcheck"
+    if "pgbackrest" in text_low or "pg_dump" in text_low:
+        return "backup"
+    if "docker compose" in text_low or "systemctl" in text_low:
+        return "deploy"
+    return "ops"
+
+
+def scan_shell_scripts(project_dir: Path) -> list[dict[str, Any]]:
+    """Scan all `*.sh` scripts in `project_dir` extracting role, env var names (never values), and infra commands."""
+    project_dir = Path(project_dir).resolve()
+    scripts: list[dict[str, Any]] = []
+    for root, dirs, files in os.walk(project_dir):
+        dirs[:] = [d for d in dirs if d not in _IGNORE_DIRS and not d.startswith(".")]
+        for fname in sorted(files):
+            if not fname.lower().endswith(".sh"):
+                continue
+            fpath = Path(root) / fname
+            rel = str(fpath.relative_to(project_dir)).replace("\\", "/")
+            if _is_ignored(rel):
+                continue
+            try:
+                text = fpath.read_text(encoding="utf-8", errors="ignore")
+            except OSError:
+                continue
+            lines = text.splitlines()
+            uncommented = "\n".join(ln for ln in lines if not ln.lstrip().startswith("#"))
+            text_low = uncommented.lower()
+            strict_mode = bool(
+                re.search(r"(?m)^\s*set\s+-[a-zA-Z]*e", uncommented)
+                and ("pipefail" in uncommented or re.search(r"(?m)^\s*set\s+-[a-zA-Z]*u", uncommented))
+            )
+            env_vars = sorted({
+                m for m in _SH_ENV_RE.findall(uncommented)
+                if m not in _SH_BUILTIN_ENVS
+            })[:25]
+            infra_cmds = [name for name, pat in _SH_INFRA_CMDS if pat.search(uncommented)]
+            role = _classify_shell_role(rel, text_low)
+            scripts.append({
+                "path": rel,
+                "entrypoint_role": role,
+                "strict_mode": strict_mode,
+                "env_vars_referenced": env_vars,
+                "infra_commands": infra_cmds,
+            })
+    scripts.sort(key=lambda s: str(s["path"]))
+    return scripts
 
 
 def _is_ignored(rel: str) -> bool:
@@ -283,15 +481,15 @@ def generate_iac_topology(project_dir: Path, data_dir: Path) -> dict[str, Any]:
                             })
                 ci_workflows.append({"name": Path(rel).stem, "file": rel, "actions_count": len(actions), "unpinned_actions": unpinned_actions})
 
-            # 4. Nginx configs
-            elif "nginx" in low and low.endswith(".conf"):
+            # 4. Nginx configs (check full relative path `rel`, e.g. frontend/nginx/default.conf)
+            elif ("nginx" in rel.lower() or "nginx" in low) and low.endswith(".conf"):
                 try:
                     text = fpath.read_text(encoding="utf-8", errors="ignore")
                 except OSError:
                     continue
-                listens = sorted(set(_NGINX_LISTEN_RE.findall(text)))
-                proxies = sorted(set(_NGINX_PROXY_RE.findall(text)))
-                nginx_proxies.append({"file": rel, "listen": listens[:8], "proxy_pass": proxies[:12]})
+                nginx_entry, nginx_mc = _parse_nginx_conf(rel, text)
+                nginx_proxies.append(nginx_entry)
+                misconfigs.extend(nginx_mc)
 
             # 5. Terraform (*.tf)
             elif low.endswith(".tf"):
@@ -315,6 +513,26 @@ def generate_iac_topology(project_dir: Path, data_dir: Path) -> dict[str, Any]:
                 if m_kind:
                     k8s_workloads.append({"kind": m_kind.group(1), "name": m_name.group(1) if m_name else Path(rel).stem, "file": rel})
 
+    # 7. Shell scripts (*.sh) — compact ops/backup/deploy/ci metadata (env names only, never values)
+    shell_scripts = scan_shell_scripts(project_dir)
+    role_counts: dict[str, int] = {}
+    cmd_counts: dict[str, int] = {}
+    for sc in shell_scripts:
+        r = str(sc.get("entrypoint_role", "ops"))
+        role_counts[r] = role_counts.get(r, 0) + 1
+        for cmd in sc.get("infra_commands") or []:
+            cmd_counts[cmd] = cmd_counts.get(cmd, 0) + 1
+    top_infra_cmds = [
+        {"command": k, "scripts_count": v}
+        for k, v in sorted(cmd_counts.items(), key=lambda kv: (-kv[1], kv[0]))[:15]
+    ]
+    all_nginx_sec_headers = sorted({
+        hdr
+        for nx in nginx_proxies
+        for hdr in (nx.get("security_headers") or {}).keys()
+    })
+    nginx_locations_total = sum(len(nx.get("locations") or []) for nx in nginx_proxies)
+
     sev_order = {"CRITICAL": 0, "HIGH": 1, "MEDIUM": 2, "LOW": 3}
     misconfigs.sort(key=lambda m: (sev_order.get(str(m.get("severity", "MEDIUM")).upper(), 4), str(m.get("file", "")), int(m.get("line", 1))))
     by_sev = {
@@ -330,6 +548,10 @@ def generate_iac_topology(project_dir: Path, data_dir: Path) -> dict[str, Any]:
             "dockerfiles": len(dockerfiles),
             "compose_services": len(compose_services),
             "nginx_configs": len(nginx_proxies),
+            "nginx_locations_count": nginx_locations_total,
+            "nginx_security_headers_count": len(all_nginx_sec_headers),
+            "shell_scripts_count": len(shell_scripts),
+            "shell_scripts_by_role": role_counts,
             "ci_workflows": len(ci_workflows),
             "terraform_resources": len(terraform_resources),
             "k8s_workloads": len(k8s_workloads),
@@ -339,6 +561,15 @@ def generate_iac_topology(project_dir: Path, data_dir: Path) -> dict[str, Any]:
         "dockerfiles": dockerfiles[:30],
         "compose_services": compose_services[:60],
         "nginx_proxies": nginx_proxies[:20],
+        "nginx_security_headers": all_nginx_sec_headers,
+        "shell_scripts_count": len(shell_scripts),
+        "shell_scripts_summary": {
+            "total": len(shell_scripts),
+            "strict_mode_count": sum(1 for s in shell_scripts if s.get("strict_mode")),
+            "by_role": role_counts,
+            "top_infra_commands": top_infra_cmds,
+            "scripts": shell_scripts[:100],
+        },
         "ci_workflows": ci_workflows[:30],
         "terraform_resources": terraform_resources[:60],
         "k8s_workloads": k8s_workloads[:60],

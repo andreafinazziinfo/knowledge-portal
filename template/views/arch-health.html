@@ -172,12 +172,24 @@
       <div class="ah-grid">
         <section class="ah-card">
           <h2>Git Churn × Complexity Hotspots (90d) <span class="ah-badge" id="cnt-hot">0</span></h2>
-          <div class="ah-hint">File toccati spesso nei commit recenti: miglior predittore empirico di regressioni.</div>
+          <div class="ah-hint">File toccati spesso nei commit recenti con CodeScene Risk (<code>churn_90d × max_mccabe</code>).</div>
           <div class="ah-list" id="list-hotspots"></div>
         </section>
         <section class="ah-card">
-          <h2>Temporal / Logical Coupling <span class="ah-badge" id="cnt-tc">0</span></h2>
-          <div class="ah-hint">Coppie di file che cambiano insieme negli stessi commit (accoppiamento nascosto).</div>
+          <h2>Hidden Temporal Coupling (No Direct Import) <span class="ah-badge" id="cnt-htc">0</span></h2>
+          <div class="ah-hint">Coppie che cambiano insieme &ge;3× in 90g <strong>senza</strong> un arco di import diretto in <code>graph.json</code>.</div>
+          <div class="ah-list" id="list-htc"></div>
+        </section>
+      </div>
+      <div class="ah-grid">
+        <section class="ah-card">
+          <h2>Architecture Fitness Gate (<code>.arch-rules.json</code>) <span class="ah-badge" id="cnt-fitness">N/A</span></h2>
+          <div class="ah-hint">Regole dichiarative sui confini architetturali verificate in CI da <code>knowledge-portal gate</code>.</div>
+          <div class="ah-list" id="list-fitness"></div>
+        </section>
+        <section class="ah-card">
+          <h2>All Temporal / Logical Coupling <span class="ah-badge" id="cnt-tc">0</span></h2>
+          <div class="ah-hint">Tutte le coppie di file che cambiano insieme negli stessi commit (&ge;3 co-changes).</div>
           <div class="ah-list" id="list-tc"></div>
         </section>
       </div>
@@ -669,8 +681,34 @@
 
     document.getElementById('cnt-hot').textContent = hots.length;
     document.getElementById('list-hotspots').innerHTML = hots.length
-      ? hots.map(h => `<div class="ah-row" style="cursor:pointer;" onclick="openInReader('${h.path.replace(/'/g, "\\'")}')"><strong>${h.path}</strong> — ${h.commits} commits · ${h.lines_churned} LOC churned · ${h.authors} author(s) · score <strong>${h.hotspot_score}</strong></div>`).join('')
+      ? hots.map(h => `<div class="ah-row" style="cursor:pointer;" onclick="openInReader('${h.path.replace(/'/g, "\\'")}')"><strong>${h.path}</strong> — ${h.commits} commits · ${h.lines_churned} LOC churned · McCabe <strong>${h.max_mccabe ?? 1}</strong> · CodeScene Risk <strong>${h.codescene_risk ?? h.hotspot_score}</strong></div>`).join('')
       : '<div class="ah-empty">Git history not available in this environment.</div>';
+
+    const htcs = git.hidden_temporal_coupling || (hv4.codescene_risk || {}).hidden_temporal_coupling || [];
+    const htcBadge = document.getElementById('cnt-htc');
+    const htcList = document.getElementById('list-htc');
+    if (htcBadge) htcBadge.textContent = htcs.length;
+    if (htcList) {
+      htcList.innerHTML = htcs.length
+        ? htcs.map(t => `<div class="ah-row"><strong>${t.co_changes}×</strong> (${t.coupling_ratio_pct ?? Math.round((t.coupling_strength || 0) * 100)}%): <code style="cursor:pointer;color:#f59e0b;" onclick="openInReader('${t.file_a.replace(/'/g, "\\'")}')">${t.file_a}</code> ↔ <code style="cursor:pointer;color:#f59e0b;" onclick="openInReader('${t.file_b.replace(/'/g, "\\'")}')">${t.file_b}</code></div>`).join('')
+        : '<div class="ah-empty">Zero hidden temporal coupling pairs (no-import co-changes &ge;3) detected.</div>';
+    }
+
+    const fg = data.fitness_gate || {};
+    const fgBadge = document.getElementById('cnt-fitness');
+    const fgList = document.getElementById('list-fitness');
+    if (fgBadge) {
+      fgBadge.textContent = fg.available ? (fg.passed ? `PASS (${fg.rules_count} rules)` : `FAIL (${fg.errors_count} err)`) : 'Not configured';
+    }
+    if (fgList) {
+      if (!fg.available) {
+        fgList.innerHTML = '<div class="ah-empty">No <code>.arch-rules.json</code> configured in project root.</div>';
+      } else if (!(fg.violations || []).length) {
+        fgList.innerHTML = `<div class="ah-row" style="color:#34d399;"><strong>PASS</strong> — All ${fg.rules_count || 0} architectural boundary rules satisfied (0 violations).</div>`;
+      } else {
+        fgList.innerHTML = fg.violations.map(v => `<div class="ah-row"><span class="ah-prio" style="background:${v.severity === 'ERROR' ? '#ef4444' : '#f59e0b'};color:#0f0f0f;">${v.severity}</span><strong>${v.rule_id}</strong>: <code>${v.source}</code> → <code>${v.target}</code> — ${v.message || ''}</div>`).join('');
+      }
+    }
 
     const tcs = git.temporal_coupling || [];
     document.getElementById('cnt-tc').textContent = tcs.length;

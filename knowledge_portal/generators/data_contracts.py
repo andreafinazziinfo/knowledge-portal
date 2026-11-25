@@ -659,6 +659,109 @@ def _compute_schema_drift(
     return matched_pairs, drift_items
 
 
+_PROTO_BLOCK_COMMENT_RE = re.compile(r"/\*.*?\*/", re.DOTALL)
+_PROTO_LINE_COMMENT_RE = re.compile(r"//[^\n]*")
+_PROTO_SYNTAX_RE = re.compile(r"""syntax\s*=\s*["']([^"']+)["']\s*;""")
+_PROTO_PACKAGE_RE = re.compile(r"(?m)^\s*package\s+([A-Za-z0-9_.]+)\s*;")
+_PROTO_JAVA_PKG_RE = re.compile(r"""option\s+java_package\s*=\s*["']([^"']+)["']\s*;""")
+_PROTO_GO_PKG_RE = re.compile(r"""option\s+go_package\s*=\s*["']([^"']+)["']\s*;""")
+_PROTO_IMPORT_RE = re.compile(r"""(?m)^\s*import\s+(?:public\s+)?["']([^"']+)["']\s*;""")
+_PROTO_MESSAGE_RE = re.compile(r"(?m)^\s*message\s+([A-Za-z_][A-Za-z0-9_]*)\s*\{")
+_PROTO_ENUM_RE = re.compile(r"(?m)^\s*enum\s+([A-Za-z_][A-Za-z0-9_]*)\s*\{")
+_PROTO_SERVICE_RE = re.compile(r"(?m)^\s*service\s+([A-Za-z_][A-Za-z0-9_]*)\s*\{")
+_PROTO_FIELD_RE = re.compile(
+    r"(?m)^\s*(?:(required|optional|repeated)\s+)?([A-Za-z0-9_.<>]+)\s+([A-Za-z_][A-Za-z0-9_]*)\s*=\s*(\d+)"
+)
+_PROTO_ENUM_VAL_RE = re.compile(r"(?m)^\s*([A-Za-z_][A-Za-z0-9_]*)\s*=\s*(-?\d+)\s*;")
+_PROTO_RPC_RE = re.compile(
+    r"rpc\s+([A-Za-z_][A-Za-z0-9_]*)\s*\(\s*(?:stream\s+)?([A-Za-z0-9_.]+)\s*\)\s*returns\s*\(\s*(?:stream\s+)?([A-Za-z0-9_.]+)\s*\)"
+)
+
+
+def parse_proto_text(rel: str, text: str) -> dict[str, Any]:
+    """Parse a single `.proto` file (proto2/proto3) with 100% Python stdlib."""
+    clean = _PROTO_LINE_COMMENT_RE.sub("", _PROTO_BLOCK_COMMENT_RE.sub("", text))
+    m_syn = _PROTO_SYNTAX_RE.search(clean)
+    m_pkg = _PROTO_PACKAGE_RE.search(clean) or _PROTO_JAVA_PKG_RE.search(clean) or _PROTO_GO_PKG_RE.search(clean)
+    imports = sorted(set(_PROTO_IMPORT_RE.findall(clean)))
+
+    messages: list[dict[str, Any]] = []
+    for m in _PROTO_MESSAGE_RE.finditer(clean):
+        name = m.group(1)
+        brace_idx = clean.find("{", m.start())
+        body = _extract_brace_block(clean, brace_idx) if brace_idx != -1 else ""
+        fields = [
+            {
+                "rule": fm.group(1) or "optional",
+                "type": fm.group(2),
+                "name": fm.group(3),
+                "tag": int(fm.group(4)),
+            }
+            for fm in _PROTO_FIELD_RE.finditer(body)
+            if fm.group(2) not in ("option", "reserved", "extensions", "extend")
+        ]
+        messages.append({
+            "name": name,
+            "fields_count": len(fields),
+            "fields": fields[:25],
+        })
+
+    enums: list[dict[str, Any]] = []
+    for m in _PROTO_ENUM_RE.finditer(clean):
+        name = m.group(1)
+        brace_idx = clean.find("{", m.start())
+        body = _extract_brace_block(clean, brace_idx) if brace_idx != -1 else ""
+        values = [
+            {"name": vm.group(1), "number": int(vm.group(2))}
+            for vm in _PROTO_ENUM_VAL_RE.finditer(body)
+        ]
+        enums.append({
+            "name": name,
+            "values_count": len(values),
+            "values": values[:25],
+        })
+
+    rpcs: list[dict[str, str]] = []
+    for m in _PROTO_SERVICE_RE.finditer(clean):
+        svc = m.group(1)
+        brace_idx = clean.find("{", m.start())
+        body = _extract_brace_block(clean, brace_idx) if brace_idx != -1 else ""
+        for rm in _PROTO_RPC_RE.finditer(body):
+            rpcs.append({
+                "service": svc,
+                "name": rm.group(1),
+                "request": rm.group(2),
+                "response": rm.group(3),
+            })
+
+    return {
+        "file": rel,
+        "syntax": m_syn.group(1) if m_syn else "",
+        "package": m_pkg.group(1) if m_pkg else "",
+        "imports": imports,
+        "messages_count": len(messages),
+        "enums_count": len(enums),
+        "rpcs_count": len(rpcs),
+        "messages": messages,
+        "enums": enums,
+        "rpcs": rpcs,
+    }
+
+
+def scan_proto_contracts(project_dir: Path) -> list[dict[str, Any]]:
+    """Scan all `*.proto` files in `project_dir` and extract wire contracts."""
+    contracts: list[dict[str, Any]] = []
+    for pfile in _iter_source_files(project_dir, {".proto"}):
+        rel = str(pfile.relative_to(project_dir)).replace("\\", "/")
+        try:
+            text = pfile.read_text(encoding="utf-8", errors="ignore")
+        except OSError:
+            continue
+        contracts.append(parse_proto_text(rel, text))
+    contracts.sort(key=lambda c: str(c["file"]))
+    return contracts
+
+
 def generate_data_contracts(project_dir: Path, data_dir: Path) -> dict[str, Any]:
     """Scan repository for Pydantic<->TS contracts, Error Taxonomy, and DB R/W Matrix."""
     project_dir = Path(project_dir).resolve()
@@ -699,6 +802,10 @@ def generate_data_contracts(project_dir: Path, data_dir: Path) -> dict[str, Any]
 
     ts_types, fe_error_handlers = _scan_typescript_types(project_dir)
     matched_pairs, schema_drift = _compute_schema_drift(pydantic_models, ts_types)
+    proto_contracts = scan_proto_contracts(project_dir)
+    proto_messages_count = sum(int(c.get("messages_count", 0)) for c in proto_contracts)
+    proto_enums_count = sum(int(c.get("enums_count", 0)) for c in proto_contracts)
+    proto_rpcs_count = sum(int(c.get("rpcs_count", 0)) for c in proto_contracts)
 
     all_tables = sorted(known_tables | set(orm_class_to_table.values()))
     migrations_by_table = _scan_migrations(project_dir, set(all_tables))
@@ -736,6 +843,10 @@ def generate_data_contracts(project_dir: Path, data_dir: Path) -> dict[str, Any]
         "db_rw_tables_count": len(db_rw_matrix),
         "orphan_tables_count": sum(1 for r in db_rw_matrix if r["is_orphan"]),
         "http_status_breakdown": dict(status_counts.most_common(12)),
+        "proto_files_count": len(proto_contracts),
+        "proto_messages_count": proto_messages_count,
+        "proto_enums_count": proto_enums_count,
+        "proto_rpcs_count": proto_rpcs_count,
     }
 
     payload: dict[str, Any] = {
@@ -754,6 +865,7 @@ def generate_data_contracts(project_dir: Path, data_dir: Path) -> dict[str, Any]
             "frontend_handlers": fe_error_handlers,
         },
         "db_rw_matrix": db_rw_matrix,
+        "proto_contracts": proto_contracts,
     }
 
     json_path = data_dir / "data-contracts.json"
