@@ -49,6 +49,14 @@
       <div id="wt-queues" style="display:flex;gap:6px;flex-wrap:wrap;"></div>
     </div>
 
+    <div class="panel" id="wt-gantt-panel" style="margin-bottom:14px;">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;">
+        <h2 style="margin:0;">📅 24h Cron Beat Gantt Timeline (00:00 – 24:00 UTC)</h2>
+        <span style="font-size:11px;color:#9ca3af;">Amber bars = hourly peak density · Dots = Beat triggers</span>
+      </div>
+      <div id="wt-gantt-svg" style="padding:4px 0;"></div>
+    </div>
+
     <div class="panel">
       <h2>🛠️ Registered Worker Tasks &amp; Producer Matrix</h2>
       <table>
