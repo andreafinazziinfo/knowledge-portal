@@ -33,11 +33,11 @@
 - **🛡️ Production-Grade Hardening & CI E2E Gate**: Strict path-confinement (`safe_resolve_under`), `PORTAL_READ_ONLY` & `PORTAL_API_TOKEN` guards, HTTP security headers, hardened `read_only` non-root Docker Compose, `pytest-cov` coverage gate, and automated Playwright E2E checks.
 - **🔌 Native Zero-Dep MCP Server & CLI Query (`knowledge-portal mcp | status | query`)**: Connect any MCP client (`stdio` JSON-RPC 2.0) to query SQLite FTS5 BM25 search, 1-hop/2-hop graph neighbors, `process-flows.json`, `db-schema.json`, `stack-ecosystem.json`, live `/api/telemetry`, and safe workspace docs. Optional `pip install knowledge-portal[treesitter]` extra available for multi-language AST parsing.
 - **🕸️ Unified Graph Studio (18 Visualization Modes + SVG/PNG Snapshot)**: Switch seamlessly between 18 zero-CDN visualizers (2D/3D Graph, Particle Flow, Chord, Edge Bundling, Arc Diagram, Hive Plot, 2D/3D Canvas, CodeCity 3D, Sankey, Tree, Treemap, Sunburst, Circle Pack, Icicle, Radial Tidy Tree, 3D Tree) with `?focus=` persistence and 1-click `📷 Snapshot` export.
-- **🩺 Health & Audit Center 4.0+ (10 Diagnostic Tabs · Deep Audit · SARIF & CI Gate — ADR-080)**: File-level Tarjan SCC cycles, Robert C. Martin metrics & DSM, McCabe/Cognitive/MI, CodeScene Risk Matrix, OWASP Quick-Audit, Reliability AST, DB N+1 & **TimescaleDB Hypertables/CAGGs**, API Governance, Per-Domain Test Ratio & Smells, Ownership & Conway Map, Git-Ref Arch Diff & Doc-Drift, **Tab 9 `🐛 Runtime Bugs & CI/CVE`** (Python + Vue/TS Runtime Bugs v2, GitHub Actions CI/CD hardening, local CVE JSON ingestion for `pip-audit`/`npm-audit`/`osv-scanner`/`trivy` correlated with CycloneDX 1.5 SBOM), and **Tab 10 `🧬 Deep Audit: Dead Code, Migrations, FE & Telemetry`** (symbol-level Python/JS/TS/Vue dead code, SQL migration safety & SRE resilience, Pinia/Vue frontend hygiene & static a11y, Quality Telemetry ingestion for JUnit/Coverage/Ruff/Mypy/TSC, and **AST Semantic Clones**), plus Print/PDF, Markdown, SARIF 2.1.0 export and `knowledge-portal gate`.
-- **🎛️ Enterprise Control Hub OSS (ADR-081)**: Four air-gapped operational views — **Mission Control (`views/mission-control.html`)** unified KPI & anomaly board, **Git & PR DAG (`views/git-pr-dag.html`)** worktree/branch/stacked-PR topology, **ADR & Runbook Hub (`views/adr-runbook-hub.html`)** decision graph & lifecycle tracker, and **AI Mission Launcher (`views/ai-mission-launcher.html`)** one-click prompt & context-pack generator.
+- **🩺 Health & Audit Center 4.0+ (10 Diagnostic Tabs · Deep Audit · SARIF & CI Gate)**: File-level Tarjan SCC cycles, Robert C. Martin metrics & DSM, McCabe/Cognitive/MI, CodeScene Risk Matrix, OWASP Quick-Audit, Reliability AST, DB N+1 & **TimescaleDB Hypertables/CAGGs**, API Governance, Per-Domain Test Ratio & Smells, Ownership & Conway Map, Git-Ref Arch Diff & Doc-Drift, **Tab 9 `🐛 Runtime Bugs & CI/CVE`** (Python + Vue/TS Runtime Bugs v2, GitHub Actions CI/CD hardening, local CVE JSON ingestion for `pip-audit`/`npm-audit`/`osv-scanner`/`trivy` correlated with CycloneDX 1.5 SBOM), and **Tab 10 `🧬 Deep Audit: Dead Code, Migrations, FE & Telemetry`** (symbol-level Python/JS/TS/Vue dead code, SQL migration safety & SRE resilience, Pinia/Vue frontend hygiene & static a11y, Quality Telemetry ingestion for JUnit/Coverage/Ruff/Mypy/TSC, and **AST Semantic Clones**), plus Print/PDF, Markdown, SARIF 2.1.0 export and `knowledge-portal gate`.
+- **🎛️ Enterprise Control Hub**: Four air-gapped operational views — **Mission Control (`views/mission-control.html`)** unified KPI & anomaly board, **Git & PR DAG (`views/git-pr-dag.html`)** worktree/branch/stacked-PR topology, **ADR & Runbook Hub (`views/adr-runbook-hub.html`)** decision graph & lifecycle tracker, and **AI Mission Launcher (`views/ai-mission-launcher.html`)** one-click prompt & context-pack generator.
 - **⚡ End-to-End Sequence Tracer & 💥 What-If Impact Simulator**: Trace AST symbol-level `Route → Handler → Service → DB` call chains (`views/sequence-tracer.html`) and visually simulate `d=1 / d=2 / d=3` blast radius with suggested `pytest` commands (`views/impact-simulator.html`).
 - **🔌 Live Auto-Discovered API Catalog & CycloneDX 1.5 SBOM**: Polyglot AST/regex route extraction (FastAPI, Flask, Express, Go, OpenAPI 3.1) in `views/api-catalog.html`, plus license compliance & downloadable `sbom.cdx.json` in `views/stack-ecosystem.html`.
-- **⚡ Cross-Stack Intelligence, Test Oracle & Data Contracts (ADR-082)**: 100% air-gapped 0-CDN views for **Vertical Slices (`views/vertical-slices.html`)**, **Test-to-Code Reverse Oracle (`views/test-oracle.html`)**, **Data Contracts & Runtime Modes (`views/data-contracts.html`)**, plus data-driven conversions of `async-topology.html`, `worker-tasks.html`, `frontend-state.html`, and `data-ingestion.html` (**40 interactive HTML views** in `template/views/`).
+- **⚡ Cross-Stack Intelligence, Test Oracle & Data Contracts**: 100% air-gapped 0-CDN views for **Vertical Slices (`views/vertical-slices.html`)**, **Test-to-Code Reverse Oracle (`views/test-oracle.html`)**, **Data Contracts & Runtime Modes (`views/data-contracts.html`)**, plus data-driven conversions of `async-topology.html`, `worker-tasks.html`, `frontend-state.html`, and `data-ingestion.html` (**40 interactive HTML views** in `template/views/`).
 - **🤖 Enterprise AI Context Engine (MCP · 37 OSS Tools · 22 Resources · Token-Budget Engine · Code Mode)**: **37 read-only OSS MCP tools** (35 standard + 2 Cloudflare-style AST-sandboxed `--code-mode` tools `portal_discover` & `portal_codemode`) with Token-Budget Engine (`-98.7%` payload reduction, default `detail="summary"`), including `portal_slice_for_task`, `portal_check_diff`, `portal_test_oracle`, `portal_vertical_slice`, `portal_async_topology`, `portal_contract`, `portal_sarif_findings`, `portal_handoff_pack`, `portal_agent_instructions_audit`, `portal_mission_control`, `portal_git_dag`, and `portal_adr_graph`; **22 MCP `portal://` resources** (`portal://llms.txt`, `portal://health`, `portal://api-catalog`, `portal://arch-diff`, `portal://sbom`, `portal://invariants`, `portal://ownership`, `portal://compliance`, `portal://cve-report`, `portal://dead-code`, `portal://quality-telemetry`, `portal://git-dag`, `portal://adr-graph`, `portal://mission-control`, `portal://module-cards`, `portal://test-oracle`, `portal://agent-instructions-audit`, `portal://sarif-findings`, `portal://vertical-slices`, `portal://async-topology`, `portal://data-contracts`, `portal://runtime-modes`), `prompts/*`, hybrid FTS5 + 1-hop graph search, and `knowledge-portal pr-comment` Doc-Drift detector.
 - **🧭 Guided Onboarding, Universal `Cmd+K`, Deep-Linking & Dark/Light Theme**: Fuzzy keyboard-navigable `Cmd+K` across views/docs/APIs, 3 interactive onboarding tracks, shareable `?tab=&file=&target=` URLs, and 1-click `🌙 / ☀️` presentation theme toggle.
 - **🛡️ Zero-Dependency Core Runtime**: The server, watcher, and Polyglot AST scanner rely strictly on the **Python 3.10+ Standard Library** (zero heavy framework dependencies).
@@ -120,14 +120,30 @@
 |---|---|
 | ![Radial Tree](docs/screenshots/radial-tree-view.png) | ![Edge Bundling](docs/screenshots/edge-bundling-view.png) |
 
-### 7. Control Hub & Cross-Stack Intelligence (ADR-081 & ADR-082)
+### 7. Control Hub, Cross-Stack Intelligence & Operations
 | Executive Mission Control | Cross-Stack Vertical Slices |
 |---|---|
 | ![Mission Control](docs/screenshots/mission-control.png) | ![Vertical Slices](docs/screenshots/vertical-slices.png) |
 
-| Data Contracts & Schema Drift Registry | |
+| Data Contracts & Schema Drift Registry | Test-to-Code Reverse Oracle |
 |---|---|
-| ![Data Contracts](docs/screenshots/data-contracts.png) | |
+| ![Data Contracts](docs/screenshots/data-contracts.png) | ![Test Oracle](docs/screenshots/test-oracle.png) |
+
+| Git & PR Worktree DAG | AI Mission Launcher |
+|---|---|
+| ![Git & PR DAG](docs/screenshots/git-pr-dag.png) | ![AI Mission Launcher](docs/screenshots/ai-mission-launcher.png) |
+
+| ADR & Runbook Decision Hub | Async & Event Topology |
+|---|---|
+| ![ADR & Runbook Hub](docs/screenshots/adr-runbook-hub.png) | ![Async Topology](docs/screenshots/async-topology.png) |
+
+| Configuration & Environment Matrix | Infrastructure-as-Code Topology |
+|---|---|
+| ![Config Matrix](docs/screenshots/config-matrix.png) | ![IaC Topology](docs/screenshots/iac-topology.png) |
+
+| AI Agents, Prompts & Models Registry | |
+|---|---|
+| ![AI Registry](docs/screenshots/ai-registry.png) | |
 
 ---
 
@@ -238,11 +254,11 @@ sequenceDiagram
 | **🩺 Health & Studio** | **Health & Audit Center 4.0+** (`arch-health.html`) | 10-Tab D3 Engine | Tarjan SCC cycles, Martin DSM, OWASP, Runtime Bugs v2, CVE/SBOM, Dead Code, SARIF 2.1.0, AST Clones. |
 | | **Unified Graph Studio** (`graph-studio.html`) | 20 Modes · 0-CDN | 2D/3D Graph, CodeCity 3D, Sankey, Chord, Edge Bundling, Arc, Hive Plot, Sunburst, Circle Pack, Icicle, Radial Tree. |
 | | **Sequence Tracer & Impact Simulator** | AST Call Graph | `Route → Handler → Service → DB` chains (`sequence-tracer.html`) and `d=1/2/3` blast radius (`impact-simulator.html`). |
-| **🎛️ Control Hub (ADR-081)** | **Mission Control** (`mission-control.html`) | Air-Gapped Bento | Executive KPI grid, subsystem traffic lights, prioritized P0/P1/P2 anomalies, quick jumps. |
+| **🎛️ Control Hub** | **Mission Control** (`mission-control.html`) | Air-Gapped Bento | Executive KPI grid, subsystem traffic lights, prioritized P0/P1/P2 anomalies, quick jumps. |
 | | **Git & PR DAG** (`git-pr-dag.html`) | Git Hygiene DAG | Worktree matrix (`clean/dirty/stale/detached/locked`), stacked PR chains, and merge order. |
 | | **ADR & Runbook Hub** (`adr-runbook-hub.html`) | Decision Graph | Chronological ADR dependency/supersession graph and interactive runbook checklists. |
 | | **AI Mission Launcher** (`ai-mission-launcher.html`) | Context Builder | One-click scoped AI mission briefs and token-budgeted context packs. |
-| **⚡ Cross-Stack (ADR-082)** | **Vertical Slices** (`vertical-slices.html`) | 6-Layer Tracer | End-to-end `UI Component → Store → API → Backend → Worker → DB` slice explorer. |
+| **⚡ Cross-Stack Intelligence** | **Vertical Slices** (`vertical-slices.html`) | 6-Layer Tracer | End-to-end `UI Component → Store → API → Backend → Worker → DB` slice explorer. |
 | | **Test-to-Code Oracle** (`test-oracle.html`) | Reverse AST Map | Maps modules/symbols to fastest direct tests and highlights untested blind spots. |
 | | **Data Contracts** (`data-contracts.html`) | Drift Registry | Pydantic↔TypeScript schema drift, Error Taxonomy, DB readers/writers, and runtime modes. |
 | | **Async, Workers, State & Ingestion** | 0-CDN Data Views | `async-topology.html`, `worker-tasks.html`, `frontend-state.html`, `data-ingestion.html` (**40 HTML views total** in `template/views/`). |
@@ -387,7 +403,7 @@ Please ensure all tests and `verify_sanitization.py` pass before opening PRs.
 
 This project is licensed under the **Apache License, Version 2.0**. See the [LICENSE](LICENSE) file for details.
 
-## 🧭 Unified Graph Studio (20 Modes), Health & Audit Center, AI Intelligence & Code Mode MCP (ADR-069 – ADR-074)
+## 🧭 Unified Graph Studio (20 Modes), Health & Audit Center, AI Intelligence & Code Mode MCP
 
 - **Unified Graph Studio (`views/graph-studio.html`)**: Consolidates **20 zero-dependency interactive visualizations** into a single 60 FPS studio shell with clean WebGL disposal:
   - *Network*: `2D Graph`, `3D Sphere`, `Particle Flow` (60 FPS white particles), `Chord Matrix`, `Edge Bundling`, `Arc Diagram` (backward cycle detector), `Hive Plot` (deterministic 3-axis)
@@ -409,9 +425,9 @@ This project is licensed under the **Apache License, Version 2.0**. See the [LIC
 
 ---
 
-## 🚀 Health Engine v4+ Deep Audit & Enterprise Control Hub OSS (ADR-080 & ADR-081)
+## 🚀 Health Engine 4.0 Deep Audit, Control Hub & Cross-Stack Intelligence
 
-### 🩺 ADR-080 — Health Engine v4+ (Tab 9 & Tab 10)
+### 🩺 Health Engine 4.0 — Deep Audit, Runtime Bugs & CVE/SBOM (Tab 9 & Tab 10)
 - **Tab 9 — `🐛 Runtime Bugs & CI/CVE`**:
   - **Runtime Bugs v2 (Python + Vue/TS)**: detects `ASYNC_BLOCKING_IO` inside `async def`, `UNCLOSED_RESOURCE`, `LATE_BINDING_CLOSURE`, `SWALLOWED_EXCEPTION`, `VUE_VFOR_NO_KEY`, `JS_LEAKED_LISTENER_OR_TIMER`, and `TS_FLOATING_PROMISE`.
   - **TimescaleDB & SQL Deep Health**: auto-discovers Hypertables (`create_hypertable`), Continuous Aggregates (`WITH (timescaledb.continuous)`), compression policies, and PK-less tables.
@@ -424,15 +440,15 @@ This project is licensed under the **Apache License, Version 2.0**. See the [LIC
   - **Quality Telemetry Ingestion (`data/quality-telemetry.json`)**: aggregates local Coverage (`coverage.xml`/`lcov.info`), JUnit XML, Ruff, Mypy, and TypeScript (`tsc`) reports.
   - **AST Semantic Clones**: normalized Python AST fingerprinting detecting structural duplicate functions across files.
 
-### 🎛️ ADR-081 — Control Hub OSS & MCP v2 Expansion
-- **4 New Air-Gapped Control Hub Views**:
+### 🎛️ Enterprise Control Hub & AI Token-Budget MCP
+- **4 Air-Gapped Control Hub Views**:
   - `views/mission-control.html` (`data/mission-control.json`, `GET /api/mission-control`) — executive KPI grid, prioritized P0/P1/P2 anomaly radar, and subsystem health cards.
   - `views/git-pr-dag.html` (`data/git-dag.json`, `GET /api/git-dag`) — interactive Git worktree matrix (clean/dirty/stale/detached/locked), branch hygiene, and PR/workflow topology.
   - `views/adr-runbook-hub.html` (`data/adr-graph.json`, `GET /api/adr-graph`) — Architecture Decision Record lifecycle graph, supersession links, and operational runbooks catalog.
   - `views/ai-mission-launcher.html` — interactive mission builder generating copy-ready AI context packs and scoped engineering prompts.
-- **MCP v2 Server (`knowledge-portal mcp`)**: expanded to **28 tools** (26 standard + 2 `--code-mode`) and **14 `portal://` resources**, enabling autonomous agents to inspect Mission Control, Git DAG, ADR Graph, Dead Code, Deep Audit, Quality Telemetry, and CVE reports in a single read-only call.
+- **MCP Server (`knowledge-portal mcp`)**: read-only Model Context Protocol server enabling autonomous agents to inspect Mission Control, Git DAG, ADR Graph, Dead Code, Deep Audit, Quality Telemetry, and CVE reports in a single call.
 
-### ⚡ ADR-082 — AI Token-Efficiency Engine, Cross-Stack Intelligence & Zero-CDN Expansion
+### ⚡ Cross-Stack Vertical Slices, Test Oracle & Data Contracts
 - **Token-Budget Engine (`-98.7%` MCP payload reduction)**: all heavyweight audit & graph MCP tools default to compact `detail="summary"` responses (`≤800` tokens), paired with `data/module-cards.json` (`GET /api/module-cards`, `≤180` tok/file), task-scoped context slicing (`portal_slice_for_task`), and diff-aware pre-commit/PR impact checks (`portal_check_diff`).
 - **Test-to-Code Reverse Oracle (`data/test-oracle.json`, `GET /api/test-oracle`, `views/test-oracle.html`)**: reverse-maps source modules and symbols to their fastest direct tests and surfaces high-risk untested blind spots (`portal_test_oracle`).
 - **Agent Instructions Audit (`data/agent-instructions-audit.json`, `GET /api/agent-instructions-audit`)**: audits AI instruction, rule, and skill files for token budget bloat, dead file-path references, and overall hygiene score.
@@ -440,15 +456,15 @@ This project is licensed under the **Apache License, Version 2.0**. See the [LIC
 - **Cross-Stack Vertical Slices (`data/vertical-slices.json`, `GET /api/vertical-slices`, `views/vertical-slices.html`)**: traces end-to-end `UI Component / Store → REST API → Backend Handler → Database Table` edges (`portal_vertical_slice`).
 - **Async Topology (`data/async-topology.json`, `GET /api/async-topology`)**: inventories background worker tasks, scheduled beats, Redis keys/locks, Pub/Sub channels, WebSockets, and SSE streams (`portal_async_topology`).
 - **Data Contracts & Runtime Modes (`data/data-contracts.json`, `data/runtime-modes.json`, `GET /api/data-contracts`, `GET /api/runtime-modes`, `views/data-contracts.html`)**: detects Pydantic↔TypeScript schema drift, untyped API routes, exception taxonomy, DB table readers/writers, and environment/runtime mode matrices (`portal_contract`).
-- **6+ New & Converted 0-CDN Data-Driven Views**: `vertical-slices.html`, `test-oracle.html`, `data-contracts.html`, plus full data-driven zero-CDN conversions of `async-topology.html`, `worker-tasks.html`, `frontend-state.html`, and `data-ingestion.html`.
-- **MCP Server Expansion**: expanded to **37 OSS tools** and **22 `portal://` resources** (extensible to **43 tools** with optional domain-hub plugins), all read-only and token-budgeted.
+- **Zero-CDN Data-Driven Views**: `vertical-slices.html`, `test-oracle.html`, `data-contracts.html`, plus full data-driven zero-CDN conversions of `async-topology.html`, `worker-tasks.html`, `frontend-state.html`, and `data-ingestion.html`.
+- **MCP Server Expansion**: **37 OSS tools** and **22 `portal://` resources** (extensible to **43 tools** with optional domain-hub plugins), all read-only and token-budgeted.
 
-### 🚄 ADR-083 — Parallel Rebuild, 100% True Air-Gap, Active Guardrails & Interactive 0-CDN SVG Visuals
+### 🚄 Parallel Incremental Rebuild, True Air-Gap, Fitness Gate & Zero-CDN Interactive SVG Visuals
 - **Parallel DAG Rebuild & Incremental File-Hash Cache**: 3-wave parallel orchestrator (`knowledge_portal/orchestrator.py`) backed by `.portal-cache.json` incremental file-hash caching — warm rebuilds complete in **`< 1s`** (**72×–118× speedup**) with automatic `graph-prev.json` snapshotting.
 - **Freshness SLA & Server-Side FTS5 Omni-Search**: every JSON artifact is stamped with `_meta.git_head_sha` (verified against `/api/live-status` and `/api/meta/head`), driving live **`FRESH` / `STALE`** badges in `portal-ui.js`, while `dashboard.html` queries server-side SQLite FTS5 Omni-Search directly over HTTP.
-- **100% True Air-Gap (0 CDN Everywhere)**: zero external CDN links across `dashboard.html`, `font-awesome.min.css`, and all 40 HTML/CSS views, enforced by the blocking regression test `tests/unit/test_adr083_sprint2_airgap.py`.
+- **100% True Air-Gap (0 CDN Everywhere)**: zero external CDN links across `dashboard.html`, `font-awesome.min.css`, and all 40 HTML/CSS views, enforced by automated air-gap regression tests in `tests/unit/`.
 - **Expanded Coverage & Active Guardrails**:
   - New static parsers for **Nginx** (`location` blocks & security headers), **Shell Scripts** (`*.sh`), **Mobile Manifests** (`AndroidManifest.xml` / `build.gradle`), and **Protobuf** (`*.proto` wire contracts queryable via `portal_contract(kind="proto")`).
   - **Declarative `.arch-rules.json` Fitness Gate**: architectural boundary & dependency rules enforced as a blocking check in `knowledge-portal gate` (`--rules`).
   - **CodeScene Risk & Hidden Coupling**: enriched `codescene_risk` scoring paired with **`hidden_temporal_coupling`** detection in Health Engine & Mission Control.
-- **Interactive 0-CDN SVG Visuals (`PortalSVGViewport`)**: shared zero-dependency SVG viewport engine in `portal-ui.js` (wheel-zoom, drag-pan, Fit, 1-click Export SVG) powering 5 new interactive charts — **`Schema Diff Sankey`** (`data-contracts.html`), **`Coverage Treemap`** (`test-oracle.html`), **`24h Beat Gantt`** (`worker-tasks.html`), **`Bipartite Store↔Component`** (`frontend-state.html`), and **`Inline Sparklines`** (`mission-control.html`).
+- **Zero-CDN Interactive SVG Visuals (`PortalSVGViewport`)**: shared zero-dependency SVG viewport engine in `portal-ui.js` (wheel-zoom, drag-pan, Fit, 1-click Export SVG) powering 5 interactive charts — **`Schema Diff Sankey`** (`data-contracts.html`), **`Coverage Treemap`** (`test-oracle.html`), **`24h Beat Gantt`** (`worker-tasks.html`), **`Bipartite Store↔Component`** (`frontend-state.html`), and **`Inline Sparklines`** (`mission-control.html`).
