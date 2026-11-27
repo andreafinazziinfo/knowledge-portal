@@ -187,6 +187,12 @@ def test_live_status_and_meta_head_endpoints(tmp_path: Path) -> None:
             mh = json.loads(resp.read().decode("utf-8"))
             assert mh["git_head_sha"] == expected_sha
             assert "git_branch" in mh
+
+        # Missing optional offline data/*.js wrapper returns 200 JS stub in HTTP mode (no 404 noise)
+        with urllib.request.urlopen(f"http://127.0.0.1:{port}/data/mission_control.js", timeout=5) as resp:
+            assert resp.status == 200
+            assert "javascript" in (resp.headers.get("Content-Type") or "")
+            assert b"optional offline wrapper" in resp.read()
     finally:
         srv.shutdown()
         srv.server_close()

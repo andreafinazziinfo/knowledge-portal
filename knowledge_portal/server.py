@@ -262,6 +262,19 @@ class PortalRequestHandler(SimpleHTTPRequestHandler):
             self.serve_file(target)
             return
 
+        if target and target.suffix.lower() == ".js":
+            tpl_resolved = self.template_dir.resolve()
+            if target.parent in (tpl_resolved / "data", tpl_resolved / "views" / "data"):
+                stub = b"/* optional offline wrapper omitted in HTTP mode */\n"
+                self.send_response(200)
+                self.send_cors_headers()
+                self.send_header("Content-Type", "application/javascript; charset=utf-8")
+                self.send_header("Content-Length", str(len(stub)))
+                self.end_headers()
+                if self.command != "HEAD":
+                    self.wfile.write(stub)
+                return
+
         self.send_error(404, f"File not found: {path}")
 
     def serve_file(self, file_path: Path) -> None:
