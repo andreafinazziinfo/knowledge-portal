@@ -1,6 +1,6 @@
 # 🌌 Knowledge Portal
 
-> **Universal Interactive Software Architecture, Multi-Dimensional AST Knowledge Graph, AI Process Flow Engine & Air-Gapped Documentation Suite**
+> **Zero-Dep AI Codebase Intelligence, Architecture Health & Control Hub** — Universal Interactive Software Architecture, Multi-Dimensional AST Knowledge Graph, AI Process Flow Engine & Air-Gapped Documentation Suite
 
 [![CI Suite](https://github.com/andreafinazziinfo/knowledge-portal/actions/workflows/ci.yml/badge.svg)](https://github.com/andreafinazziinfo/knowledge-portal/actions/workflows/ci.yml)
 [![Docker Publish GHCR](https://github.com/andreafinazziinfo/knowledge-portal/actions/workflows/docker.yml/badge.svg)](https://github.com/andreafinazziinfo/knowledge-portal/actions/workflows/docker.yml)
@@ -442,3 +442,13 @@ This project is licensed under the **Apache License, Version 2.0**. See the [LIC
 - **Data Contracts & Runtime Modes (`data/data-contracts.json`, `data/runtime-modes.json`, `GET /api/data-contracts`, `GET /api/runtime-modes`, `views/data-contracts.html`)**: detects Pydantic↔TypeScript schema drift, untyped API routes, exception taxonomy, DB table readers/writers, and environment/runtime mode matrices (`portal_contract`).
 - **6+ New & Converted 0-CDN Data-Driven Views**: `vertical-slices.html`, `test-oracle.html`, `data-contracts.html`, plus full data-driven zero-CDN conversions of `async-topology.html`, `worker-tasks.html`, `frontend-state.html`, and `data-ingestion.html`.
 - **MCP Server Expansion**: expanded to **37 OSS tools** and **22 `portal://` resources** (extensible to **43 tools** with optional domain-hub plugins), all read-only and token-budgeted.
+
+### 🚄 ADR-083 — Parallel Rebuild, 100% True Air-Gap, Active Guardrails & Interactive 0-CDN SVG Visuals
+- **Parallel DAG Rebuild & Incremental File-Hash Cache**: 3-wave parallel orchestrator (`knowledge_portal/orchestrator.py`) backed by `.portal-cache.json` incremental file-hash caching — warm rebuilds complete in **`< 1s`** (**72×–118× speedup**) with automatic `graph-prev.json` snapshotting.
+- **Freshness SLA & Server-Side FTS5 Omni-Search**: every JSON artifact is stamped with `_meta.git_head_sha` (verified against `/api/live-status` and `/api/meta/head`), driving live **`FRESH` / `STALE`** badges in `portal-ui.js`, while `dashboard.html` queries server-side SQLite FTS5 Omni-Search directly over HTTP.
+- **100% True Air-Gap (0 CDN Everywhere)**: zero external CDN links across `dashboard.html`, `font-awesome.min.css`, and all 40 HTML/CSS views, enforced by the blocking regression test `tests/unit/test_adr083_sprint2_airgap.py`.
+- **Expanded Coverage & Active Guardrails**:
+  - New static parsers for **Nginx** (`location` blocks & security headers), **Shell Scripts** (`*.sh`), **Mobile Manifests** (`AndroidManifest.xml` / `build.gradle`), and **Protobuf** (`*.proto` wire contracts queryable via `portal_contract(kind="proto")`).
+  - **Declarative `.arch-rules.json` Fitness Gate**: architectural boundary & dependency rules enforced as a blocking check in `knowledge-portal gate` (`--rules`).
+  - **CodeScene Risk & Hidden Coupling**: enriched `codescene_risk` scoring paired with **`hidden_temporal_coupling`** detection in Health Engine & Mission Control.
+- **Interactive 0-CDN SVG Visuals (`PortalSVGViewport`)**: shared zero-dependency SVG viewport engine in `portal-ui.js` (wheel-zoom, drag-pan, Fit, 1-click Export SVG) powering 5 new interactive charts — **`Schema Diff Sankey`** (`data-contracts.html`), **`Coverage Treemap`** (`test-oracle.html`), **`24h Beat Gantt`** (`worker-tasks.html`), **`Bipartite Store↔Component`** (`frontend-state.html`), and **`Inline Sparklines`** (`mission-control.html`).

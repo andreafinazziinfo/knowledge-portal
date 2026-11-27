@@ -310,4 +310,17 @@ Il Knowledge Portal include un gate di verifica continuo:
 
 ---
 
+## ADR-083 — Parallel DAG Rebuild, True Air-Gap, Guardrail Attivi & Visuali SVG 0-CDN
+
+- **Parallel DAG Rebuild & Incremental File-Hash Cache**: orchestratore parallelo a 3 onde (`knowledge_portal/orchestrator.py`) con cache incrementale per hash file (`.portal-cache.json`) — warm rebuild **`< 1s`** (**speedup 72×–118×**) e snapshot automatico `graph-prev.json`.
+- **Freshness SLA & Omni-Search FTS5 Server-Side**: ogni artefatto JSON include l'envelope `_meta.git_head_sha` verificato tramite `/api/live-status` e `/api/meta/head`, con badge live **`FRESH` / `STALE`** in `portal-ui.js` e ricerca Omni-Search FTS5 lato server su `dashboard.html`.
+- **100% True Air-Gap (0 CDN Ovunque)**: zero riferimenti CDN esterni in `dashboard.html`, CSS e tutte le 40 viste HTML, garantiti dal test bloccante `tests/unit/test_adr083_sprint2_airgap.py`.
+- **Copertura Estesa & Guardrail Attivi**:
+  - Nuovi parser per **Nginx** (`location` e security headers), **Shell Scripts** (`*.sh`), **Mobile Manifest** (`AndroidManifest.xml` / `build.gradle`) e **Protobuf** (`*.proto` wire contracts interrogabili con `portal_contract(kind="proto")`).
+  - **Declarative `.arch-rules.json` Fitness Gate**: regole architetturali dichiarative bloccanti in `knowledge-portal gate` (`--rules`).
+  - **CodeScene Risk & Hidden Coupling**: scoring `codescene_risk` e rilevamento **`hidden_temporal_coupling`** integrati nell'Health Engine e in Mission Control.
+- **Visuali SVG Interattive 0-CDN (`PortalSVGViewport`)**: motore SVG condiviso in `portal-ui.js` (wheel-zoom, drag-pan, Fit, Export SVG) a supporto di 5 nuovi grafici 0-CDN — **`Schema Diff Sankey`** (`data-contracts.html`), **`Coverage Treemap`** (`test-oracle.html`), **`24h Beat Gantt`** (`worker-tasks.html`), **`Bipartite Store↔Component`** (`frontend-state.html`) e **`Inline Sparklines`** (`mission-control.html`).
+
+---
+
 *Knowledge Portal v3.0.0 Enterprise Edition — 40 Viste Air-Gapped · 37 Tool MCP OSS · 22 Risorse `portal://` — Realizzato per massimizzare la sinergia tra intelligenza umana e intelligenza artificiale.*
