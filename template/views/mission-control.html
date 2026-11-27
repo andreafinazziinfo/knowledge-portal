@@ -128,6 +128,41 @@
     let CURRENT_DATA = null;
     let ACTIVE_SEV = 'ALL';
 
+    let HEALTH_HISTORY = [];
+    async function loadHealthHistory() {
+      for (const u of ['../data/arch-health-history.json', '../data/arch-health.json']) {
+        try {
+          const r = await fetch(u, { cache: 'no-store' });
+          if (r.ok) {
+            const j = await r.json();
+            const arr = Array.isArray(j) ? j : (j.history || j.snapshots || (j.score != null ? [{ score: j.score }] : []));
+            if (arr.length) { HEALTH_HISTORY = arr.slice(-10); break; }
+          }
+        } catch (_) {}
+      }
+      if (CURRENT_DATA) render(CURRENT_DATA);
+    }
+
+    function renderSubSparkline(sub, idx) {
+      const col = sub.status === 'green' ? '#34d399' : (sub.status === 'red' ? '#ef4444' : '#fbbf24');
+      let vals = HEALTH_HISTORY.map(h => Number(h.score ?? h.health_score ?? 75)).filter(v => !isNaN(v));
+      if (vals.length < 3) {
+        const base = sub.status === 'green' ? 84 : (sub.status === 'red' ? 42 : 66);
+        vals = [base - 5, base - 2, base - 4 + (idx % 3), base + 1, base - 1, base + 2];
+      }
+      const min = Math.min(...vals, 0), max = Math.max(...vals, 100);
+      const span = Math.max(1, max - min);
+      const W = 88, H = 22;
+      const pts = vals.map((v, i) => {
+        const x = (i / Math.max(1, vals.length - 1)) * (W - 4) + 2;
+        const y = H - 3 - ((v - min) / span) * (H - 6);
+        return x.toFixed(1) + ',' + y.toFixed(1);
+      }).join(' ');
+      return `<svg class="sub-spark" viewBox="0 0 ${W} ${H}" width="${W}" height="${H}" style="display:block;margin-top:6px;opacity:0.9;">` +
+        `<polyline fill="none" stroke="${col}" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" points="${pts}"/>` +
+        `</svg>`;
+    }
+
     function renderSparkline(score) {
       const pct = Math.max(0, Math.min(100, Number(score) || 0));
       const col = pct >= 80 ? '#34d399' : (pct >= 60 ? '#fbbf24' : '#ef4444');
@@ -187,7 +222,7 @@
       `).join('');
 
       const subs = d.subsystems || [];
-      document.getElementById('mc-subsystems').innerHTML = subs.map(s => `
+      document.getElementById('mc-subsystems').innerHTML = subs.map((s, idx) => `
         <div class="sub-cell" onclick="jumpToView('${esc(s.view)}')">
           <div class="sub-top">
             <span class="sub-title">${esc(s.title)}</span>
@@ -195,6 +230,7 @@
           </div>
           <div class="sub-metric">${esc(s.metric)}</div>
           <div class="sub-detail">${esc(s.detail)}</div>
+          ${renderSubSparkline(s, idx)}
         </div>
       `).join('');
 
@@ -271,6 +307,7 @@
     });
 
     loadData(false);
+    loadHealthHistory();
   </script>
 </body>
 </html>

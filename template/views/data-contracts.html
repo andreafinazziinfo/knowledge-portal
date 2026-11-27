@@ -59,6 +59,13 @@
       <input id="dc-q" class="inp" type="search" placeholder="Filter by model, field, table, status code, or env var..." oninput="render()">
     </div>
 
+    <div class="panel" id="dc-sankey-panel" style="margin-bottom:14px;">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;">
+        <span style="font-size:13px;font-weight:700;">Side-by-Side Schema Diff &amp; Column-Mapping Sankey (Pydantic/Proto ↔ API ↔ TS/SQL)</span>
+        <span style="font-size:11px;color:#9ca3af;"><span style="color:#10b981;">━</span> Synced Match · <span style="color:#ef4444;">┄</span> Schema Drift</span>
+      </div>
+      <div id="dc-sankey-svg" style="min-height:200px;border:1px solid var(--border-subtle,#262626);border-radius:8px;background:var(--bg-surface,#0f172a);"></div>
+    </div>
     <div id="dc-content"></div>
   </div>
 
@@ -98,8 +105,85 @@
       document.getElementById('dc-ts').textContent = DC.generated_at ? `Updated ${DC.generated_at.slice(0, 19).replace('T', ' ')} UTC` : '';
     }
 
+
+    function renderSankey(q) {
+      const box = document.getElementById('dc-sankey-svg');
+      if (!box) return;
+      const matched = (DC.matched_schemas || []).filter(m => !q || JSON.stringify(m).toLowerCase().includes(q));
+      const drifts = (DC.schema_drift || []).filter(d => !q || JSON.stringify(d).toLowerCase().includes(q));
+      const dbRows = (DC.db_rw_matrix || []).filter(r => !q || JSON.stringify(r).toLowerCase().includes(q));
+      const rows = [];
+      const seen = new Set();
+      drifts.slice(0, 10).forEach(d => {
+        const key = (d.pydantic_model || '') + '->' + (d.ts_type || '');
+        if (!seen.has(key)) {
+          seen.add(key);
+          rows.push({
+            left: d.pydantic_model || 'Schema',
+            mid: 'DRIFT (' + ((d.missing_in_ts || []).length + (d.missing_in_py || []).length + (d.type_mismatches || []).length) + ')',
+            right: d.ts_type || 'TS Type',
+            drift: true
+          });
+        }
+      });
+      matched.slice(0, 12).forEach(m => {
+        const key = (m.pydantic_model || '') + '->' + (m.ts_type || '');
+        if (!seen.has(key) && rows.length < 16) {
+          seen.add(key);
+          const isDrift = m.status && m.status !== 'SYNCED';
+          rows.push({
+            left: m.pydantic_model || 'Schema',
+            mid: isDrift ? 'API (DRIFT)' : 'API (SYNCED)',
+            right: m.ts_type || 'TS Type',
+            drift: isDrift
+          });
+        }
+      });
+      if (!rows.length && dbRows.length) {
+        dbRows.slice(0, 10).forEach(r => {
+          rows.push({
+            left: r.model || r.file || 'Backend Model',
+            mid: (r.reads || 0) + 'R / ' + (r.writes || 0) + 'W',
+            right: r.table || 'SQL Table',
+            drift: false
+          });
+        });
+      }
+      const W = 960;
+      const rowH = 32;
+      const H = Math.max(180, 56 + Math.max(1, rows.length) * rowH);
+      let svg = `<svg viewBox="0 0 ${W} ${H}" width="100%" height="${H}" style="display:block;">`;
+      svg += `<text x="24" y="24" fill="#94a3b8" font-size="11" font-weight="700">PYDANTIC / PROTO</text>`;
+      svg += `<text x="410" y="24" fill="#94a3b8" font-size="11" font-weight="700">API CONTRACT</text>`;
+      svg += `<text x="720" y="24" fill="#94a3b8" font-size="11" font-weight="700">TS / SQL TARGET</text>`;
+      if (!rows.length) {
+        svg += `<rect x="24" y="54" width="912" height="72" rx="8" fill="rgba(16,185,129,0.08)" stroke="#10b981" stroke-dasharray="4,4"/>`;
+        svg += `<text x="480" y="95" text-anchor="middle" fill="#94a3b8" font-size="13">0 schema drift pairs in current filter — Pydantic/Proto ↔ API ↔ TS/SQL aligned</text>`;
+      } else {
+        rows.forEach((r, idx) => {
+          const y = 44 + idx * rowH;
+          const cy = y + 12;
+          const col = r.drift ? '#ef4444' : '#10b981';
+          const dash = r.drift ? ' stroke-dasharray="6,4"' : '';
+          svg += `<path d="M 254 ${cy} C 315 ${cy}, 335 ${cy}, 396 ${cy}" fill="none" stroke="${col}" stroke-width="2"${dash} stroke-opacity="0.85"/>`;
+          svg += `<path d="M 556 ${cy} C 620 ${cy}, 645 ${cy}, 706 ${cy}" fill="none" stroke="${col}" stroke-width="2"${dash} stroke-opacity="0.85"/>`;
+          svg += `<rect x="24" y="${y}" width="230" height="24" rx="5" fill="rgba(56,189,248,0.12)" stroke="#38bdf8" stroke-opacity="0.5"/>`;
+          svg += `<text x="32" y="${y + 16}" fill="#e2e8f0" font-size="11" font-family="ui-monospace,monospace">${esc(String(r.left).slice(0, 28))}</text>`;
+          svg += `<rect x="396" y="${y}" width="160" height="24" rx="5" fill="${r.drift ? 'rgba(239,68,68,0.15)' : 'rgba(16,185,129,0.15)'}" stroke="${col}" stroke-opacity="0.65"/>`;
+          svg += `<text x="476" y="${y + 16}" text-anchor="middle" fill="${col}" font-size="10.5" font-weight="700">${esc(String(r.mid).slice(0, 20))}</text>`;
+          svg += `<rect x="706" y="${y}" width="230" height="24" rx="5" fill="rgba(168,85,247,0.12)" stroke="#a855f7" stroke-opacity="0.5"/>`;
+          svg += `<text x="714" y="${y + 16}" fill="#e2e8f0" font-size="11" font-family="ui-monospace,monospace">${esc(String(r.right).slice(0, 28))}</text>`;
+        });
+      }
+      svg += '</svg>';
+      box.innerHTML = svg;
+      if (window.PortalSVGViewport) window.PortalSVGViewport.attach(box, { minZoom: 0.3, maxZoom: 4, exportName: 'data-contracts-sankey.svg' });
+      else window.addEventListener('DOMContentLoaded', () => window.PortalSVGViewport && window.PortalSVGViewport.attach(box, { minZoom: 0.3, maxZoom: 4, exportName: 'data-contracts-sankey.svg' }), { once: true });
+    }
+
     function render() {
       const q = (document.getElementById('dc-q').value || '').trim().toLowerCase();
+      renderSankey(q);
       const box = document.getElementById('dc-content');
 
       if (activeTab === 'drift') {

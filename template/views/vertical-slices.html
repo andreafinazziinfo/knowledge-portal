@@ -175,6 +175,8 @@
       });
       svg += '</svg>';
       box.innerHTML = svg;
+      if (window.PortalSVGViewport) window.PortalSVGViewport.attach(box, { minZoom: 0.3, maxZoom: 4, exportName: 'vertical-slices-swimlane.svg' });
+      else window.addEventListener('DOMContentLoaded', () => window.PortalSVGViewport && window.PortalSVGViewport.attach(box, { minZoom: 0.3, maxZoom: 4, exportName: 'vertical-slices-swimlane.svg' }), { once: true });
     }
 
     function render() {

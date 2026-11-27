@@ -98,6 +98,79 @@
       render();
     }
 
+
+    function parseBeatHours(sched) {
+      const s = String(sched || '');
+      const hours = [];
+      const mEveryH = s.match(/hour\s*=\s*['"]?\*\/(\d+)/i);
+      const mHour = s.match(/hour\s*=\s*['"]?(\d+(?:,\d+)*)/i);
+      const mSec = s.match(/^\s*(\d+(?:\.\d+)?)\s*$/);
+      const mMin = s.match(/minutes\s*=\s*(\d+)/i) || s.match(/minute\s*=\s*['"]?\*\/(\d+)/i);
+      if (mEveryH) {
+        const step = Math.max(1, parseInt(mEveryH[1], 10));
+        for (let h = 0; h < 24; h += step) hours.push(h);
+      } else if (mHour) {
+        mHour[1].split(',').forEach(v => { const n = parseInt(v, 10); if (!isNaN(n) && n >= 0 && n < 24) hours.push(n); });
+      } else if (mSec) {
+        const sec = parseFloat(mSec[1]);
+        const step = Math.max(0.5, Math.min(24, sec / 3600));
+        for (let h = 0; h < 24; h += step) hours.push(h);
+      } else if (mMin) {
+        for (let h = 0; h < 24; h += 1) hours.push(h);
+      } else {
+        for (let h = 0; h < 24; h += 4) hours.push(h);
+      }
+      return hours.slice(0, 48);
+    }
+
+    function renderBeatGantt(beats) {
+      const box = document.getElementById('wt-gantt-svg');
+      if (!box) return;
+      const W = 960, leftPad = 210, rightPad = 24, axisW = W - leftPad - rightPad;
+      const shown = (beats || []).slice(0, 14);
+      const rowH = 26;
+      const H = Math.max(150, 72 + Math.max(1, shown.length) * rowH);
+      const hourlyLoad = new Array(24).fill(0);
+      const parsed = shown.map(b => {
+        const hrs = parseBeatHours(b.schedule);
+        hrs.forEach(h => { hourlyLoad[Math.floor(h) % 24] += 1; });
+        return { beat: b, hours: hrs };
+      });
+      const maxLoad = Math.max(1, ...hourlyLoad);
+      let svg = `<svg viewBox="0 0 ${W} ${H}" width="100%" height="${H}" style="display:block;">`;
+      // Peak load strip
+      for (let h = 0; h < 24; h++) {
+        const x = leftPad + (h / 24) * axisW;
+        const bw = axisW / 24 - 2;
+        const bh = Math.round((hourlyLoad[h] / maxLoad) * 20);
+        const col = hourlyLoad[h] >= maxLoad && hourlyLoad[h] > 1 ? '#f59e0b' : '#38bdf8';
+        svg += `<rect x="${x.toFixed(1)}" y="${(28 - bh).toFixed(1)}" width="${bw.toFixed(1)}" height="${bh}" rx="2" fill="${col}" fill-opacity="0.55"/>`;
+      }
+      svg += `<text x="8" y="22" fill="#94a3b8" font-size="10.5" font-weight="700">HOURLY PEAKS</text>`;
+      // Vertical gridlines every 3h
+      for (let h = 0; h <= 24; h += 3) {
+        const x = leftPad + (h / 24) * axisW;
+        svg += `<line x1="${x.toFixed(1)}" y1="34" x2="${x.toFixed(1)}" y2="${H - 12}" stroke="#334155" stroke-dasharray="3,3" stroke-width="1"/>`;
+        svg += `<text x="${x.toFixed(1)}" y="46" text-anchor="middle" fill="#94a3b8" font-size="10" font-family="ui-monospace,monospace">${String(h).padStart(2, '0')}:00</text>`;
+      }
+      if (!parsed.length) {
+        svg += `<text x="${leftPad + axisW / 2}" y="${H / 2 + 18}" text-anchor="middle" fill="#94a3b8" font-size="12">No Beat schedules match current filter</text>`;
+      } else {
+        parsed.forEach((item, idx) => {
+          const y = 60 + idx * rowH;
+          const label = String(item.beat.name || item.beat.task || 'beat').slice(0, 26);
+          svg += `<text x="8" y="${y + 13}" fill="#e2e8f0" font-size="11" font-family="ui-monospace,monospace">${esc(label)}</text>`;
+          svg += `<line x1="${leftPad}" y1="${y + 9}" x2="${W - rightPad}" y2="${y + 9}" stroke="#1e293b" stroke-width="4" stroke-linecap="round"/>`;
+          item.hours.forEach(h => {
+            const cx = leftPad + (h / 24) * axisW;
+            svg += `<circle cx="${cx.toFixed(1)}" cy="${y + 9}" r="4" fill="#34d399" stroke="#0f172a" stroke-width="1"><title>${esc(label)} @ ${String(Math.floor(h)).padStart(2, '0')}:00 UTC (${esc(item.beat.schedule)})</title></circle>`;
+          });
+        });
+      }
+      svg += '</svg>';
+      box.innerHTML = svg;
+    }
+
     function render() {
       const s = DATA.summary || {};
       const tasks = DATA.celery_tasks || [];
@@ -149,6 +222,8 @@
           <td>${prods || '<span style="color:#6b7280;">Beat / external only</span>'}</td>
         </tr>`;
       }).join('') : '<tr><td colspan="6" class="empty">No worker tasks match the current filter.</td></tr>';
+
+      renderBeatGantt(fBeats);
 
       document.getElementById('wt-beat-body').innerHTML = fBeats.length ? fBeats.map(b => `<tr>
         <td><strong>${esc(b.name)}</strong></td>

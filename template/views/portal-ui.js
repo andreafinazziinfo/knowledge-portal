@@ -432,3 +432,178 @@
     loadData: loadData
   });
 })();
+
+// ── ADR-083 Sprint 4: PortalSVGViewport (0-CDN Pan/Zoom/Fit/Export SVG) ─────
+(function () {
+  if (window.PortalSVGViewport) return;
+
+  function _ensureStyles() {
+    if (document.getElementById('portal-svg-vp-style')) return;
+    var st = document.createElement('style');
+    st.id = 'portal-svg-vp-style';
+    st.textContent =
+      '.portal-svg-vp-host{position:relative;overflow:hidden;touch-action:none;user-select:none;}' +
+      '.portal-svg-vp-host.is-panning{cursor:grabbing !important;}' +
+      '.portal-svg-vp-toolbar{position:absolute;top:8px;right:8px;z-index:20;display:flex;gap:4px;' +
+      'background:var(--bg-elevated,rgba(15,23,42,0.88));border:1px solid var(--border-subtle,rgba(148,163,184,0.28));' +
+      'border-radius:8px;padding:4px;backdrop-filter:blur(6px);box-shadow:0 2px 8px rgba(0,0,0,0.22);}' +
+      '.portal-svg-vp-btn{background:transparent;color:var(--text-primary,#e2e8f0);border:1px solid transparent;' +
+      'border-radius:5px;padding:2px 8px;font-size:12px;font-weight:600;cursor:pointer;line-height:1.4;' +
+      'font-family:ui-monospace,SFMono-Regular,Menlo,monospace;transition:background .15s,border-color .15s;}' +
+      '.portal-svg-vp-btn:hover{background:var(--bg-hover,rgba(148,163,184,0.18));border-color:var(--border-subtle,rgba(148,163,184,0.35));}';
+    document.head.appendChild(st);
+  }
+
+  function attach(svgOrContainer, opts) {
+    if (!svgOrContainer) return null;
+    _ensureStyles();
+    opts = opts || {};
+    var minZoom = typeof opts.minZoom === 'number' ? opts.minZoom : 0.3;
+    var maxZoom = typeof opts.maxZoom === 'number' ? opts.maxZoom : 4;
+    var exportName = opts.exportName || 'portal-diagram.svg';
+
+    var isSvg = svgOrContainer.tagName && svgOrContainer.tagName.toLowerCase() === 'svg';
+    var host = isSvg ? svgOrContainer.parentElement : svgOrContainer;
+    if (!host) return null;
+
+    if (host._portalSvgVpDestroy) {
+      host._portalSvgVpDestroy();
+    }
+
+    var getSvg = function () {
+      return isSvg ? svgOrContainer : host.querySelector('svg');
+    };
+    var svg = getSvg();
+    if (!svg) return null;
+
+    host.classList.add('portal-svg-vp-host');
+    if (!host.style.cursor) host.style.cursor = 'grab';
+
+    var state = { scale: 1, tx: 0, ty: 0, dragging: false, sx: 0, sy: 0, stx: 0, sty: 0 };
+
+    function apply() {
+      var cur = getSvg();
+      if (!cur) return;
+      cur.style.transformOrigin = '0 0';
+      cur.style.transform = 'translate(' + state.tx.toFixed(1) + 'px,' + state.ty.toFixed(1) + 'px) scale(' + state.scale.toFixed(3) + ')';
+    }
+
+    function zoomAt(factor, cx, cy) {
+      var next = Math.max(minZoom, Math.min(maxZoom, state.scale * factor));
+      var ratio = next / state.scale;
+      state.tx = cx - (cx - state.tx) * ratio;
+      state.ty = cy - (cy - state.ty) * ratio;
+      state.scale = next;
+      apply();
+    }
+
+    function zoomCenter(factor) {
+      var rect = host.getBoundingClientRect();
+      zoomAt(factor, rect.width / 2, rect.height / 2);
+    }
+
+    function fit() {
+      state.scale = 1;
+      state.tx = 0;
+      state.ty = 0;
+      apply();
+    }
+
+    function exportSvg() {
+      var cur = getSvg();
+      if (!cur) return;
+      var clone = cur.cloneNode(true);
+      clone.style.transform = '';
+      clone.style.transformOrigin = '';
+      if (!clone.getAttribute('xmlns')) clone.setAttribute('xmlns', 'http://www.w3.org/2000/svg');
+      var xml = new XMLSerializer().serializeToString(clone);
+      var blob = new Blob([xml], { type: 'image/svg+xml;charset=utf-8' });
+      var url = URL.createObjectURL(blob);
+      var a = document.createElement('a');
+      a.href = url;
+      a.download = exportName;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      setTimeout(function () { URL.revokeObjectURL(url); }, 1000);
+    }
+
+    function onWheel(e) {
+      e.preventDefault();
+      var rect = host.getBoundingClientRect();
+      var factor = e.deltaY < 0 ? 1.15 : 1 / 1.15;
+      zoomAt(factor, e.clientX - rect.left, e.clientY - rect.top);
+    }
+
+    function onMouseDown(e) {
+      if (e.button !== 0) return;
+      if (e.target && e.target.closest && e.target.closest('.portal-svg-vp-toolbar,button,a,input,select')) return;
+      state.dragging = true;
+      state.sx = e.clientX;
+      state.sy = e.clientY;
+      state.stx = state.tx;
+      state.sty = state.ty;
+      host.classList.add('is-panning');
+    }
+
+    function onMouseMove(e) {
+      if (!state.dragging) return;
+      state.tx = state.stx + (e.clientX - state.sx);
+      state.ty = state.sty + (e.clientY - state.sy);
+      apply();
+    }
+
+    function onMouseUp() {
+      if (!state.dragging) return;
+      state.dragging = false;
+      host.classList.remove('is-panning');
+    }
+
+    var toolbar = document.createElement('div');
+    toolbar.className = 'portal-svg-vp-toolbar';
+    toolbar.setAttribute('data-portal-svg-vp', '1');
+    var btns = [
+      { label: '+', title: 'Zoom In', fn: function () { zoomCenter(1.25); } },
+      { label: '\u2212', title: 'Zoom Out', fn: function () { zoomCenter(0.8); } },
+      { label: 'Fit', title: 'Reset / Fit View', fn: fit },
+      { label: 'Export SVG', title: 'Download SVG', fn: exportSvg }
+    ];
+    btns.forEach(function (b) {
+      var el = document.createElement('button');
+      el.type = 'button';
+      el.className = 'portal-svg-vp-btn';
+      el.textContent = b.label;
+      el.title = b.title;
+      el.addEventListener('click', function (ev) { ev.stopPropagation(); b.fn(); });
+      toolbar.appendChild(el);
+    });
+    host.appendChild(toolbar);
+
+    host.addEventListener('wheel', onWheel, { passive: false });
+    host.addEventListener('mousedown', onMouseDown);
+    window.addEventListener('mousemove', onMouseMove);
+    window.addEventListener('mouseup', onMouseUp);
+    apply();
+
+    function destroy() {
+      host.removeEventListener('wheel', onWheel);
+      host.removeEventListener('mousedown', onMouseDown);
+      window.removeEventListener('mousemove', onMouseMove);
+      window.removeEventListener('mouseup', onMouseUp);
+      if (toolbar.parentNode) toolbar.parentNode.removeChild(toolbar);
+      delete host._portalSvgVpDestroy;
+    }
+
+    host._portalSvgVpDestroy = destroy;
+    return {
+      zoomIn: function () { zoomCenter(1.25); },
+      zoomOut: function () { zoomCenter(0.8); },
+      fit: fit,
+      exportSvg: exportSvg,
+      getState: function () { return { scale: state.scale, tx: state.tx, ty: state.ty }; },
+      destroy: destroy
+    };
+  }
+
+  window.PortalSVGViewport = { attach: attach };
+})();

@@ -54,6 +54,13 @@
       <button class="chip" onclick="setMode('api', this)">With API Calls</button>
     </div>
 
+    <div class="panel" id="fs-bipartite-panel" style="margin-bottom:14px;padding:12px 14px;background:var(--bg-surface,#141414);border:1px solid var(--border-subtle,#262626);border-radius:10px;">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;">
+        <span style="font-size:13px;font-weight:700;">Store ↔ Component Dependency Diagram (Bipartite SVG)</span>
+        <span style="font-size:11px;color:#9ca3af;"><span style="color:#38bdf8;">■</span> Store · <span style="color:#ef4444;">■</span> God-Store · <span style="color:#a855f7;">■</span> Consumer Component</span>
+      </div>
+      <div id="fs-bipartite-svg" style="min-height:200px;border:1px solid var(--border-subtle,#262626);border-radius:8px;background:var(--bg-surface,#0f172a);"></div>
+    </div>
     <div class="cards" id="fs-cards"></div>
   </div>
 
@@ -73,6 +80,63 @@
       document.querySelectorAll('.chip').forEach(c => c.classList.remove('active'));
       if (el) el.classList.add('active');
       render();
+    }
+
+
+    function renderBipartite(stores, godMap) {
+      const box = document.getElementById('fs-bipartite-svg');
+      if (!box) return;
+      const topStores = (stores || []).slice(0, 12);
+      const compCounts = {};
+      topStores.forEach(st => {
+        (st.consumers || []).forEach(c => {
+          const name = typeof c === 'string' ? c.split('/').pop() : String(c.name || c.file || c).split('/').pop();
+          compCounts[name] = (compCounts[name] || 0) + 1;
+        });
+      });
+      const topComps = Object.entries(compCounts).sort((a, b) => b[1] - a[1]).slice(0, 14).map(e => e[0]);
+      const W = 960;
+      const maxRows = Math.max(1, topStores.length, topComps.length);
+      const H = Math.max(180, 52 + maxRows * 30);
+      let svg = `<svg viewBox="0 0 ${W} ${H}" width="100%" height="${H}" style="display:block;">`;
+      svg += `<text x="24" y="22" fill="#94a3b8" font-size="11" font-weight="700">PINIA / STATE STORES (${topStores.length})</text>`;
+      svg += `<text x="690" y="22" fill="#94a3b8" font-size="11" font-weight="700">CONSUMER COMPONENTS (${topComps.length})</text>`;
+      if (!topStores.length) {
+        svg += `<text x="${W / 2}" y="${H / 2}" text-anchor="middle" fill="#94a3b8" font-size="12">No stores match current filter</text>`;
+      } else {
+        const compY = {};
+        topComps.forEach((c, i) => { compY[c] = 40 + i * 30 + 11; });
+        topStores.forEach((st, i) => {
+          const sy = 40 + i * 30 + 11;
+          const isGod = Boolean(st.is_god_store || godMap[st.file]);
+          const stroke = isGod ? '#ef4444' : '#38bdf8';
+          const sw = Math.min(3.5, 1 + (st.api_calls_count || 0) * 0.15);
+          (st.consumers || []).forEach(c => {
+            const cname = typeof c === 'string' ? c.split('/').pop() : String(c.name || c.file || c).split('/').pop();
+            if (compY[cname] !== undefined) {
+              const cy = compY[cname];
+              svg += `<path d="M 274 ${sy} C 460 ${sy}, 500 ${cy}, 686 ${cy}" fill="none" stroke="${stroke}" stroke-opacity="0.45" stroke-width="${sw.toFixed(1)}"/>`;
+            }
+          });
+        });
+        topStores.forEach((st, i) => {
+          const y = 40 + i * 30;
+          const isGod = Boolean(st.is_god_store || godMap[st.file]);
+          const col = isGod ? '#ef4444' : '#38bdf8';
+          const lbl = String(st.name || st.file || 'store').slice(0, 28);
+          svg += `<rect x="24" y="${y}" width="250" height="22" rx="5" fill="${isGod ? 'rgba(239,68,68,0.16)' : 'rgba(56,189,248,0.14)'}" stroke="${col}" stroke-opacity="0.65"/>`;
+          svg += `<text x="32" y="${y + 15}" fill="#f1f5f9" font-size="11" font-family="ui-monospace,monospace">${esc(lbl)}</text>`;
+        });
+        topComps.forEach((c, i) => {
+          const y = 40 + i * 30;
+          svg += `<rect x="686" y="${y}" width="250" height="22" rx="5" fill="rgba(168,85,247,0.14)" stroke="#a855f7" stroke-opacity="0.6"/>`;
+          svg += `<text x="694" y="${y + 15}" fill="#f1f5f9" font-size="11" font-family="ui-monospace,monospace">${esc(String(c).slice(0, 28))}</text>`;
+        });
+      }
+      svg += '</svg>';
+      box.innerHTML = svg;
+      if (window.PortalSVGViewport) window.PortalSVGViewport.attach(box, { minZoom: 0.3, maxZoom: 4, exportName: 'frontend-state-bipartite.svg' });
+      else window.addEventListener('DOMContentLoaded', () => window.PortalSVGViewport && window.PortalSVGViewport.attach(box, { minZoom: 0.3, maxZoom: 4, exportName: 'frontend-state-bipartite.svg' }), { once: true });
     }
 
     function render() {
@@ -102,6 +166,7 @@
         return !q || JSON.stringify(st).toLowerCase().includes(q);
       });
 
+      renderBipartite(filtered, godMap);
       const box = document.getElementById('fs-cards');
       if (!filtered.length) {
         box.innerHTML = '<div class="empty">No frontend state stores match the current filter.</div>';
